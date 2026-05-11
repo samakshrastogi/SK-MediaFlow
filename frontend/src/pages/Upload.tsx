@@ -4,6 +4,7 @@ import axios from "axios"
 import { io } from "socket.io-client"
 
 import { api } from "@/api/axios"
+import { SOCKET_URL } from "@/config/env"
 import AppLayout from "@/layouts/AppLayout"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
 
@@ -71,7 +72,7 @@ interface UploadItem {
     videoId?: string
 }
 
-const socket = io(import.meta.env.VITE_SOCKET_URL, {
+const socket = io(SOCKET_URL, {
     path: "/socket.io",
     transports: ["websocket"]
 })
