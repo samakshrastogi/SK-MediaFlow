@@ -176,7 +176,7 @@ const VideoCard = ({ video }: Props) => {
                         avatarUrl={video.uploaderAvatarUrl}
                         avatarKey={video.uploaderAvatarKey}
                         alt={channelName}
-                        className="shrink-0 mt-0.5"
+                        className="mt-0.5 h-9 w-9 text-sm"
                     />
 
                     <div className="min-w-0">
