@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Search, Bell } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import UserAvatar from "@/components/UserAvatar"
 import { api } from "@/api/axios"
 
@@ -27,10 +27,7 @@ interface OrganizationMembershipLite {
 const Topbar = () => {
     const { logout, user } = useAuth()
     const navigate = useNavigate()
-    const location = useLocation()
-    const [searchParams] = useSearchParams()
 
-    const [query, setQuery] = useState("")
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [notificationOpen, setNotificationOpen] = useState(false)
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -38,7 +35,6 @@ const Topbar = () => {
     const [canLeaveOrganization, setCanLeaveOrganization] = useState(false)
 
     const dropdownRef = useRef<HTMLDivElement>(null)
-    const searchInputRef = useRef<HTMLInputElement>(null)
     const notificationRef = useRef<HTMLDivElement>(null)
 
     const loadNotifications = async () => {
@@ -141,37 +137,7 @@ const Topbar = () => {
         }
     }
 
-    useEffect(() => {
-        if (location.pathname !== "/search") return
-        const timer = window.setTimeout(() => {
-            setQuery(searchParams.get("q") || "")
-        }, 0)
-        return () => window.clearTimeout(timer)
-    }, [location.pathname, searchParams])
-
-    useEffect(() => {
-        const trimmed = query.trim()
-        if (!trimmed) return
-
-        const timer = window.setTimeout(() => {
-            const hasFocus = document.activeElement === searchInputRef.current
-            if (!hasFocus) return
-
-            const currentSearchQ = (searchParams.get("q") || "").trim()
-            if (location.pathname === "/search" && currentSearchQ === trimmed) {
-                return
-            }
-
-            navigate(`/search?q=${encodeURIComponent(trimmed)}`)
-        }, 300)
-
-        return () => window.clearTimeout(timer)
-    }, [query, navigate, location.pathname, searchParams])
-
-    const handleSearch = () => {
-        const trimmed = query.trim()
-        navigate(trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : "/search")
-    }
+    const handleSearch = () => navigate("/search")
 
     const unreadCount = notifications.filter((n) => !n.isRead).length
 
@@ -231,26 +197,6 @@ const Topbar = () => {
                         SK Cinema
                     </h1>
                 </div>
-
-                {/* SEARCH (DESKTOP) */}
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault()
-                        handleSearch()
-                    }}
-                    className="hidden md:flex items-center bg-white/10 px-4 py-2 rounded-lg w-[260px] lg:w-[380px] focus-within:ring-2 focus-within:ring-purple-500"
-                >
-                    <button type="submit" className="text-gray-400" aria-label="Search">
-                        <Search size={18} />
-                    </button>
-                    <input
-                        ref={searchInputRef}
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search films..."
-                        className="bg-transparent outline-none ml-2 w-full text-sm"
-                    />
-                </form>
             </div>
 
             {/* 🔷 RIGHT */}

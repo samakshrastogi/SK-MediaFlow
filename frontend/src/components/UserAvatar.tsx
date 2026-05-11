@@ -19,6 +19,7 @@ const UserAvatar = ({
     const [avatarFailed, setAvatarFailed] = useState(false)
 
     const avatarSrc = getAvatarSrc({ avatarUrl, avatarKey })
+    const sizeClassName = className.trim() ? "" : "w-9 h-9 sm:w-10 sm:h-10"
 
     useEffect(() => {
         Promise.resolve().then(() => setAvatarFailed(false))
@@ -26,7 +27,7 @@ const UserAvatar = ({
 
     return (
         <div
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-linear-to-br from-slate-700 to-slate-900 text-white overflow-hidden flex items-center justify-center font-semibold ${className}`}
+            className={`${sizeClassName} rounded-full bg-linear-to-br from-slate-700 to-slate-900 text-white overflow-hidden flex items-center justify-center font-semibold shrink-0 ${className}`}
         >
             {avatarSrc && !avatarFailed ? (
                 <img
