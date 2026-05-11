@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { prisma } from "../../config/prisma";
-import { VideoActionType } from "../../generated/prisma";
+import { VideoActionType } from "@prisma/client";
 
 export const reactToVideo = async (
     userId: string,
