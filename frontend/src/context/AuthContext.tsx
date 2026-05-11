@@ -6,6 +6,7 @@ import {
     useEffect,
 } from "react"
 import { clearStoredAuth, setAuthToken } from "@/api/axios"
+import { API_URL } from "@/config/env"
 
 interface User {
     id: string
@@ -101,7 +102,7 @@ export const AuthProvider = ({
             })
 
             const blob = new Blob([payload], { type: "application/json" })
-            navigator.sendBeacon(`${import.meta.env.VITE_API_URL}/auth/session-end`, blob)
+            navigator.sendBeacon(`${API_URL}/auth/session-end`, blob)
         }
 
         window.addEventListener("beforeunload", handleUnload)
@@ -188,7 +189,7 @@ export const AuthProvider = ({
                 : 0
 
             if (token && loginId) {
-                await fetch(`${import.meta.env.VITE_API_URL}/auth/session-end`, {
+                await fetch(`${API_URL}/auth/session-end`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"

@@ -1,4 +1,5 @@
 import { api } from "./axios"
+import { API_URL } from "../config/env"
 
 interface ApiResponse<T = unknown> {
     success: boolean
@@ -79,5 +80,5 @@ export const resetPassword = async (
 }
 
 export const googleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`
+    window.location.href = `${API_URL}/auth/google`
 }

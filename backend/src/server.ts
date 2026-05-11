@@ -1,13 +1,11 @@
-import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
 import { QueueEvents, Queue } from "bullmq";
 
+import "./config/env";
 import app from "./app";
 import { redisConnection } from "./config/redis";
 import { setSocketServer } from "./services/realtime.service";
-
-dotenv.config();
 
 const PORT = process.env.PORT;
 

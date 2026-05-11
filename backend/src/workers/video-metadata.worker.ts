@@ -3,7 +3,7 @@ import { Worker, Job } from "bullmq"
 import { redisConnection } from "../config/redis"
 import { prisma } from "../config/prisma"
 import { extractVideoMetadata } from "../services/video-metadata.service"
-import { Orientation } from "@prisma/client"
+import { Orientation } from "../generated/prisma"
 
 new Worker(
     "videoMetadataQueue",

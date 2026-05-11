@@ -1,4 +1,5 @@
 import axios, { AxiosHeaders } from "axios"
+import { API_URL } from "../config/env"
 
 const getToken = () => {
   return (
@@ -20,7 +21,7 @@ export const clearStoredAuth = () => {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_URL,
   withCredentials: true
 })
 
