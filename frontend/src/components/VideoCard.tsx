@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Play } from "lucide-react"
 import UserAvatar from "@/components/UserAvatar"
+import { prefetchMedia } from "@/utils/media"
 
 /* ---------------- TYPES ---------------- */
 
@@ -10,16 +10,20 @@ export interface Video {
     id?: string
     title?: string
     aiTitle?: string
+    aiDescription?: string
     thumbnailKey?: string
     progress?: number
     uploaderAvatarKey?: string
     uploaderAvatarUrl?: string
     uploaderName?: string
     createdAt?: string
+    signedUrl?: string
     orientation?: "PORTRAIT" | "LANDSCAPE" | "SQUARE" | null
     channel?: {
         name?: string
+        username?: string
     }
+    visibility?: "PUBLIC" | "PRIVATE" | "ORGANIZATION"
 }
 
 interface Props {
@@ -100,12 +104,19 @@ const VideoCard = ({ video }: Props) => {
 
     return (
         <div
+            onMouseEnter={() => prefetchMedia(video.signedUrl)}
+            onTouchStart={() => prefetchMedia(video.signedUrl)}
             onClick={() => {
                 if (!targetId) return
-                navigate(isPortrait ? `/portrait/${targetId}` : `/video/${targetId}`)
+                prefetchMedia(video.signedUrl)
+                navigate(isPortrait ? `/portrait/${targetId}` : `/video/${targetId}`, {
+                    state: {
+                        video
+                    }
+                })
             }}
             className="
-                group relative
+                group relative flex h-full flex-col
                 rounded-xl overflow-hidden
                 cursor-pointer
                 bg-white/5
@@ -137,24 +148,6 @@ const VideoCard = ({ video }: Props) => {
                     transition
                 " />
 
-                {/* ▶ PLAY BUTTON */}
-                <div className="
-                    absolute inset-0
-                    flex items-center justify-center
-                    opacity-0 group-hover:opacity-100
-                    transition
-                ">
-                    <div className="
-                        bg-white/90 text-black
-                        p-2 rounded-full
-                        shadow-lg
-                        scale-90 group-hover:scale-100
-                        transition
-                    ">
-                        <Play size={18} />
-                    </div>
-                </div>
-
                 {/* 📊 PROGRESS BAR */}
                 {typeof video.progress === "number" && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
@@ -168,7 +161,7 @@ const VideoCard = ({ video }: Props) => {
             </div>
 
             {/* 📄 CONTENT */}
-            <div className="p-3">
+            <div className="flex flex-1 p-3">
 
                 <div className="flex items-start gap-3">
                     <UserAvatar
@@ -179,8 +172,9 @@ const VideoCard = ({ video }: Props) => {
                         className="mt-0.5 h-9 w-9 text-sm"
                     />
 
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 flex-1 flex-col justify-between">
                         <p className="
+                            min-h-[2.5rem]
                             text-sm font-medium
                             text-gray-200 group-hover:text-white
                             transition
@@ -192,7 +186,7 @@ const VideoCard = ({ video }: Props) => {
                             )}
                         </p>
 
-                        <p className="text-xs text-gray-400 mt-1 truncate">
+                        <p className="mt-1 text-xs text-gray-400 truncate">
                             {channelName} • {getTimeAgo(video.createdAt)}
                         </p>
                     </div>

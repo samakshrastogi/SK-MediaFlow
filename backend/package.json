@@ -9,6 +9,7 @@
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
+    "optimize:videos": "ts-node --transpile-only src/scripts/optimize-existing-videos.ts",
     "build": "tsc --pretty",
     "start": "node dist/server.js",
     "worker": "node dist/workers/index.js"

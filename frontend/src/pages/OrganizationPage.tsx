@@ -1,33 +1,32 @@
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
 
-// Types for organization membership and API errors
 interface Organization {
-    id: string;
-    name: string;
+    id: string
+    name: string
 }
 
-type MembershipStatus = "APPROVED" | "PENDING";
-type MembershipRole = "ADMIN" | "MEMBER";
+type MembershipStatus = "APPROVED" | "PENDING"
+type MembershipRole = "ADMIN" | "MEMBER"
 
 interface Membership {
-    id: string;
-    organization: Organization;
-    role: MembershipRole;
-    status: MembershipStatus;
+    id: string
+    organization: Organization
+    role: MembershipRole
+    status: MembershipStatus
 }
 
 interface ApiError {
     response?: {
         data?: {
-            message?: string;
-        };
-        status?: number;
-    };
-    message?: string;
+            message?: string
+        }
+        status?: number
+    }
+    message?: string
 }
 
 const OrganizationPage = () => {
@@ -42,8 +41,6 @@ const OrganizationPage = () => {
     const [message, setMessage] = useState("")
     const [linkInfo, setLinkInfo] = useState<{ name: string; linkType: "PUBLIC" | "PRIVATE" } | null>(null)
     const [linkJoining, setLinkJoining] = useState(false)
-    const [createdLinks, setCreatedLinks] = useState<{ publicLink: string; privateLink: string } | null>(null)
-    const [copiedLinkType, setCopiedLinkType] = useState<"public" | "private" | null>(null)
     const [plan, setPlan] = useState("TRIAL_FREE")
     const handledInviteToken = useRef<string | null>(null)
 
@@ -54,6 +51,15 @@ const OrganizationPage = () => {
             : null
     const inviteToken = searchParams.get("token")
 
+    const approvedMemberships = useMemo(
+        () => memberships.filter((m) => m.status === "APPROVED"),
+        [memberships]
+    )
+    const pendingMemberships = useMemo(
+        () => memberships.filter((m) => m.status === "PENDING"),
+        [memberships]
+    )
+
     const load = async () => {
         const res = await api.get("/organization/my")
         setMemberships(res.data?.data?.memberships || [])
@@ -61,8 +67,7 @@ const OrganizationPage = () => {
     }
 
     useEffect(() => {
-        load().catch((err: ApiError) => {
-            console.error(err)
+        load().catch(() => {
             setMessage("Failed to load organization data.")
         })
     }, [])
@@ -118,33 +123,17 @@ const OrganizationPage = () => {
 
     const createOrganization = async () => {
         if (!name.trim()) return
-        const res = await api.post("/organization", {
+        await api.post("/organization", {
             name: name.trim(),
             slug: slug.trim() || undefined,
             description: description.trim() || undefined,
             plan
-        })
-        setCreatedLinks({
-            publicLink: res.data?.links?.publicLink || "",
-            privateLink: res.data?.links?.privateLink || ""
         })
         setName("")
         setSlug("")
         setDescription("")
         await load()
         setMessage("Organization created.")
-    }
-
-    const copyCreatedLink = async (link: string, type: "public" | "private") => {
-        if (!link) return
-
-        try {
-            await navigator.clipboard.writeText(link)
-            setCopiedLinkType(type)
-            setTimeout(() => setCopiedLinkType(null), 2000)
-        } catch {
-            setMessage("Failed to copy join link.")
-        }
     }
 
     const requestJoin = async () => {
@@ -194,348 +183,270 @@ const OrganizationPage = () => {
 
     return (
         <AppLayout>
-            <div className="mx-auto max-w-6xl space-y-6 px-1 sm:px-2">
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-5 shadow-lg space-y-4">
-
-                    {/* TITLE */}
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-white">
-                            Organization
-                        </h1>
-                        <p className="text-sm text-gray-400 mt-1">
-                            Create, join, and manage your organization access.
-                        </p>
-                    </div>
-
-                    {/* MESSAGE */}
-                    {message && (
-                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-300">
-                            {message}
-                        </div>
-                    )}
-
-                </div>
-
-                {orgToken && linkInfo && (
-                    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 backdrop-blur-xl p-5 space-y-4 shadow-md">
-
-                        {/* HEADER */}
+            <div className="w-full px-1 sm:px-2">
+                <div className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#6d37a9]/45 via-[#463a92]/42 to-[#1f214b]/62 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                    <div className="border-b border-white/10 px-6 py-6 sm:px-8">
                         <div>
-                            <h2 className="text-lg font-semibold text-white">
-                                Join Organization
-                            </h2>
-                            <p className="text-xs text-gray-400 mt-1">
-                                You’ve been invited via a shared link
+                            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                                Organization
+                            </h1>
+                            <p className="mt-2 text-sm text-purple-100/65 sm:text-base">
+                                Create, join, and manage your organization access from one connected workspace.
                             </p>
                         </div>
 
-                        {/* ORG INFO */}
-                        <div className="space-y-1">
-                            <p className="text-sm text-gray-300">
-                                Organization:
-                                <span className="ml-1 font-semibold text-white">
-                                    {linkInfo.name}
-                                </span>
-                            </p>
-
-                            <p className="text-xs">
-                                {linkInfo.linkType === "PUBLIC" ? (
-                                    <span className="text-emerald-400">
-                                        Public Access • Instant Join
-                                    </span>
-                                ) : (
-                                    <span className="text-amber-400">
-                                        Private Access • Requires Approval
-                                    </span>
-                                )}
-                            </p>
-                        </div>
-
-                        {/* ACTION */}
-                        <button
-                            onClick={handleJoinByLink}
-                            disabled={linkJoining}
-                            className="w-full sm:w-fit rounded-lg bg-blue-600 hover:bg-blue-500 transition px-4 py-2 text-sm font-medium shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                            {linkJoining ? "Sending Request..." : "Join Organization"}
-                        </button>
-
-                    </div>
-                )}
-
-                <div className="grid gap-6 lg:grid-cols-2">
-
-                    {/* CREATE ORGANIZATION */}
-                    <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-5 space-y-4 shadow-md">
-
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">Create Organization</h2>
-                            <p className="text-xs text-gray-400 mt-1">
-                                Set up a new organization to manage users and content.
-                            </p>
-                        </div>
-
-                        {createdLinks && (
-                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-                                <p className="text-sm font-medium text-white">
-                                    Organization join links
-                                </p>
-                                <div className="space-y-2">
-                                    <div className="flex flex-col gap-2 sm:flex-row">
-                                        <input
-                                            value={createdLinks.publicLink}
-                                            readOnly
-                                            aria-label="created public organization link"
-                                            className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm"
-                                        />
-                                        <button
-                                            onClick={() => copyCreatedLink(createdLinks.publicLink, "public")}
-                                            className="rounded-lg bg-emerald-600 hover:bg-emerald-500 transition px-3 py-2 text-xs font-medium shadow-md"
-                                        >
-                                            {copiedLinkType === "public" ? "Copied!" : "Copy Public"}
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col gap-2 sm:flex-row">
-                                        <input
-                                            value={createdLinks.privateLink}
-                                            readOnly
-                                            aria-label="created private organization link"
-                                            className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm"
-                                        />
-                                        <button
-                                            onClick={() => copyCreatedLink(createdLinks.privateLink, "private")}
-                                            className="rounded-lg bg-amber-600 hover:bg-amber-500 transition px-3 py-2 text-xs font-medium shadow-md"
-                                        >
-                                            {copiedLinkType === "private" ? "Copied!" : "Copy Private"}
-                                        </button>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-gray-400">
-                                    Public link joins immediately. Private link sends an approval request to admins.
-                                </p>
+                        {message && (
+                            <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                                {message}
                             </div>
                         )}
-
-                        {/* INPUTS */}
-                        <div className="space-y-3">
-
-                            <input
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Organization name"
-                                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                            />
-
-                            <input
-                                value={slug}
-                                onChange={(e) => setSlug(e.target.value)}
-                                placeholder="Slug (optional)"
-                                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                            />
-
-                            <textarea
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Description (optional)"
-                                rows={3}
-                                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                            />
-
-                            <select
-                                value={plan}
-                                aria-label="select subscription plan"
-                                onChange={(e) => setPlan(e.target.value)}
-                                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                            >
-                                <option value="TRIAL_FREE">3 month free trial</option>
-                                <option value="SIX_MONTH">6 month subscription (Rs 18000)</option>
-                                <option value="YEARLY_INITIAL">Yearly initial (Rs 10000 one-time)</option>
-                                <option value="YEARLY_RENEWAL">Yearly renewal (Rs 24000 annually)</option>
-                            </select>
-
-                        </div>
-
-                        {/* CTA */}
-                        <button
-                            onClick={createOrganization}
-                            className="w-full rounded-lg bg-purple-600 hover:bg-purple-500 transition px-4 py-2 text-sm font-medium shadow-md active:scale-95"
-                        >
-                            Create Organization
-                        </button>
                     </div>
 
-
-                    {/* JOIN ORGANIZATION */}
-                    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/5 to-blue-500/10 backdrop-blur-xl p-5 space-y-4 shadow-md">
-
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">Join Organization</h2>
-                            <p className="text-xs text-gray-400 mt-1">
-                                Enter an organization slug, ID, or public/private join link.
-                            </p>
-                        </div>
-
-                        {/* INPUT */}
-                        <div className="space-y-3">
-                            <input
-                                value={joinInput}
-                                onChange={(e) => setJoinInput(e.target.value)}
-                                placeholder="Organization slug, ID, or join link"
-                                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                            />
-                        </div>
-
-                        {/* CTA */}
-                        <button
-                            onClick={requestJoin}
-                            className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 transition px-4 py-2 text-sm font-medium shadow-md active:scale-95"
-                        >
-                            Request Join
-                        </button>
-
-                        {/* INFO */}
-                        <p className="text-xs text-gray-400">
-                            Public links join instantly. Private links stay pending until an admin approves them.
-                        </p>
-                    </div>
-
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-5 space-y-4 shadow-lg">
-
-                    {/* HEADER */}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">My Organizations</h2>
-                            <p className="text-xs text-gray-400">
-                                Manage your memberships and switch organization mode.
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={() => switchMode(null)}
-                            className="rounded-lg bg-gray-700 hover:bg-gray-600 transition px-3 py-1.5 text-xs font-medium"
-                        >
-                            Disable Org Mode
-                        </button>
-                    </div>
-
-                    {/* LIST */}
-                    <div className="space-y-3">
-
-                        {memberships.map((m) => {
-                            const isActive = activeOrganizationId === m.organization?.id
-
-                            return (
-                                <div
-                                    key={m.id}
-                                    className={`flex flex-col gap-3 rounded-xl p-4 transition sm:flex-row sm:items-center sm:justify-between
-                    ${isActive
-                                            ? "bg-emerald-600/10 border border-emerald-500/20"
-                                            : "bg-black/30 border border-white/5 hover:bg-black/40"
-                                        }`}
-                                >
-
-                                    {/* LEFT INFO */}
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium text-white">
-                                            {m.organization?.name}
+                    <div className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        <aside className="border-b border-white/10 bg-black/14 px-5 py-6 xl:border-b-0 xl:border-r xl:border-white/10 sm:px-6">
+                            <div className="space-y-5 xl:sticky xl:top-24">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-white">My Organizations</h2>
+                                        <p className="mt-1 text-xs text-purple-100/55">
+                                            Switch org mode and open your workspaces.
                                         </p>
-
-                                        <div className="flex flex-wrap items-center gap-2 text-xs">
-
-                                            {/* ROLE */}
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium
-                                ${m.role === "ADMIN"
-                                                    ? "bg-purple-600/20 text-purple-300"
-                                                    : "bg-gray-600/20 text-gray-300"
-                                                }`}>
-                                                {m.role}
-                                            </span>
-
-                                            {/* STATUS */}
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium
-                                ${m.status === "APPROVED"
-                                                    ? "bg-emerald-600/20 text-emerald-300"
-                                                    : "bg-amber-600/20 text-amber-300"
-                                                }`}>
-                                                {m.status}
-                                            </span>
-
-                                            {/* ACTIVE */}
-                                            {isActive && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-600 text-white">
-                                                    ACTIVE
-                                                </span>
-                                            )}
-                                        </div>
                                     </div>
+                                </div>
 
-                                    {/* ACTIONS */}
-                                    {m.status === "APPROVED" && (
-                                        <div className="flex flex-wrap items-center gap-2">
+                                <div className="space-y-3">
+                                    {approvedMemberships.map((m) => {
+                                        const isActive = activeOrganizationId === m.organization?.id
 
-                                            <button
-                                                onClick={() => switchMode(m.organization.id)}
-                                                className={`rounded-lg px-3 py-1 text-xs font-medium transition
-                                    ${isActive
-                                                        ? "bg-emerald-600"
-                                                        : "bg-indigo-600 hover:bg-indigo-500"
-                                                    }`}
+                                        return (
+                                            <div
+                                                key={m.id}
+                                                className={`rounded-2xl border p-4 transition ${
+                                                    isActive
+                                                        ? "border-emerald-400/20 bg-emerald-500/10"
+                                                        : "border-white/8 bg-white/6 hover:bg-white/8"
+                                                }`}
                                             >
-                                                {isActive ? "Active" : "Enable"}
-                                            </button>
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-white">
+                                                            {m.organization?.name}
+                                                        </p>
+                                                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+                                                            <span className={`rounded-full px-2 py-0.5 font-medium ${
+                                                                m.role === "ADMIN"
+                                                                    ? "bg-purple-600/20 text-purple-200"
+                                                                    : "bg-white/10 text-purple-100/70"
+                                                            }`}>
+                                                                {m.role}
+                                                            </span>
+                                                            {isActive && (
+                                                                <span className="rounded-full bg-emerald-500 px-2 py-0.5 font-medium text-white">
+                                                                    ACTIVE
+                                                                </span>
+                                                            )}
+                                                            <span className={`rounded-full px-2 py-0.5 font-medium ${
+                                                                isActive
+                                                                    ? "bg-emerald-500/16 text-emerald-100"
+                                                                    : "bg-white/10 text-purple-100/70"
+                                                            }`}>
+                                                                Status: {isActive ? "Active" : "Disabled"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
 
-                                            <button
-                                                onClick={async () => {
-                                                    await switchMode(m.organization.id)
-                                                    navigate("/home")
-                                                }}
-                                                className="rounded-lg bg-blue-600 hover:bg-blue-500 transition px-3 py-1 text-xs font-medium"
-                                            >
-                                                Open
-                                            </button>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <button
+                                                            onClick={() =>
+                                                                switchMode(isActive ? null : m.organization.id)
+                                                            }
+                                                            className={`rounded-xl px-3 py-2 text-xs font-medium transition ${
+                                                                isActive
+                                                                    ? "bg-white/12 text-white hover:bg-white/18"
+                                                                    : "bg-indigo-600 text-white hover:bg-indigo-500"
+                                                            }`}
+                                                        >
+                                                            {isActive ? "Disable" : "Enable"}
+                                                        </button>
 
-                                            {m.role === "ADMIN" && (
-                                                <button
-                                                    onClick={async () => {
-                                                        await switchMode(m.organization.id)
-                                                        navigate("/organization/dashboard")
-                                                    }}
-                                                    className="rounded-lg bg-amber-600 hover:bg-amber-500 transition px-3 py-1 text-xs font-medium"
-                                                >
-                                                    Open Dashboard
-                                                </button>
-                                            )}
+                                                        <button
+                                                            onClick={async () => {
+                                                                await switchMode(m.organization.id)
+                                                                navigate("/home")
+                                                            }}
+                                                            className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-500"
+                                                        >
+                                                            Open
+                                                        </button>
 
+                                                        {m.role === "ADMIN" && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    await switchMode(m.organization.id)
+                                                                    navigate("/organization/dashboard")
+                                                                }}
+                                                                className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-amber-500"
+                                                            >
+                                                                Dashboard
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+
+                                    {pendingMemberships.map((m) => (
+                                        <div
+                                            key={m.id}
+                                            className="rounded-2xl border border-amber-500/18 bg-amber-500/8 p-4"
+                                        >
+                                            <p className="text-sm font-medium text-white">{m.organization?.name}</p>
+                                            <p className="mt-2 inline-flex rounded-full bg-amber-500/14 px-2 py-0.5 text-[10px] font-medium text-amber-200">
+                                                Waiting for Approval
+                                            </p>
+                                        </div>
+                                    ))}
+
+                                    {memberships.length === 0 && (
+                                        <div className="rounded-2xl border border-white/8 bg-white/5 px-4 py-6 text-center text-sm text-purple-100/55">
+                                            No organization memberships yet.
                                         </div>
                                     )}
-
-                                    {/* PENDING */}
-                                    {m.status === "PENDING" && (
-                                        <span className="w-fit rounded-full bg-amber-600/20 text-amber-300 px-3 py-1 text-xs font-medium">
-                                            Waiting for Approval
-                                        </span>
-                                    )}
-
                                 </div>
-                            )
-                        })}
-
-                        {memberships.length === 0 && (
-                            <div className="text-center py-6 text-sm text-gray-400">
-                                No organization memberships yet.
                             </div>
-                        )}
+                        </aside>
 
+                        <main className="space-y-8 px-6 py-6 sm:px-8">
+                            {orgToken && linkInfo && (
+                                <div className="rounded-3xl border border-blue-500/18 bg-blue-500/8 p-5 sm:p-6">
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-white">
+                                                Join Organization
+                                            </h2>
+                                            <p className="mt-1 text-sm text-purple-100/60">
+                                                You’ve been invited to <span className="font-semibold text-white">{linkInfo.name}</span>.
+                                            </p>
+                                            <p className="mt-2 text-xs">
+                                                {linkInfo.linkType === "PUBLIC" ? (
+                                                    <span className="text-emerald-300">Public Access • Instant Join</span>
+                                                ) : (
+                                                    <span className="text-amber-300">Private Access • Requires Approval</span>
+                                                )}
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={handleJoinByLink}
+                                            disabled={linkJoining}
+                                            className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {linkJoining ? "Sending Request..." : "Join Organization"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="rounded-3xl border border-white/8 bg-black/14">
+                                <div className="border-b border-white/10 px-5 py-5 sm:px-6">
+                                    <h2 className="text-xl font-semibold text-white">Workspace Setup</h2>
+                                    <p className="mt-1 text-sm text-purple-100/58">
+                                        Create a new organization or request access to an existing one.
+                                    </p>
+                                </div>
+
+                                <div className="grid gap-0 lg:grid-cols-2">
+                                    <section className="space-y-5 border-b border-white/10 px-5 py-5 sm:px-6 lg:border-b-0 lg:border-r">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-white">Create Organization</h3>
+                                            <p className="mt-1 text-xs text-purple-100/55">
+                                                Set up a new organization to manage users and content.
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <input
+                                                value={name}
+                                                onChange={(e) => setName(e.target.value)}
+                                                placeholder="Organization name"
+                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+
+                                            <input
+                                                value={slug}
+                                                onChange={(e) => setSlug(e.target.value)}
+                                                placeholder="Slug (optional)"
+                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+
+                                            <textarea
+                                                value={description}
+                                                onChange={(e) => setDescription(e.target.value)}
+                                                placeholder="Description (optional)"
+                                                rows={4}
+                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            />
+
+                                            <select
+                                                value={plan}
+                                                aria-label="select subscription plan"
+                                                onChange={(e) => setPlan(e.target.value)}
+                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            >
+                                                <option value="TRIAL_FREE">3 month free trial</option>
+                                                <option value="SIX_MONTH">6 month subscription (Rs 18000)</option>
+                                                <option value="YEARLY_INITIAL">Yearly initial (Rs 10000 one-time)</option>
+                                                <option value="YEARLY_RENEWAL">Yearly renewal (Rs 24000 annually)</option>
+                                            </select>
+                                        </div>
+
+                                        <button
+                                            onClick={createOrganization}
+                                            className="w-full rounded-2xl bg-purple-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-purple-500"
+                                        >
+                                            Create Organization
+                                        </button>
+                                    </section>
+
+                                    <section className="space-y-5 px-5 py-5 sm:px-6">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-white">Join Organization</h3>
+                                            <p className="mt-1 text-xs text-purple-100/55">
+                                                Enter an organization slug, ID, or public/private join link.
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-2xl border border-blue-500/10 bg-blue-500/6 p-4">
+                                            <div className="space-y-3">
+                                                <input
+                                                    value={joinInput}
+                                                    onChange={(e) => setJoinInput(e.target.value)}
+                                                    placeholder="Organization slug, ID, or join link"
+                                                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+
+                                                <button
+                                                    onClick={requestJoin}
+                                                    className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-500"
+                                                >
+                                                    Request Join
+                                                </button>
+                                            </div>
+
+                                            <p className="mt-3 text-xs text-purple-100/55">
+                                                Public links join instantly. Private links stay pending until an admin approves them.
+                                            </p>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
+                        </main>
                     </div>
-
                 </div>
-
             </div>
         </AppLayout>
     )
 }
 
 export default OrganizationPage
-

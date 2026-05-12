@@ -72,7 +72,7 @@ const Navbar = () => {
 
     return (
         <nav className="bg-gray-900 text-white px-6 py-3 flex justify-between items-center border-b border-gray-800">
-            <div className="text-xl font-bold">🎬 SK Cinema</div>
+            <div className="text-xl font-bold">🎬 StreamHub</div>
 
             <div className="flex items-center gap-6 relative">
                 <button

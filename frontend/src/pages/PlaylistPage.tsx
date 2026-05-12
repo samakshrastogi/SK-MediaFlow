@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
+import { getCachedPageData, setCachedPageData } from "@/utils/pageCache"
 
 interface Video {
     id: string
@@ -24,17 +25,18 @@ interface Playlist {
 
 const PlaylistPage = () => {
     const navigate = useNavigate()
+    const cachedPlaylists = getCachedPageData<Playlist[]>("page:playlists")
 
-    const [playlists, setPlaylists] = useState<Playlist[]>([])
-    const [loading, setLoading] = useState(true)
+    const [playlists, setPlaylists] = useState<Playlist[]>(cachedPlaylists || [])
+    const [loading, setLoading] = useState(!cachedPlaylists)
 
     useEffect(() => {
         const fetchPlaylists = async () => {
             try {
                 const res = await api.get("/video-actions/playlists-with-videos")
                 setPlaylists(res.data)
+                setCachedPageData("page:playlists", res.data, 120000)
             } catch (error) {
-                console.error("Playlist fetch error:", error)
             } finally {
                 setLoading(false)
             }
@@ -45,84 +47,101 @@ const PlaylistPage = () => {
 
     return (
         <AppLayout>
-            <div className="max-w-6xl mx-auto space-y-6">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6">
-                    <h1 className="text-2xl md:text-3xl font-bold">My Playlists</h1>
-                    <p className="text-sm text-gray-400 mt-1">
-                        Organize saved videos and jump back quickly.
-                    </p>
-                </div>
-
-                {loading && <p className="text-gray-400">Loading playlists...</p>}
-
-                {!loading && playlists.length === 0 && (
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-gray-400">
-                        You have not created any playlist yet.
+            <div className="w-full">
+                <section className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#6d37a9]/45 via-[#463a92]/42 to-[#1f214b]/62 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                    <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+                        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                            My Playlists
+                        </h1>
+                        <p className="mt-2 text-sm text-purple-100/65 sm:text-base">
+                            Organize saved videos and jump back quickly.
+                        </p>
                     </div>
-                )}
 
-                {playlists.map((playlist) => (
-                    <section
-                        key={playlist.id}
-                        className="bg-white/5 border border-white/10 rounded-2xl p-4 md:p-5 space-y-4"
-                    >
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg md:text-xl font-semibold">{playlist.name}</h2>
-                            <span className="text-xs text-gray-400">
-                                {playlist.videos.length} videos
-                            </span>
-                        </div>
-
-                        {playlist.videos.length === 0 ? (
-                            <p className="text-sm text-gray-500">No videos in this playlist.</p>
-                        ) : (
-                            <div className="space-y-2.5">
-                                {playlist.videos.map((video) => {
-                                    const id = video.publicId ?? String(video.id)
-                                    const thumbnail = video.thumbnailKey
-                                        ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}`
-                                        : "/placeholder-thumbnail.png"
-                                    const title = video.aiTitle || video.title || "Untitled"
-                                    const channelName =
-                                        video.channel?.name || video.uploaderName || "Unknown channel"
-
-                                    return (
-                                        <button
-                                            key={`${playlist.id}-${id}`}
-                                            onClick={() => navigate(`/video/${id}`)}
-                                            className="w-full text-left flex items-center gap-3 bg-black/25 hover:bg-black/35 transition rounded-xl p-2.5"
-                                        >
-                                            <div style={{ width: 152, height: 88 }} className="rounded-lg overflow-hidden shrink-0 border border-white/10 bg-black/20 flex items-center justify-center">
-                                                <img
-                                                    src={thumbnail}
-                                                    alt={title}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        ;(e.currentTarget as HTMLImageElement).src = "/placeholder-thumbnail.png"
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div className="min-w-0">
-                                                <p className="text-sm md:text-base font-medium leading-5 line-clamp-2">
-                                                    {title}
-                                                </p>
-                                                <p className="text-xs text-gray-400 mt-1 truncate">
-                                                    {channelName}
-                                                </p>
-                                                {video.aiDescription && (
-                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">
-                                                        {video.aiDescription}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </button>
-                                    )
-                                })}
+                    <div className="space-y-6 px-6 py-6 sm:px-8">
+                        {loading && (
+                            <div className="rounded-2xl border border-white/8 bg-white/6 px-4 py-5 text-sm text-purple-100/60">
+                                Loading playlists...
                             </div>
                         )}
-                    </section>
-                ))}
+
+                        {!loading && playlists.length === 0 && (
+                            <div className="rounded-2xl border border-white/8 bg-white/6 px-4 py-6 text-sm text-purple-100/60">
+                                You have not created any playlist yet.
+                            </div>
+                        )}
+
+                        {!loading && playlists.map((playlist, index) => (
+                            <section
+                                key={playlist.id}
+                                className={`${index > 0 ? "border-t border-white/10 pt-6" : ""} space-y-4`}
+                            >
+                                <div className="flex items-center justify-between gap-3">
+                                    <h2 className="text-xl font-semibold text-white">
+                                        {playlist.name}
+                                    </h2>
+                                    <span className="text-xs text-purple-100/55">
+                                        {playlist.videos.length} videos
+                                    </span>
+                                </div>
+
+                                {playlist.videos.length === 0 ? (
+                                    <div className="rounded-2xl border border-white/8 bg-white/5 px-4 py-5 text-sm text-purple-100/50">
+                                        No videos in this playlist.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2.5">
+                                        {playlist.videos.map((video) => {
+                                            const id = video.publicId ?? String(video.id)
+                                            const thumbnail = video.thumbnailKey
+                                                ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}`
+                                                : "/placeholder-thumbnail.png"
+                                            const title = video.aiTitle || video.title || "Untitled"
+                                            const channelName =
+                                                video.channel?.name || video.uploaderName || "Unknown channel"
+
+                                            return (
+                                                <button
+                                                    key={`${playlist.id}-${id}`}
+                                                    onClick={() => navigate(`/video/${id}`)}
+                                                    className="flex w-full items-center gap-4 rounded-2xl border border-white/6 bg-black/22 p-3 text-left transition hover:bg-black/30"
+                                                >
+                                                    <div
+                                                        style={{ width: 168, height: 96 }}
+                                                        className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/20"
+                                                    >
+                                                        <img
+                                                            src={thumbnail}
+                                                            alt={title}
+                                                            className="h-full w-full object-cover"
+                                                            onError={(e) => {
+                                                                ;(e.currentTarget as HTMLImageElement).src = "/placeholder-thumbnail.png"
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    <div className="min-w-0">
+                                                        <p className="text-base font-medium leading-6 text-white line-clamp-2">
+                                                            {title}
+                                                        </p>
+                                                        <p className="mt-1 truncate text-sm text-purple-100/60">
+                                                            {channelName}
+                                                        </p>
+                                                        {video.aiDescription && (
+                                                            <p className="mt-1 line-clamp-2 text-xs text-purple-100/42">
+                                                                {video.aiDescription}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </section>
+                        ))}
+                    </div>
+                </section>
             </div>
         </AppLayout>
     )

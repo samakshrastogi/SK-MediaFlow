@@ -100,10 +100,7 @@ passport.use(
                             })
                         )
 
-                    } catch (err) {
-
-                        console.error("Google avatar download failed:", err)
-
+                    } catch {
                     }
 
                 }

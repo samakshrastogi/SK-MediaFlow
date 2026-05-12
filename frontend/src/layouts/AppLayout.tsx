@@ -15,13 +15,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <main
                 className={`
                     pt-22.5
-                    px-4 md:px-6
+                    px-4 md:px-6 xl:px-8 2xl:px-10
                     pb-27.5 md:pb-10
                     transition-all duration-300
                     ${sidebarOpen ? "md:ml-64" : "md:ml-0"}
                 `}
             >
-                <div className="max-w-7xl mx-auto w-full space-y-8">
+                <div className="w-full space-y-8">
                     {children}
                 </div>
             </main>

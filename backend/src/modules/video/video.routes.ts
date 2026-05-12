@@ -18,7 +18,8 @@ import {
     handleGetChannelOrganizationVideos,
     handleGetUploadSpritesheet,
     handleSaveThumbnailFromSpritesheet,
-    handleUpdateOwnedVideo
+    handleUpdateOwnedVideo,
+    handleDeleteOwnedVideo
 } from "./video.controller"
 
 import {
@@ -64,6 +65,7 @@ router.get(
     handleGetChannelOrganizationVideos
 )
 router.patch("/:publicId", authenticate, handleUpdateOwnedVideo)
+router.delete("/:publicId", authenticate, handleDeleteOwnedVideo)
 
 // ✅ KEEP THIS LAST (VERY IMPORTANT)
 router.get("/:publicId", authenticate, handleGetVideoById)

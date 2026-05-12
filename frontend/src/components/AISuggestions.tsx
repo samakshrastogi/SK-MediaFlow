@@ -24,7 +24,6 @@ export default function AISuggestions({ videoId }: Props) {
             setTitle(res.data.title || "")
             setDescription(res.data.description || "")
         } catch (err) {
-            console.error(err)
         } finally {
             setLoading(false)
         }
@@ -39,7 +38,6 @@ export default function AISuggestions({ videoId }: Props) {
             await axios.post(`/api/ai/video/${videoId}/apply`)
             alert("AI suggestion applied")
         } catch (err) {
-            console.error(err)
         }
     }
 

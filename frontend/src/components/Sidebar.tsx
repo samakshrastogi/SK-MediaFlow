@@ -3,6 +3,30 @@ import { Home, Search, Film, Heart, Smartphone, User } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { api } from "@/api/axios"
 
+let portraitAvailabilityPromise: Promise<boolean> | null = null
+let portraitAvailabilityCache: boolean | null = null
+
+const getPortraitAvailability = async () => {
+    if (portraitAvailabilityCache !== null) return portraitAvailabilityCache
+
+    if (!portraitAvailabilityPromise) {
+        portraitAvailabilityPromise = api.get("/video/portrait")
+            .then((res) => {
+                portraitAvailabilityCache = (res.data?.data || []).length > 0
+                return portraitAvailabilityCache
+            })
+            .catch(() => {
+                portraitAvailabilityCache = false
+                return false
+            })
+            .finally(() => {
+                portraitAvailabilityPromise = null
+            })
+    }
+
+    return portraitAvailabilityPromise
+}
+
 const Sidebar = () => {
     const navigate = useNavigate()
     const location = useLocation()
@@ -10,15 +34,11 @@ const Sidebar = () => {
 
     useEffect(() => {
         let mounted = true
-        api.get("/video/portrait")
-            .then((res) => {
-                if (mounted) {
-                    setHasPortraitVideos((res.data?.data || []).length > 0)
-                }
-            })
-            .catch(() => {
-                if (mounted) setHasPortraitVideos(false)
-            })
+        void getPortraitAvailability().then((hasVideos) => {
+            if (mounted) {
+                setHasPortraitVideos(hasVideos)
+            }
+        })
 
         return () => {
             mounted = false

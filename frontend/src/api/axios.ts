@@ -54,12 +54,19 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const responseMessage = error?.response?.data?.message
+
     if (error?.response?.status === 401) {
       clearStoredAuth()
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth:expired"))
       }
     }
+
+    if (responseMessage && typeof responseMessage === "string") {
+      error.message = responseMessage
+    }
+
     return Promise.reject(error)
   }
 )

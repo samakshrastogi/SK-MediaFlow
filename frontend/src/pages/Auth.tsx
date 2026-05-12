@@ -142,7 +142,7 @@ const Auth = () => {
                     </h1>
 
                     <p className="mt-6 text-gray-400 text-lg leading-relaxed">
-                        Explore trending videos, share your content, and discover creators from around the world - only on <span className="text-white">SK Cinema</span>.
+                        Explore trending videos, share your content, and discover creators from around the world - only on <span className="text-white">StreamHub</span>.
                     </p>
 
                 </div>
@@ -156,7 +156,7 @@ const Auth = () => {
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-                            SK Cinema
+                            StreamHub
                         </h1>
                         <p className="text-gray-400 mt-2 text-sm">
                             {mode === "login" ? "Welcome back" : "Create your account"}

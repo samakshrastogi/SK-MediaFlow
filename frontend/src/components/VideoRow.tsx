@@ -1,6 +1,5 @@
-import { useRef, useEffect } from "react"
+import { useRef } from "react"
 import type { ReactNode } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import VideoCard, { Video } from "./VideoCard"
 
 interface Props {
@@ -11,49 +10,16 @@ interface Props {
 
 const VideoRow = ({ title, videos, rightSlot }: Props) => {
     const scrollRef = useRef<HTMLDivElement | null>(null)
-
-    /* ---------------- DEBUG ---------------- */
-
-    useEffect(() => {
-        console.log("🔍 VideoRow Debug →", title)
-        console.log("📦 Full videos:", videos)
-
-        const ids = videos.map(v => v.publicId)
-
-        // ❌ Missing publicId
-        videos.forEach((v, i) => {
-            if (!v.publicId) {
-                console.error("❌ Missing publicId at index:", i, v)
-            }
-        })
-
-        // ❌ Duplicate publicIds
-        const duplicates = ids.filter((id, i) => id && ids.indexOf(id) !== i)
-        if (duplicates.length > 0) {
-            console.error("❌ Duplicate publicIds:", duplicates)
-        }
-
-        // ⚠️ Empty list check
-        if (videos.length === 0) {
-            console.warn("⚠️ No videos passed to VideoRow:", title)
-        }
-
-    }, [videos, title])
-
-    /* ---------------- SCROLL ---------------- */
-
-    const scroll = (dir: "left" | "right") => {
-        if (!scrollRef.current) return
-
-        const scrollAmount = 300
-
-        scrollRef.current.scrollBy({
-            left: dir === "left" ? -scrollAmount : scrollAmount,
-            behavior: "smooth"
-        })
-    }
+    const isPortraitRow = videos.every((video) => video.orientation === "PORTRAIT")
+    const desktopGridClass = isPortraitRow
+        ? "grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+        : "grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5"
 
     /* ---------------- UI ---------------- */
+
+    if (!videos.length) {
+        return null
+    }
 
     return (
         <div className="space-y-4 group">
@@ -71,10 +37,6 @@ const VideoRow = ({ title, videos, rightSlot }: Props) => {
                 {videos.map((video, index) => {
                     const key = video.publicId || `missing-${index}`
 
-                    if (!video.publicId) {
-                        console.warn("⚠️ Fallback key used (mobile):", video)
-                    }
-
                     return (
                         <div key={key}>
                             <VideoCard video={video} />
@@ -85,69 +47,23 @@ const VideoRow = ({ title, videos, rightSlot }: Props) => {
 
             {/* DESKTOP */}
             <div className="relative hidden sm:block">
-
-                {/* LEFT BUTTON */}
-                <button
-                    aria-label="Scroll left"
-                    title="Scroll left"
-                    onClick={() => scroll("left")}
-                    className="
-                        absolute left-0 top-1/2 -translate-y-1/2 z-10
-                        bg-black/60 backdrop-blur
-                        p-2 rounded-full
-                        opacity-0 group-hover:opacity-100
-                        transition
-                    "
-                >
-                    <ChevronLeft size={20} />
-                </button>
-
-                {/* RIGHT BUTTON */}
-                <button
-                    aria-label="Scroll right"
-                    title="Scroll right"
-                    onClick={() => scroll("right")}
-                    className="
-                        absolute right-0 top-1/2 -translate-y-1/2 z-10
-                        bg-black/60 backdrop-blur
-                        p-2 rounded-full
-                        opacity-0 group-hover:opacity-100
-                        transition
-                    "
-                >
-                    <ChevronRight size={20} />
-                </button>
-
-                {/* SCROLL CONTAINER */}
                 <div
                     ref={scrollRef}
-                    className="
-                        flex gap-4 overflow-x-auto scroll-smooth pb-2
-                        no-scrollbar
-                    "
+                    className={`grid justify-start gap-4 pb-2 ${desktopGridClass}`}
                 >
                     {videos.map((video, index) => {
                         const key = video.publicId || `missing-${index}`
 
-                        if (!video.publicId) {
-                            console.warn("⚠️ Fallback key used (desktop):", video)
-                        }
-
                         return (
                             <div
                                 key={key}
-                                className={`shrink-0 transition-transform duration-300 hover:scale-105 ${
-                                    video.orientation === "PORTRAIT"
-                                        ? "min-w-36 lg:min-w-40"
-                                        : "min-w-50 lg:min-w-55"
-                                }`}
+                                className="w-full min-w-0 transition-transform duration-300 hover:scale-[1.02]"
                             >
                                 <VideoCard video={video} />
                             </div>
                         )
                     })}
                 </div>
-
             </div>
 
         </div>

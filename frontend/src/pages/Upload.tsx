@@ -152,11 +152,9 @@ const Upload = () => {
     useEffect(() => {
 
         socket.on("connect", () => {
-            console.log("Socket connected:", socket.id)
         })
 
-        socket.on("connect_error", (err) => {
-            console.log("Socket error:", err)
+        socket.on("connect_error", () => {
         })
 
         socket.on("ai-progress", ({ videoId, progress }) => {
@@ -209,11 +207,9 @@ const Upload = () => {
                         )
                     )
                 } catch (spriteErr) {
-                    console.error("Spritesheet not ready yet", spriteErr)
                 }
 
             } catch (err) {
-                console.error("Failed fetching AI data", err)
                 setQueue(prev =>
                     prev.map(item =>
                         String(item.videoId) === String(videoId)
@@ -424,7 +420,6 @@ const Upload = () => {
                 isSavingSpriteSelection: false
             })
         } catch (err) {
-            console.error("Failed to save spritesheet thumbnail", err)
             updateItem(index, { isSavingSpriteSelection: false })
         }
     }
@@ -437,7 +432,6 @@ const Upload = () => {
             const spritesheet = await fetchSpritesheetMetadata(item.videoId)
             updateItem(index, { spritesheet })
         } catch (err) {
-            console.error("Failed to load spritesheet", err)
         }
     }
 
@@ -569,8 +563,6 @@ const Upload = () => {
             });
 
         } catch (err) {
-            console.error("Upload failed:", err);
-
             updateItem(index, {
                 status: "error",
             });
@@ -623,7 +615,7 @@ const Upload = () => {
 
         <AppLayout>
 
-            <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+            <div className="w-full px-6 py-10 space-y-10">
 
                 {/* HEADER */}
 

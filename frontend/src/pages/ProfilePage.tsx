@@ -8,6 +8,7 @@ import VideoCard from "@/components/VideoCard"
 import { useAuth } from "@/context/AuthContext"
 import UserAvatar from "@/components/UserAvatar"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
+import { getCachedPageData, setCachedPageData } from "@/utils/pageCache"
 
 interface User {
     id: string
@@ -86,27 +87,62 @@ interface EditModalProps {
     onSave: () => void
 }
 
+interface EditVideoModalProps {
+    video: Video
+    videoTitle: string
+    setVideoTitle: (value: string) => void
+    videoDescription: string
+    setVideoDescription: (value: string) => void
+    videoThumbnailPreview?: string
+    videoSpritesheet: SpritesheetData | null
+    loadingSpritesheet: boolean
+    spritesheetError?: string
+    selectedSpriteFrameIndex: number | null
+    setSelectedSpriteFrameIndex: (value: number | null) => void
+    handleUploadVideoThumbnail: (file?: File) => void
+    loadVideoSpritesheet: () => void
+    saveSpriteSelectionAsThumbnail: () => void
+    savingSprite: boolean
+    savingVideo: boolean
+    onClose: () => void
+    onSave: () => void
+    onDelete: () => void
+}
+
+interface ProfilePageCache {
+    user: User | null
+    stats: Stats | null
+    publicVideos: Video[]
+    privateVideos: Video[]
+    organizationVideos: Video[]
+    history: Video[]
+    name: string
+    channelName: string
+    description: string
+}
+
 const ProfilePage = () => {
     const navigate = useNavigate()
     const { user: authUser } = useAuth()
+    const cached = getCachedPageData<ProfilePageCache>("page:profile")
 
-    const [user, setUser] = useState<User | null>(null)
-    const [stats, setStats] = useState<Stats | null>(null)
+    const [user, setUser] = useState<User | null>(cached?.user || null)
+    const [stats, setStats] = useState<Stats | null>(cached?.stats || null)
 
-    const [publicVideos, setPublicVideos] = useState<Video[]>([])
-    const [privateVideos, setPrivateVideos] = useState<Video[]>([])
-    const [organizationVideos, setOrganizationVideos] = useState<Video[]>([])
-    const [history, setHistory] = useState<Video[]>([])
+    const [publicVideos, setPublicVideos] = useState<Video[]>(cached?.publicVideos || [])
+    const [privateVideos, setPrivateVideos] = useState<Video[]>(cached?.privateVideos || [])
+    const [organizationVideos, setOrganizationVideos] = useState<Video[]>(cached?.organizationVideos || [])
+    const [history, setHistory] = useState<Video[]>(cached?.history || [])
 
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(!cached)
     const [editOpen, setEditOpen] = useState(false)
 
     const [activeTab, setActiveTab] = useState<"history" | "uploads">("history")
     const [uploadVisibility, setUploadVisibility] = useState<"public" | "private" | "organization">("public")
 
-    const [name, setName] = useState("")
-    const [channelName, setChannelName] = useState("")
-    const [description, setDescription] = useState("")
+    const [name, setName] = useState(cached?.name || "")
+    const [channelName, setChannelName] = useState(cached?.channelName || "")
+    const [description, setDescription] = useState(cached?.description || "")
 
     const [message, setMessage] = useState("")
 
@@ -116,9 +152,20 @@ const ProfilePage = () => {
     const [videoThumbnailKey, setVideoThumbnailKey] = useState<string | undefined>(undefined)
     const [videoThumbnailPreview, setVideoThumbnailPreview] = useState<string | undefined>(undefined)
     const [videoSpritesheet, setVideoSpritesheet] = useState<SpritesheetData | null>(null)
+    const [loadingSpritesheet, setLoadingSpritesheet] = useState(false)
+    const [spritesheetError, setSpritesheetError] = useState("")
     const [selectedSpriteFrameIndex, setSelectedSpriteFrameIndex] = useState<number | null>(null)
     const [savingVideo, setSavingVideo] = useState(false)
     const [savingSprite, setSavingSprite] = useState(false)
+    const [hiddenUploadIds, setHiddenUploadIds] = useState<string[]>(() => {
+        const key = authUser?.id ? `profile:hidden-videos:${authUser.id}` : "profile:hidden-videos:guest"
+        try {
+            const stored = localStorage.getItem(key)
+            return stored ? JSON.parse(stored) : []
+        } catch {
+            return []
+        }
+    })
 
     const normalizeVideos = (arr: RawVideo[]): Video[] => {
         if (!Array.isArray(arr)) return []
@@ -165,7 +212,6 @@ const ProfilePage = () => {
             setDescription(data.channel?.description || "")
 
         } catch (err) {
-            console.error("Profile fetch error:", err)
         } finally {
             setLoading(false)
         }
@@ -174,6 +220,35 @@ const ProfilePage = () => {
     useEffect(() => {
         void fetchProfile()
     }, [fetchProfile])
+
+    useEffect(() => {
+        const key = authUser?.id ? `profile:hidden-videos:${authUser.id}` : "profile:hidden-videos:guest"
+        try {
+            const stored = localStorage.getItem(key)
+            setHiddenUploadIds(stored ? JSON.parse(stored) : [])
+        } catch {
+            setHiddenUploadIds([])
+        }
+    }, [authUser?.id])
+
+    useEffect(() => {
+        const key = authUser?.id ? `profile:hidden-videos:${authUser.id}` : "profile:hidden-videos:guest"
+        localStorage.setItem(key, JSON.stringify(hiddenUploadIds))
+    }, [authUser?.id, hiddenUploadIds])
+
+    useEffect(() => {
+        setCachedPageData<ProfilePageCache>("page:profile", {
+            user,
+            stats,
+            publicVideos,
+            privateVideos,
+            organizationVideos,
+            history,
+            name,
+            channelName,
+            description
+        }, 120000)
+    }, [user, stats, publicVideos, privateVideos, organizationVideos, history, name, channelName, description])
 
     const saveProfile = async () => {
         try {
@@ -189,7 +264,6 @@ const ProfilePage = () => {
             setEditOpen(false)
             setMessage("Profile updated.")
         } catch (err) {
-            console.error("Profile update failed", err)
             setMessage("Failed to update profile.")
         }
     }
@@ -212,7 +286,6 @@ const ProfilePage = () => {
             await fetchProfile()
             setMessage("Avatar updated.")
         } catch (err) {
-            console.error("Avatar upload failed", err)
             setMessage("Failed to update avatar.")
         }
     }
@@ -235,10 +308,35 @@ const ProfilePage = () => {
             await fetchProfile()
             setMessage("Cover photo updated.")
         } catch (err) {
-            console.error("Cover upload failed", err)
             setMessage("Failed to update cover photo.")
         }
     }
+
+    const loadVideoSpritesheet = useCallback(async (videoId?: string) => {
+        if (!videoId) {
+            setVideoSpritesheet(null)
+            setSpritesheetError("Spritesheet is unavailable for this video.")
+            return false
+        }
+
+        try {
+            setLoadingSpritesheet(true)
+            setSpritesheetError("")
+            const res = await api.get(`/video/upload/${videoId}/spritesheet`)
+            setVideoSpritesheet(res.data?.data || null)
+            return true
+        } catch (err) {
+            setVideoSpritesheet(null)
+            if (axios.isAxiosError(err) && err.response?.status === 404) {
+                setSpritesheetError("Spritesheet is being generated. It will appear here automatically.")
+            } else {
+                setSpritesheetError("Failed to load spritesheet thumbnail frames.")
+            }
+            return false
+        } finally {
+            setLoadingSpritesheet(false)
+        }
+    }, [])
 
     const openVideoEditor = async (video: Video) => {
         setEditingVideo(video)
@@ -251,17 +349,33 @@ const ProfilePage = () => {
                 : undefined
         )
         setVideoSpritesheet(null)
+        setSpritesheetError("")
         setSelectedSpriteFrameIndex(null)
+    }
 
-        if (video.id) {
-            try {
-                const res = await api.get(`/video/upload/${video.id}/spritesheet`)
-                setVideoSpritesheet(res.data?.data || null)
-            } catch (err) {
-                console.error("Spritesheet load failed", err)
+    useEffect(() => {
+        if (!editingVideo?.id || videoSpritesheet) return
+
+        let cancelled = false
+        let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+        const pollSpritesheet = async () => {
+            const loaded = await loadVideoSpritesheet(editingVideo.id)
+
+            if (!loaded && !cancelled) {
+                timeoutId = setTimeout(pollSpritesheet, 4000)
             }
         }
-    }
+
+        void pollSpritesheet()
+
+        return () => {
+            cancelled = true
+            if (timeoutId) {
+                clearTimeout(timeoutId)
+            }
+        }
+    }, [editingVideo?.id, videoSpritesheet, loadVideoSpritesheet])
 
     const handleUploadVideoThumbnail = async (file?: File) => {
         if (!file) return
@@ -281,7 +395,6 @@ const ProfilePage = () => {
             setVideoThumbnailKey(key)
             setVideoThumbnailPreview(URL.createObjectURL(file))
         } catch (err) {
-            console.error("Thumbnail upload failed", err)
             setMessage("Failed to upload thumbnail.")
         }
     }
@@ -302,7 +415,6 @@ const ProfilePage = () => {
                 setVideoThumbnailPreview(data.thumbnailUrl)
             }
         } catch (err) {
-            console.error("Save sprite thumbnail failed", err)
             setMessage("Failed to save spritesheet thumbnail.")
         } finally {
             setSavingSprite(false)
@@ -324,32 +436,60 @@ const ProfilePage = () => {
             setEditingVideo(null)
             setMessage("Video updated.")
         } catch (err) {
-            console.error("Failed to update video", err)
             setMessage("Failed to update video.")
         } finally {
             setSavingVideo(false)
         }
     }
 
+    const deleteVideo = async () => {
+        if (!editingVideo?.publicId) return
+
+        try {
+            setSavingVideo(true)
+            await api.delete(`/video/${editingVideo.publicId}`)
+            await fetchProfile()
+            setEditingVideo(null)
+            setMessage("")
+        } catch (err) {
+            setMessage("Failed to delete video.")
+        } finally {
+            setSavingVideo(false)
+        }
+    }
+
+    const visiblePublicVideos = useMemo(
+        () => publicVideos.filter((video) => !hiddenUploadIds.includes(video.publicId)),
+        [publicVideos, hiddenUploadIds]
+    )
+    const visiblePrivateVideos = useMemo(
+        () => privateVideos.filter((video) => !hiddenUploadIds.includes(video.publicId)),
+        [privateVideos, hiddenUploadIds]
+    )
+    const visibleOrganizationVideos = useMemo(
+        () => organizationVideos.filter((video) => !hiddenUploadIds.includes(video.publicId)),
+        [organizationVideos, hiddenUploadIds]
+    )
+
     const uploadVideos = useMemo(() => {
-        if (uploadVisibility === "private") return privateVideos
-        if (uploadVisibility === "organization") return organizationVideos
-        return publicVideos
-    }, [uploadVisibility, publicVideos, privateVideos, organizationVideos])
+        if (uploadVisibility === "private") return visiblePrivateVideos
+        if (uploadVisibility === "organization") return visibleOrganizationVideos
+        return visiblePublicVideos
+    }, [uploadVisibility, visiblePublicVideos, visiblePrivateVideos, visibleOrganizationVideos])
 
     const ownUploadCount = useMemo(
-        () => publicVideos.length + privateVideos.length + organizationVideos.length,
-        [publicVideos.length, privateVideos.length, organizationVideos.length]
+        () => visiblePublicVideos.length + visiblePrivateVideos.length + visibleOrganizationVideos.length,
+        [visiblePublicVideos.length, visiblePrivateVideos.length, visibleOrganizationVideos.length]
     )
 
     const availableUploadTabs = useMemo(() => {
         const tabs: { key: "public" | "private" | "organization"; label: string }[] = []
-        if (publicVideos.length > 0) tabs.push({ key: "public", label: "Public" })
-        if (privateVideos.length > 0) tabs.push({ key: "private", label: "Private" })
-        if (organizationVideos.length > 0) tabs.push({ key: "organization", label: "Organization" })
+        if (visiblePublicVideos.length > 0) tabs.push({ key: "public", label: "Public" })
+        if (visiblePrivateVideos.length > 0) tabs.push({ key: "private", label: "Private" })
+        if (visibleOrganizationVideos.length > 0) tabs.push({ key: "organization", label: "Organization" })
         if (tabs.length === 0) tabs.push({ key: "public", label: "Public" })
         return tabs
-    }, [publicVideos.length, privateVideos.length, organizationVideos.length])
+    }, [visiblePublicVideos.length, visiblePrivateVideos.length, visibleOrganizationVideos.length])
 
     useEffect(() => {
         if (!availableUploadTabs.find((t) => t.key === uploadVisibility)) {
@@ -375,7 +515,7 @@ const ProfilePage = () => {
                 <div className="relative">
 
                     {/* COVER */}
-                    <div className="relative h-44 sm:h-56 md:h-72 rounded-2xl overflow-hidden">
+                    <div className="relative h-32 sm:h-40 md:h-52 rounded-2xl overflow-hidden">
                         <img
                             src={user?.coverUrl || "https://i.pinimg.com/originals/4f/de/0e/4fde0ed05a14d7f6c1a0b19daec5a731.jpg"}
                             alt="Profile banner"
@@ -385,15 +525,15 @@ const ProfilePage = () => {
                     </div>
 
                     {/* PROFILE INFO */}
-                    <div className="relative -mt-20 sm:-mt-24 px-4 sm:px-6 z-10">
+                    <div className="relative z-10 px-4 sm:px-6 -mt-12 sm:-mt-16">
 
                         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
 
                             {/* LEFT */}
-                            <div className="flex items-end gap-4">
+                            <div className="flex items-end gap-3">
 
                                 {/* AVATAR */}
-                                <label className="relative w-40 h-40 sm:w-48 sm:h-48 rounded-full border-4 border-black overflow-hidden cursor-pointer bg-black/40 shadow-xl">
+                                <label className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-black bg-black/40 shadow-xl sm:h-28 sm:w-28 md:h-32 md:w-32">
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -419,11 +559,11 @@ const ProfilePage = () => {
                                 </label>
 
                                 {/* NAME */}
-                                <div className="pb-2">
-                                    <h1 className="text-xl sm:text-3xl font-bold text-white">
+                                <div className="pb-1">
+                                    <h1 className="text-lg font-bold text-white sm:text-2xl md:text-3xl">
                                         {user?.name || "User"}
                                     </h1>
-                                    <p className="text-gray-400 text-sm">
+                                    <p className="text-sm text-gray-400">
                                         Member since {joinedYear}
                                     </p>
                                 </div>
@@ -432,17 +572,19 @@ const ProfilePage = () => {
                             {/* EDIT BUTTON */}
                             <button
                                 onClick={() => setEditOpen(true)}
-                                className="bg-white text-black px-5 py-2 rounded-full text-sm font-medium shadow hover:scale-[1.03] transition"
+                                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow transition hover:scale-[1.03]"
                             >
                                 Edit Profile
                             </button>
                         </div>
 
                         {/* STATS */}
-                        <div className="mt-5 flex gap-8 text-sm">
-                            <Stat label="Uploads" value={ownUploadCount} />
-                            <Stat label="Favorites" value={stats?.favorites || 0} />
-                            <Stat label="Playlists" value={stats?.playlists || 0} />
+                        <div className="mt-3">
+                            <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-2 shadow-sm backdrop-blur">
+                                <InlineStat label="Uploads" value={ownUploadCount} />
+                                <InlineStat label="Favorites" value={stats?.favorites || 0} />
+                                <InlineStat label="Playlists" value={stats?.playlists || 0} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -552,131 +694,46 @@ const ProfilePage = () => {
             )}
 
             {editingVideo && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4" onClick={() => setEditingVideo(null)}>
-                    <div className="bg-[#111] p-6 rounded-xl w-full max-w-3xl space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-xl font-semibold">Edit Video</h2>
-
-                        <div className="space-y-1">
-                            <label className="text-sm text-gray-400">Title</label>
-                            <input
-                                value={videoTitle}
-                                onChange={(e) => setVideoTitle(e.target.value)}
-                                aria-label="video title"
-                                className="w-full bg-gray-800 p-2 rounded text-sm"
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-sm text-gray-400">Description</label>
-                            <textarea
-                                value={videoDescription}
-                                onChange={(e) => setVideoDescription(e.target.value)}
-                                rows={4}
-                                aria-label="video description"
-                                className="w-full bg-gray-800 p-2 rounded text-sm"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm text-gray-400">Thumbnail</label>
-                            <div className="flex items-center gap-3">
-                                <label className="px-3 py-2 bg-gray-700 rounded-lg text-xs cursor-pointer">
-                                    Upload Thumbnail
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        aria-label="upload thumbnail"
-                                        onChange={(e) => handleUploadVideoThumbnail(e.target.files?.[0])}
-                                    />
-                                </label>
-                                <span className="text-xs text-gray-400">Upload manually or select from spritesheet below.</span>
-                            </div>
-
-                            {videoThumbnailPreview && (
-                                <img
-                                    src={videoThumbnailPreview}
-                                    alt="Thumbnail preview"
-                                    className="w-64 h-36 object-cover rounded-lg border border-white/10"
-                                />
-                            )}
-                        </div>
-
-                        {videoSpritesheet && (
-                            <div className="space-y-3">
-                                <label className="text-sm text-gray-400">Spritesheet</label>
-                                <SpritesheetPicker
-                                    spritesheet={videoSpritesheet}
-                                    selectedFrameIndex={selectedSpriteFrameIndex}
-                                    onSelectFrame={(frameIndex) => setSelectedSpriteFrameIndex(frameIndex)}
-                                    onReset={() => setSelectedSpriteFrameIndex(null)}
-                                    onSave={saveSpriteSelectionAsThumbnail}
-                                    saving={savingSprite}
-                                    saveLabel="Use Selected Frame As Thumbnail"
-                                />
-                            </div>
-                        )}
-
-                        <div className="flex justify-end gap-3 pt-2">
-                            <button
-                                onClick={() => setEditingVideo(null)}
-                                className="px-4 py-2 bg-gray-700 rounded text-sm"
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                onClick={saveVideoEdit}
-                                disabled={savingVideo}
-                                className="px-4 py-2 bg-purple-600 rounded text-sm disabled:opacity-60"
-                            >
-                                {savingVideo ? "Saving..." : "Save"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <EditVideoModal
+                    video={editingVideo}
+                    videoTitle={videoTitle}
+                    setVideoTitle={setVideoTitle}
+                    videoDescription={videoDescription}
+                    setVideoDescription={setVideoDescription}
+                    videoThumbnailPreview={videoThumbnailPreview}
+                    videoSpritesheet={videoSpritesheet}
+                    loadingSpritesheet={loadingSpritesheet}
+                    spritesheetError={spritesheetError}
+                    selectedSpriteFrameIndex={selectedSpriteFrameIndex}
+                    setSelectedSpriteFrameIndex={setSelectedSpriteFrameIndex}
+                    handleUploadVideoThumbnail={handleUploadVideoThumbnail}
+                    loadVideoSpritesheet={() => void loadVideoSpritesheet(editingVideo.id)}
+                    saveSpriteSelectionAsThumbnail={saveSpriteSelectionAsThumbnail}
+                    savingSprite={savingSprite}
+                    savingVideo={savingVideo}
+                    onClose={() => setEditingVideo(null)}
+                    onSave={saveVideoEdit}
+                    onDelete={deleteVideo}
+                />
             )}
         </AppLayout>
     )
 }
 
-const Stat = ({
+const InlineStat = ({
     label,
-    value,
-    icon
+    value
 }: {
     label: string
     value: number
-    icon?: React.ReactNode
 }) => (
-    <div className="
-        group relative flex items-center gap-3
-        rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02]
-        px-4 py-3 min-w-[90px]
-        hover:border-white/20 hover:bg-white/10
-        transition-all duration-200
-    ">
-
-        {/* ICON */}
-        {icon && (
-            <div className="text-lg opacity-80 group-hover:opacity-100 transition">
-                {icon}
-            </div>
-        )}
-
-        {/* TEXT */}
-        <div className="flex flex-col">
-            <span className="text-lg sm:text-xl font-semibold text-white leading-tight">
-                {value}
-            </span>
-
-            <span className="text-[10px] uppercase tracking-wider text-gray-400">
-                {label}
-            </span>
-        </div>
-
-        {/* HOVER GLOW */}
-        <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition pointer-events-none bg-white/5" />
+    <div className="flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5">
+        <span className="text-sm font-semibold text-white sm:text-base">
+            {value}
+        </span>
+        <span className="text-[11px] uppercase tracking-wide text-gray-300">
+            {label}
+        </span>
     </div>
 )
 
@@ -694,12 +751,14 @@ const VideoGrid = ({ videos }: { videos: Video[] }) => {
     }
 
     return (
-        <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div
+            className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        >
 
             {videos.map((v) => (
                 <div
                     key={v.publicId}
-                    className="transform transition duration-200 hover:scale-[1.04]"
+                    className="w-full min-w-0 transform transition duration-200 hover:scale-[1.04]"
                 >
                     <VideoCard video={v} />
                 </div>
@@ -729,12 +788,14 @@ const EditableVideoGrid = ({
     }
 
     return (
-        <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div
+            className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        >
 
             {videos.map((v) => (
                 <div
                     key={v.publicId}
-                    className="group relative transition duration-200 hover:scale-[1.04]"
+                    className="group relative w-full min-w-0 transition duration-200 hover:scale-[1.04]"
                 >
                     <VideoCard video={v} />
 
@@ -754,6 +815,216 @@ const EditableVideoGrid = ({
                 </div>
             ))}
 
+        </div>
+    )
+}
+
+const EditVideoModal = ({
+    video,
+    videoTitle,
+    setVideoTitle,
+    videoDescription,
+    setVideoDescription,
+    videoThumbnailPreview,
+    videoSpritesheet,
+    loadingSpritesheet,
+    spritesheetError,
+    selectedSpriteFrameIndex,
+    setSelectedSpriteFrameIndex,
+    handleUploadVideoThumbnail,
+    loadVideoSpritesheet,
+    saveSpriteSelectionAsThumbnail,
+    savingSprite,
+    savingVideo,
+    onClose,
+    onSave,
+    onDelete
+}: EditVideoModalProps) => {
+    const [confirmDelete, setConfirmDelete] = useState(false)
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.24),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
+            onClick={onClose}
+        >
+            <div
+                className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(145deg,rgba(41,30,78,0.96),rgba(22,22,38,0.97)_44%,rgba(14,16,28,0.98))] shadow-[0_32px_90px_rgba(0,0,0,0.42)]"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white">Edit Video</h2>
+                        <p className="mt-1 text-sm text-purple-100/60">
+                            Update the title, description, and thumbnail for{" "}
+                            <span className="font-medium text-white">{video.title || video.aiTitle || "this video"}</span>.
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                    <div className="space-y-5">
+                    {confirmDelete && (
+                        <div className="rounded-2xl border border-red-500/22 bg-red-500/10 p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <p className="text-sm font-semibold text-red-200">
+                                        Are you sure you want to delete this video?
+                                    </p>
+                                    <p className="mt-1 text-xs text-red-100/75">
+                                        This action will delete the video.
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setConfirmDelete(false)}
+                                        className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={onDelete}
+                                        className="rounded-xl bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-500"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+                        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">Title</label>
+                                <input
+                                    value={videoTitle}
+                                    onChange={(e) => setVideoTitle(e.target.value)}
+                                    aria-label="video title"
+                                    className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white placeholder:text-purple-100/28 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">Description</label>
+                                <textarea
+                                    value={videoDescription}
+                                    onChange={(e) => setVideoDescription(e.target.value)}
+                                    rows={5}
+                                    aria-label="video description"
+                                    className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white placeholder:text-purple-100/28 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">
+                                    Thumbnail
+                                </p>
+                                <p className="mt-1 text-xs text-purple-100/55">
+                                    Upload a custom frame or keep the current preview.
+                                </p>
+                            </div>
+
+                            {videoThumbnailPreview ? (
+                                <img
+                                    src={videoThumbnailPreview}
+                                    alt="Thumbnail preview"
+                                    className="h-44 w-full rounded-2xl border border-white/10 object-cover shadow-lg"
+                                />
+                            ) : (
+                                <div className="flex h-44 items-center justify-center rounded-2xl border border-dashed border-white/14 bg-black/20 text-sm text-purple-100/45">
+                                    No thumbnail preview yet
+                                </div>
+                            )}
+
+                            <label className="flex cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/12 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/18">
+                                Upload Thumbnail
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    aria-label="upload thumbnail"
+                                    onChange={(e) => handleUploadVideoThumbnail(e.target.files?.[0])}
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">
+                                    Spritesheet Thumbnail
+                                </label>
+                                <p className="mt-1 text-xs text-purple-100/55">
+                                    Select a frame from the generated spritesheet once it finishes loading automatically.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={loadVideoSpritesheet}
+                                disabled={loadingSpritesheet}
+                                className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {loadingSpritesheet ? "Loading..." : videoSpritesheet ? "Reload Spritesheet" : "Retry Now"}
+                            </button>
+                        </div>
+
+                        {videoSpritesheet ? (
+                            <SpritesheetPicker
+                                spritesheet={videoSpritesheet}
+                                selectedFrameIndex={selectedSpriteFrameIndex}
+                                onSelectFrame={(frameIndex) => setSelectedSpriteFrameIndex(frameIndex)}
+                                onReset={() => setSelectedSpriteFrameIndex(null)}
+                                onSave={saveSpriteSelectionAsThumbnail}
+                                saving={savingSprite}
+                                saveLabel="Use Selected Frame As Thumbnail"
+                            />
+                        ) : (
+                            <div className="rounded-2xl border border-dashed border-white/10 bg-black/18 px-4 py-5 text-sm text-purple-100/60">
+                                {loadingSpritesheet
+                                    ? "Loading thumbnail frames from the spritesheet..."
+                                    : spritesheetError || "Spritesheet frames will appear here automatically."}
+                            </div>
+                        )}
+                    </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="rounded-xl border border-red-500/22 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:bg-red-500/18"
+                    >
+                        Delete Video
+                    </button>
+
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={onClose}
+                            className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/16"
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            onClick={onSave}
+                            disabled={savingVideo}
+                            className="rounded-xl bg-linear-to-r from-violet-500 via-purple-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(168,85,247,0.35)] transition hover:brightness-110 disabled:opacity-60"
+                        >
+                            {savingVideo ? "Saving..." : "Save Changes"}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }
@@ -797,143 +1068,148 @@ const EditModal = ({
     onSave
 }: EditModalProps) => (
     <div
-        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
         onClick={onClose}
     >
         <div
-            className="w-full max-w-2xl rounded-2xl border border-white/10 bg-gradient-to-br from-[#111] to-[#0b0b0b] p-6 space-y-6 shadow-2xl"
+            className="w-full max-w-2xl rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-6 shadow-[0_24px_80px_rgba(6,8,20,0.34)]"
             onClick={(e) => e.stopPropagation()}
         >
+            <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white">
+                            Edit Profile
+                        </h2>
+                        <p className="mt-1 text-sm text-purple-100/65">
+                            Refresh your public profile, visuals, and channel identity.
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/10 text-purple-100/80 transition hover:bg-white/16 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
 
-            {/* HEADER */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">
-                    Edit Profile
-                </h2>
-                <button
-                    onClick={onClose}
-                    className="text-gray-400 hover:text-white transition"
-                >
-                    ✕
-                </button>
-            </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/52">
+                            Profile Photo
+                        </p>
+                        <p className="mt-1 text-sm text-purple-100/58">
+                            Update the face viewers see across your channel.
+                        </p>
 
-            {/* AVATAR + COVER */}
-            <div className="grid sm:grid-cols-2 gap-6">
-
-                {/* AVATAR */}
-                <div className="space-y-3">
-                    <p className="text-xs text-gray-400">Profile Photo</p>
-
-                    <div className="flex items-center gap-4">
-                        <UserAvatar
-                            name={userName || name}
-                            avatarUrl={avatarUrl}
-                            avatarKey={avatarKey}
-                            className="w-16 h-16 text-lg border border-white/10"
-                        />
-
-                        <label className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm cursor-pointer transition">
-                            Change
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                aria-label="profile photo"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) onAvatarChange(file)
-                                }}
+                        <div className="mt-4 flex items-center gap-4">
+                            <UserAvatar
+                                name={userName || name}
+                                avatarUrl={avatarUrl}
+                                avatarKey={avatarKey}
+                                className="h-18 w-18 border-2 border-white/20 text-lg shadow-lg"
                             />
-                        </label>
+
+                            <label className="cursor-pointer rounded-xl border border-white/10 bg-white/14 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20">
+                                Change
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    aria-label="profile photo"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) onAvatarChange(file)
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/52">
+                            Cover Photo
+                        </p>
+                        <p className="mt-1 text-sm text-purple-100/58">
+                            Choose a banner that gives your page more energy.
+                        </p>
+
+                        <div className="mt-4 flex items-center gap-4">
+                            <img
+                                src={coverUrl || "https://i.pinimg.com/originals/4f/de/0e/4fde0ed05a14d7f6c1a0b19daec5a731.jpg"}
+                                alt="Cover preview"
+                                className="h-18 w-32 rounded-xl border border-white/12 object-cover shadow-lg"
+                            />
+
+                            <label className="cursor-pointer rounded-xl border border-white/10 bg-white/14 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20">
+                                Change
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    aria-label="cover photo"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) onCoverChange(file)
+                                    }}
+                                />
+                            </label>
+                        </div>
                     </div>
                 </div>
 
-                {/* COVER */}
-                <div className="space-y-3">
-                    <p className="text-xs text-gray-400">Cover Photo</p>
-
-                    <div className="flex items-center gap-4">
-                        <img
-                            src={coverUrl || "https://i.pinimg.com/originals/4f/de/0e/4fde0ed05a14d7f6c1a0b19daec5a731.jpg"}
-                            alt="Cover preview"
-                            className="h-16 w-28 rounded-lg object-cover border border-white/10"
+                <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium uppercase tracking-[0.14em] text-purple-100/52">Name</label>
+                        <input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Enter your name"
+                            title="Name"
+                            aria-label="name"
+                            className="w-full rounded-2xl border border-white/10 bg-black/12 px-4 py-3 text-sm text-white placeholder:text-purple-100/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
                         />
+                    </div>
 
-                        <label className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm cursor-pointer transition">
-                            Change
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                aria-label="cover photo"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) onCoverChange(file)
-                                }}
-                            />
-                        </label>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium uppercase tracking-[0.14em] text-purple-100/52">Channel Title</label>
+                        <input
+                            value={channelName}
+                            onChange={(e) => setChannelName(e.target.value)}
+                            placeholder="Enter channel title"
+                            title="Channel Title"
+                            aria-label="channel title"
+                            className="w-full rounded-2xl border border-white/10 bg-black/12 px-4 py-3 text-sm text-white placeholder:text-purple-100/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
+                        />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium uppercase tracking-[0.14em] text-purple-100/52">Channel Description</label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Tell something about your channel"
+                            rows={4}
+                            className="w-full rounded-2xl border border-white/10 bg-black/12 px-4 py-3 text-sm text-white placeholder:text-purple-100/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
+                        />
                     </div>
                 </div>
-            </div>
 
-            {/* FORM */}
-            <div className="space-y-4">
+                <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
+                    <button
+                        onClick={onClose}
+                        className="rounded-xl border border-white/10 bg-white/12 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/18"
+                    >
+                        Cancel
+                    </button>
 
-                {/* NAME */}
-                <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Name</label>
-                    <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Enter your name"
-                        title="Name"
-                        aria-label="name"
-                        className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
+                    <button
+                        onClick={onSave}
+                        className="rounded-xl bg-linear-to-r from-violet-500 via-purple-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(168,85,247,0.34)] transition hover:brightness-110"
+                    >
+                        Save Changes
+                    </button>
                 </div>
-
-                {/* CHANNEL */}
-                <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Channel Title</label>
-                    <input
-                        value={channelName}
-                        onChange={(e) => setChannelName(e.target.value)}
-                        placeholder="Enter channel title"
-                        title="Channel Title"
-                        aria-label="channel title"
-                        className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                </div>
-
-                {/* DESCRIPTION */}
-                <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Channel Description</label>
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Tell something about your channel"
-                        rows={3}
-                        className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                </div>
-            </div>
-
-            {/* ACTIONS */}
-            <div className="flex justify-end gap-3 pt-2">
-                <button
-                    onClick={onClose}
-                    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm transition"
-                >
-                    Cancel
-                </button>
-
-                <button
-                    onClick={onSave}
-                    className="px-5 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-sm font-medium shadow"
-                >
-                    Save Changes
-                </button>
             </div>
         </div>
     </div>

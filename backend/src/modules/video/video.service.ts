@@ -24,9 +24,20 @@ import { processVideoAfterUpload } from "./video-processing.service"
 const AWS_BUCKET = process.env.AWS_BUCKET as string
 const execAsync = promisify(exec)
 
+class HttpError extends Error {
+    statusCode: number
+
+    constructor(statusCode: number, message: string) {
+        super(message)
+        this.statusCode = statusCode
+    }
+}
+
 if (!AWS_BUCKET) {
     throw new Error("AWS_BUCKET not configured")
 }
+
+const ACTIVE_VIDEO_STATUS = "ACTIVE"
 
 const signCloudFrontUrl = (key: string) => {
     const encodedKey = encodeURI(key)
@@ -170,7 +181,7 @@ export const completeUpload = async (
             size: String(size),
             thumbnailKey: thumbnailKey || null,
             uploadSource: "MANUAL",
-            status: "UPLOADED",
+            status: ACTIVE_VIDEO_STATUS,
             channelId: user.channel.id,
             visibility: finalVisibility,
             organizationId: finalVisibility === "ORGANIZATION" ? orgAccess.activeOrganizationId : null
@@ -298,7 +309,7 @@ export const getAllVideos = async (userId?: string) => {
 
     const videos = await prisma.video.findMany({
         where: {
-            status: "UPLOADED",
+            status: ACTIVE_VIDEO_STATUS,
             ...visibilityWhere
         },
         include: {
@@ -349,7 +360,7 @@ export const getAllVideos = async (userId?: string) => {
 export const getPortraitVideos = async (userId?: string) => {
     const videos = await prisma.video.findMany({
         where: {
-            status: "UPLOADED",
+            status: ACTIVE_VIDEO_STATUS,
             visibility: "PUBLIC",
             metadata: {
                 is: {
@@ -434,7 +445,7 @@ export const getOrganizationRowVideos = async (
 
     const videos = await prisma.video.findMany({
         where: {
-            status: "UPLOADED",
+            status: ACTIVE_VIDEO_STATUS,
             visibility: "ORGANIZATION",
             organizationId,
             channel: {
@@ -502,7 +513,7 @@ export const searchVideos = async (query: string, userId?: string) => {
         where: {
             AND: [
                 {
-                    status: "UPLOADED",
+                    status: ACTIVE_VIDEO_STATUS,
                     ...visibilityWhere
                 },
                 {
@@ -643,7 +654,7 @@ export const getVideoById = async (publicId: string, userId?: string) => {
     const video = await prisma.video.findFirst({
         where: {
             publicId, // ✅ CHANGED
-            status: "UPLOADED"
+            status: ACTIVE_VIDEO_STATUS
         },
         include: {
             channel: {
@@ -770,6 +781,7 @@ const getOwnedVideo = async (userId: string, videoId: string) => {
 
     if (!video) throw new Error("Video not found")
     if (video.channel.userId !== userId) throw new Error("Unauthorized")
+    if (video.status !== ACTIVE_VIDEO_STATUS) throw new Error("Video not found")
 
     return video
 }
@@ -780,12 +792,22 @@ export const getUploadSpritesheet = async (userId: string, videoId: string) => {
     const spritesheetKey = `${video.channel.username}/spritesheets/${video.id}/sheet.webp`
     const metaKey = `${video.channel.username}/spritesheets/${video.id}/meta.json`
 
-    const metaObject = await s3.send(
-        new GetObjectCommand({
-            Bucket: AWS_BUCKET,
-            Key: metaKey
-        })
-    )
+    let metaObject
+
+    try {
+        metaObject = await s3.send(
+            new GetObjectCommand({
+                Bucket: AWS_BUCKET,
+                Key: metaKey
+            })
+        )
+    } catch (error: any) {
+        if (error?.name === "NoSuchKey" || error?.$metadata?.httpStatusCode === 404) {
+            throw new HttpError(404, "Spritesheet is not ready yet")
+        }
+
+        throw error
+    }
 
     const metaRaw = await streamToString(metaObject.Body)
     const meta = JSON.parse(metaRaw) as SpriteMeta
@@ -925,4 +947,41 @@ export const updateOwnedVideo = async (
     }
 
     return updatedVideo
+}
+
+export const deleteOwnedVideo = async (
+    userId: string,
+    publicId: string
+) => {
+    const video = await prisma.video.findFirst({
+        where: { publicId },
+        include: {
+            channel: {
+                select: {
+                    userId: true
+                }
+            }
+        }
+    })
+
+    if (!video) {
+        throw new Error("Video not found")
+    }
+
+    if (video.channel.userId !== userId) {
+        throw new Error("Unauthorized")
+    }
+
+    if (video.status !== ACTIVE_VIDEO_STATUS) {
+        throw new Error("Video not found")
+    }
+
+    await prisma.video.update({
+        where: { id: video.id },
+        data: {
+            status: "DELETED"
+        }
+    })
+
+    return { success: true }
 }

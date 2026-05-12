@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { api } from "@/api/axios";
 import AppLayout from "@/layouts/AppLayout";
 import axios from "axios";
@@ -208,7 +209,6 @@ const S3Import = () => {
                     imported += 1;
                 } catch (error) {
                     failed += 1;
-                    console.error("Import failed for key:", key, error);
                 } finally {
                     processed += 1;
                     setImportStats({
@@ -239,7 +239,7 @@ const S3Import = () => {
 
     return (
         <AppLayout>
-            <div className="max-w-6xl mx-auto px-6 pt-6 pb-10 space-y-8">
+            <div className="w-full px-6 pt-6 pb-10 space-y-8">
 
                 {/* Header */}
                 <div className="flex justify-between items-center">
@@ -562,12 +562,13 @@ const S3Import = () => {
                             </div>
 
                             {!importing && (
-                                <div className="pt-2">
+                                <div className="flex justify-end pt-2">
                                     <button
                                         onClick={() => setShowImportModal(false)}
-                                        className="bg-purple-600 hover:bg-purple-700 transition px-4 py-2 rounded-lg text-sm"
+                                        aria-label="Close import progress"
+                                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
                                     >
-                                        Close
+                                        <X size={18} />
                                     </button>
                                 </div>
                             )}

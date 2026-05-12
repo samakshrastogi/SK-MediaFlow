@@ -58,21 +58,27 @@ const SpritesheetPicker = ({
     return (
         <div className="rounded-2xl border border-white/15 bg-white/5 p-4 md:p-5 space-y-4">
             <div className="relative rounded-xl overflow-hidden bg-black border border-white/10">
-                <div
-                    className="relative w-full max-h-[420px] overflow-hidden"
-                    style={{ aspectRatio: previewRatio }}
-                >
-                    <img
-                        src={spritesheet.spritesheetUrl}
-                        alt="Spritesheet preview"
-                        className="absolute max-w-none select-none pointer-events-none"
+                <div className="flex justify-center p-3 md:p-4">
+                    <div
+                        className="relative w-full overflow-hidden rounded-xl"
                         style={{
-                            width: `${Math.max(1, spritesheet.cols) * 100}%`,
-                            height: `${Math.max(1, spritesheet.rows) * 100}%`,
-                            left: `-${col * 100}%`,
-                            top: `-${row * 100}%`
+                            aspectRatio: previewRatio,
+                            maxWidth: `${Math.max(1, spritesheet.frameWidth)}px`
                         }}
-                    />
+                    >
+                        <img
+                            src={spritesheet.spritesheetUrl}
+                            alt="Spritesheet preview"
+                            className="absolute max-w-none select-none pointer-events-none"
+                            style={{
+                                width: `${Math.max(1, spritesheet.cols) * 100}%`,
+                                height: `${Math.max(1, spritesheet.rows) * 100}%`,
+                                left: `-${col * 100}%`,
+                                top: `-${row * 100}%`,
+                                imageRendering: "auto"
+                            }}
+                        />
+                    </div>
                 </div>
 
                 <div className="absolute left-0 right-0 bottom-0 h-14 bg-gradient-to-t from-black/75 to-transparent pointer-events-none" />

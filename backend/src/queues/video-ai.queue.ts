@@ -46,7 +46,5 @@ export const addVideoAIJob = async (videoId: string) => {
         }
     );
 
-    console.log("AI job queued:", jobId);
-
     return job;
 };

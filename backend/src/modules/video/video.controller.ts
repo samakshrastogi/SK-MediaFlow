@@ -12,7 +12,8 @@ import {
     searchVideos,
     getUploadSpritesheet,
     saveThumbnailFromSpritesheet,
-    updateOwnedVideo
+    updateOwnedVideo,
+    deleteOwnedVideo
 } from "./video.service"
 import { nanoid } from "nanoid"
 import { prisma } from "../../config/prisma"
@@ -194,7 +195,7 @@ export const importSelectedVideos = async (
                         s3Key: key,
                         size: "0",
                         uploadSource: "S3_IMPORT",
-                        status: "UPLOADED",
+                        status: "ACTIVE",
                         channelId: user.channel.id,
                         visibility: "PUBLIC"
                     }
@@ -340,8 +341,6 @@ export const handleGetAIInsights = async (
             }
         })
     } catch (error) {
-        console.error("AI Insights Error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Failed to fetch AI insights"
@@ -355,7 +354,7 @@ export const handleGetChannelPublicVideos = async (req, res) => {
         const videos = await prisma.video.findMany({
             where: {
                 channelId: normalizeId(channelId),
-                status: "UPLOADED",
+                status: "ACTIVE",
                 visibility: "PUBLIC"
             },
             include: {
@@ -401,7 +400,6 @@ export const handleGetChannelPublicVideos = async (req, res) => {
         })
 
     } catch (err) {
-        console.error(err)
         res.status(500).json({ success: false })
     }
 }
@@ -431,7 +429,7 @@ export const handleGetChannelPrivateVideos = async (req: AuthRequest, res: Respo
         const videos = await prisma.video.findMany({
             where: {
                 channelId: normalizeId(channelId),
-                status: "UPLOADED",
+                status: "ACTIVE",
                 visibility: "PRIVATE"
             },
             include: {
@@ -476,7 +474,6 @@ export const handleGetChannelPrivateVideos = async (req: AuthRequest, res: Respo
         })
 
     } catch (err) {
-        console.error(err)
         return res.status(500).json({ success: false })
     }
 }
@@ -506,7 +503,7 @@ export const handleGetChannelOrganizationVideos = async (req: AuthRequest, res: 
         const videos = await prisma.video.findMany({
             where: {
                 channelId: normalizeId(channelId),
-                status: "UPLOADED",
+                status: "ACTIVE",
                 visibility: "ORGANIZATION"
             },
             include: {
@@ -550,7 +547,6 @@ export const handleGetChannelOrganizationVideos = async (req: AuthRequest, res: 
             data: formatted
         })
     } catch (err) {
-        console.error(err)
         return res.status(500).json({ success: false })
     }
 }
@@ -672,6 +668,43 @@ export const handleUpdateOwnedVideo = async (
     }
 }
 
+export const handleDeleteOwnedVideo = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized"
+            })
+        }
+
+        const publicId = String(req.params.publicId || "").trim()
+        if (!publicId) {
+            return res.status(400).json({
+                success: false,
+                message: "publicId is required"
+            })
+        }
+
+        await deleteOwnedVideo(req.user.id, publicId)
+
+        return res.json({
+            success: true
+        })
+    } catch (error: any) {
+        const message = error?.message || "Failed to delete video"
+        const status =
+            message === "Unauthorized" ? 403 : message === "Video not found" ? 404 : 500
+
+        return res.status(status).json({
+            success: false,
+            message
+        })
+    }
+}
+
 export const handleSearchVideos = async (
     req: AuthRequest,
     res: Response
@@ -776,7 +809,7 @@ export const handleGetUploadSpritesheet = async (
             data
         })
     } catch (error: any) {
-        return res.status(500).json({
+        return res.status(error?.statusCode || 500).json({
             success: false,
             message: error.message || "Failed to fetch spritesheet"
         })
@@ -816,7 +849,7 @@ export const handleSaveThumbnailFromSpritesheet = async (
             data
         })
     } catch (error: any) {
-        return res.status(500).json({
+        return res.status(error?.statusCode || 500).json({
             success: false,
             message: error.message || "Failed to save spritesheet thumbnail"
         })

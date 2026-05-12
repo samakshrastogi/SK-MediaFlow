@@ -24,7 +24,6 @@ export const io = new Server(server, {
 
 io.on("connection", (socket) => {
   socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
   });
 });
 
@@ -91,8 +90,7 @@ queueEvents.on("failed", async ({ jobId }) => {
     if (!videoId) return;
 
     io.emit("ai-failed", { videoId });
-  } catch (error) {
-    console.error("Failed to emit ai-failed event", error);
+  } catch {
   }
 });
 

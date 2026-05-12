@@ -196,7 +196,7 @@ export const importVideoFromUserBucket = async (
             thumbnailKey,
             size: String(metadata.ContentLength),
             uploadSource: "S3_IMPORT",
-            status: "UPLOADED",
+            status: "ACTIVE",
             channelId: cred.user.channel.id,
             visibility: visibility || "PUBLIC",
         },

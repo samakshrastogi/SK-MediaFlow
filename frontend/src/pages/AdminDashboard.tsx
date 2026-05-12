@@ -83,315 +83,238 @@ const AdminDashboard = () => {
 
     return (
         <AppLayout>
-            <div className="mx-auto max-w-7xl space-y-8 px-2 sm:px-4">
-
-                {/* HEADER */}
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-6 shadow-lg space-y-4">
-
-                    {/* TOP ROW */}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-                        {/* TITLE */}
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                                Platform Admin Dashboard
-                            </h1>
-                            <p className="text-sm text-gray-400 mt-1">
-                                Platform-level analytics & controls
-                            </p>
-                        </div>
-
-                        {/* ACTIONS */}
-                        <div className="flex items-center gap-2">
-
-                            <button
-                                onClick={loadMetrics}
-                                className="rounded-lg bg-white/10 hover:bg-white/20 transition px-3 py-2 text-xs font-medium"
-                            >
-                                🔄 Refresh
-                            </button>
-
-                        </div>
-                    </div>
-
-                    {/* STATUS STRIP */}
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                        <span className="px-2 py-1 rounded bg-white/5 border border-white/10">
-                            🟢 System Active
-                        </span>
-
-                        <span>
-                            Last updated: {new Date().toLocaleTimeString()}
-                        </span>
-                    </div>
-
-                    {/* MESSAGE */}
-                    {message && (
-                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-300">
-                            {message}
-                        </div>
-                    )}
-
-                </div>
-
+            <div className="w-full space-y-6 px-2 sm:px-4">
                 {!canAccess && (
                     <div className="rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/10 to-transparent p-6 text-center space-y-4">
-
-                        {/* ICON */}
                         <div className="text-4xl">🚫</div>
-
-                        {/* TEXT */}
                         <div>
                             <h2 className="text-lg font-semibold text-white">
                                 Access Restricted
                             </h2>
-                            <p className="text-sm text-gray-400 mt-1">
+                            <p className="mt-1 text-sm text-gray-400">
                                 You do not have permission to view this dashboard.
                             </p>
                         </div>
-
-                        {/* OPTIONAL ACTION */}
                         <div className="text-xs text-gray-500">
                             Contact a super admin to request access.
                         </div>
-
                     </div>
                 )}
 
-                {/* METRICS */}
                 {metrics && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-
-                        <MetricCard label="Users" value={metrics.cards.uniqueUsers} icon="👥" sub="Total users" />
-
-                        <MetricCard label="Logins" value={metrics.cards.totalLogins} icon="🔐" sub="All time logins" />
-
-                        <MetricCard label="Session" value={avgSessionText} icon="⏱️" sub="Avg session time" />
-
-                        <MetricCard label="Likes" value={metrics.cards.likes} icon="👍" sub="Total likes" />
-
-                        <MetricCard label="Dislikes" value={metrics.cards.dislikes} icon="👎" sub="Total dislikes" />
-
-                        <MetricCard label="Shares" value={metrics.cards.shares} icon="📤" sub="Total shares" />
-
-                    </div>
-                )}
-
-                {/* LOGIN CHART */}
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-6 space-y-5 shadow-md">
-
-                    {/* HEADER */}
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-white">
-                            Daily Login Activity
-                        </h2>
-
-                        <span className="text-xs text-gray-400">
-                            Last {metrics?.dailyLogins?.length || 0} days
-                        </span>
-                    </div>
-
-                    {/* CHART */}
-                    <div className="flex items-end gap-3 h-48">
-
-                        {(metrics?.dailyLogins || []).map((row) => {
-                            const height = chartMax
-                                ? Math.max(10, Math.round((row.count / chartMax) * 160))
-                                : 10
-
-                            return (
-                                <div
-                                    key={row.day}
-                                    className="group flex flex-col items-center gap-2 relative"
-                                >
-
-                                    {/* TOOLTIP */}
-                                    <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition text-[10px] text-white bg-black/80 px-2 py-1 rounded">
-                                        {row.count}
+                    <section className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#6e37ab]/45 via-[#473795]/44 to-[#20214e]/62 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                        <div className="border-b border-white/10 px-5 py-4 sm:px-6">
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                <div className="space-y-1.5">
+                                    <div>
+                                        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                                            Platform Admin Dashboard
+                                        </h1>
+                                        <p className="mt-1.5 text-sm text-purple-100/65">
+                                            Platform-wide analytics, access control, and health signals in one connected workspace.
+                                        </p>
                                     </div>
 
-                                    {/* BAR */}
-                                    <div
-                                        className="w-7 rounded-md bg-gradient-to-t from-blue-600 to-blue-400 group-hover:from-blue-500 group-hover:to-blue-300 transition-all duration-300"
-                                        style={{ height }}
-                                    />
+                                    <div className="flex flex-wrap items-center gap-3 text-xs text-purple-100/70">
+                                        <span>
+                                            Last updated:{" "}
+                                            {new Date().toLocaleTimeString([], {
+                                                hour: "numeric",
+                                                minute: "2-digit"
+                                            })}
+                                        </span>
+                                    </div>
+                                </div>
 
-                                    {/* DATE */}
-                                    <span className="text-[10px] text-gray-400">
-                                        {row.day.slice(5)}
+                                <span className="inline-flex rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200">
+                                    System Active
+                                </span>
+                            </div>
+
+                            {message && (
+                                <div className="mt-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-200">
+                                    {message}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-5 px-5 py-5 sm:px-6">
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                                <MetricCard label="Users" value={metrics.cards.uniqueUsers} icon="👥" sub="Total users" />
+                                <MetricCard label="Logins" value={metrics.cards.totalLogins} icon="🔐" sub="All time logins" />
+                                <MetricCard label="Session" value={avgSessionText} icon="⏱️" sub="Avg session time" />
+                                <DualMetricCard
+                                    label="Reactions"
+                                    leftIcon="👍"
+                                    leftLabel="Likes"
+                                    leftValue={metrics.cards.likes}
+                                    rightIcon="👎"
+                                    rightLabel="Dislikes"
+                                    rightValue={metrics.cards.dislikes}
+                                />
+                                <MetricCard label="Shares" value={metrics.cards.shares} icon="📤" sub="Total shares" />
+                            </div>
+
+                            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <h2 className="text-lg font-semibold text-white">
+                                            Daily Login Activity
+                                        </h2>
+                                        <span className="text-xs text-purple-100/55">
+                                            Last {metrics.dailyLogins.length} days
+                                        </span>
+                                    </div>
+
+                                    {metrics.dailyLogins.length > 0 ? (
+                                        <div className="rounded-2xl border border-white/6 bg-black/14 p-4">
+                                            <div className="flex min-h-[168px] items-end justify-start gap-3 overflow-x-auto pb-1">
+                                            {metrics.dailyLogins.map((row) => {
+                                                const height = chartMax
+                                                    ? Math.max(18, Math.round((row.count / chartMax) * 110))
+                                                    : 18
+
+                                                return (
+                                                    <div
+                                                        key={row.day}
+                                                        className="group relative flex w-12 shrink-0 flex-col items-center gap-2"
+                                                    >
+                                                        <div className="absolute -top-7 rounded-lg border border-white/10 bg-black/80 px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100">
+                                                            {row.count}
+                                                        </div>
+                                                        <div
+                                                            className="w-full rounded-xl bg-gradient-to-t from-blue-600 via-sky-500 to-cyan-300 transition-all duration-300 group-hover:from-blue-500 group-hover:to-cyan-200"
+                                                            style={{ height }}
+                                                        />
+                                                        <span className="text-[10px] font-medium text-purple-100/55">
+                                                            {row.day.slice(5)}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex min-h-[168px] flex-col items-center justify-center rounded-2xl border border-white/6 bg-black/14 text-center">
+                                            <div className="text-4xl opacity-80">📊</div>
+                                            <h3 className="mt-3 text-sm font-semibold text-white">
+                                                No login activity yet
+                                            </h3>
+                                            <p className="mt-1 max-w-xs text-xs text-purple-100/50">
+                                                Once users start logging in, activity will appear here.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-5">
+                                    {user?.email === SUPER_ADMIN_EMAIL && (
+                                        <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                            <div className="mb-3">
+                                                <div className="mb-2 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] text-emerald-200">
+                                                    SUPER ADMIN
+                                                </div>
+                                                <h2 className="text-lg font-semibold text-white">
+                                                    Grant Admin Access
+                                                </h2>
+                                                <p className="mt-1 text-xs text-purple-100/60">
+                                                    Provide access to the platform analytics dashboard.
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-2xl border border-white/6 bg-black/14 p-3">
+                                                <div className="flex flex-col gap-2">
+                                                    <input
+                                                        value={grantEmail}
+                                                        onChange={(e) => setGrantEmail(e.target.value)}
+                                                        placeholder="Enter user email..."
+                                                        className="flex-1 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-purple-100/35 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                    />
+
+                                                    <button
+                                                        onClick={handleGrant}
+                                                        className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-500"
+                                                    >
+                                                        Grant Access
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                        <h2 className="mb-3 text-lg font-semibold text-white">
+                                            Subscriptions
+                                        </h2>
+
+                                        <div className="space-y-2.5">
+                                            {(metrics.subscriptionCounts || []).map((row) => (
+                                                <div
+                                                    key={row.plan}
+                                                    className="flex items-center justify-between rounded-2xl border border-white/6 bg-black/14 px-4 py-3 transition hover:bg-white/8"
+                                                >
+                                                    <span className="text-sm text-white">{row.plan}</span>
+                                                    <span className="text-sm font-semibold text-purple-100/80">{row.count}</span>
+                                                </div>
+                                            ))}
+
+                                            {!metrics.subscriptionCounts.length && (
+                                                <p className="py-6 text-center text-sm text-purple-100/55">
+                                                    No subscription data available
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <div className="mb-3 flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold text-white">
+                                        Top Organizations
+                                    </h2>
+                                    <span className="text-xs text-purple-100/55">
+                                        Ranked by performance
                                     </span>
                                 </div>
-                            )
-                        })}
 
-                    </div>
+                                <div className="space-y-2.5">
+                                    {(metrics.topOrganizations || []).map((org, idx) => {
+                                        const maxViews = Math.max(...metrics.topOrganizations.map((o) => o.views || 0), 1)
+                                        const progress = Math.round((org.views / maxViews) * 100)
 
-                    {!metrics?.dailyLogins?.length && (
-                        <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+                                        return (
+                                            <div
+                                                key={org.id}
+                                                className="rounded-2xl border border-white/6 bg-black/14 p-3.5 transition hover:bg-white/8"
+                                            >
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="w-5 text-xs text-purple-100/45">#{idx + 1}</span>
+                                                        <span className="font-medium text-white">{org.name}</span>
+                                                    </span>
+                                                    <span className="text-xs text-purple-100/65">{org.views} views</span>
+                                                </div>
+                                                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                                    <div className="h-full rounded-full bg-blue-500" style={{ width: `${progress}%` }} />
+                                                </div>
+                                                <div className="mt-2 flex gap-3 text-[11px] text-purple-100/55">
+                                                    <span>👍 {org.likes}</span>
+                                                    <span>📤 {org.shares}</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
 
-                            {/* ICON */}
-                            <div className="text-4xl opacity-80">📊</div>
-
-                            {/* TITLE */}
-                            <h3 className="text-sm font-semibold text-white">
-                                No login activity yet
-                            </h3>
-
-                            {/* DESCRIPTION */}
-                            <p className="text-xs text-gray-400 max-w-xs">
-                                Once users start logging in, activity will appear here.
-                            </p>
-
-                        </div>
-                    )}
-                </div>
-
-                {/* TABLES */}
-                <div className="grid gap-6 lg:grid-cols-2">
-
-                    {/* TOP ORGS */}
-                    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-5 space-y-4 shadow-md">
-
-                        {/* HEADER */}
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-white">
-                                Top Organizations
-                            </h2>
-                            <span className="text-xs text-gray-400">
-                                Ranked by performance
-                            </span>
-                        </div>
-
-                        {/* LIST */}
-                        {(metrics?.topOrganizations || []).map((org, idx) => {
-                            const maxViews = Math.max(...(metrics?.topOrganizations || []).map(o => o.views || 0), 1)
-                            const progress = Math.round((org.views / maxViews) * 100)
-
-                            return (
-                                <div
-                                    key={org.id}
-                                    className="rounded-xl bg-black/30 p-3 space-y-2 hover:bg-black/40 transition"
-                                >
-
-                                    {/* TOP ROW */}
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-400 w-5">
-                                                #{idx + 1}
-                                            </span>
-                                            <span className="text-white font-medium">
-                                                {org.name}
-                                            </span>
-                                        </span>
-
-                                        <span className="text-xs text-gray-300">
-                                            {org.views} views
-                                        </span>
-                                    </div>
-
-                                    {/* PROGRESS BAR */}
-                                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-500 rounded-full"
-                                            style={{ width: `${progress}%` }}
-                                        />
-                                    </div>
-
-                                    {/* META */}
-                                    <div className="flex gap-3 text-[11px] text-gray-400">
-                                        <span>👍 {org.likes}</span>
-                                        <span>📤 {org.shares}</span>
-                                    </div>
+                                    {!metrics.topOrganizations.length && (
+                                        <p className="py-6 text-center text-sm text-purple-100/55">
+                                            No organization data available
+                                        </p>
+                                    )}
                                 </div>
-                            )
-                        })}
-
-                        {/* EMPTY */}
-                        {!metrics?.topOrganizations?.length && (
-                            <p className="text-sm text-gray-400 text-center py-6">
-                                No organization data available
-                            </p>
-                        )}
-                    </div>
-
-                    {/* SUBSCRIPTIONS */}
-                    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-5 space-y-4 shadow-md">
-
-                        {/* HEADER */}
-                        <h2 className="text-lg font-semibold text-white">
-                            Subscriptions
-                        </h2>
-
-                        {/* LIST */}
-                        {(metrics?.subscriptionCounts || []).map((row) => (
-                            <div
-                                key={row.plan}
-                                className="flex items-center justify-between rounded-xl bg-black/30 p-3 hover:bg-black/40 transition"
-                            >
-                                <span className="text-sm text-white">
-                                    {row.plan}
-                                </span>
-
-                                <span className="text-sm font-semibold text-gray-300">
-                                    {row.count}
-                                </span>
                             </div>
-                        ))}
-
-                        {/* EMPTY */}
-                        {!metrics?.subscriptionCounts?.length && (
-                            <p className="text-sm text-gray-400 text-center py-6">
-                                No subscription data available
-                            </p>
-                        )}
-                    </div>
-
-                </div>
-
-                {/* GRANT ACCESS */}
-                {user?.email === SUPER_ADMIN_EMAIL && (
-                    <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 backdrop-blur-xl p-6 space-y-4 shadow-md">
-
-                        {/* HEADER */}
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-white">
-                                    Grant Admin Access
-                                </h2>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Provide access to platform analytics dashboard
-                                </p>
-                            </div>
-
-                            <span className="text-[10px] px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                                SUPER ADMIN
-                            </span>
                         </div>
-
-                        {/* INPUT + ACTION */}
-                        <div className="flex flex-col sm:flex-row gap-2">
-
-                            <input
-                                value={grantEmail}
-                                onChange={(e) => setGrantEmail(e.target.value)}
-                                placeholder="Enter user email..."
-                                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-
-                            <button
-                                onClick={handleGrant}
-                                className="rounded-xl bg-emerald-600 hover:bg-emerald-500 transition px-5 py-2.5 text-sm font-medium shadow-md"
-                            >
-                                Grant Access
-                            </button>
-                        </div>
-
-                        {/* INFO NOTE */}
-                        <p className="text-[11px] text-gray-500">
-                            The user will gain access to platform-level analytics and admin controls.
-                        </p>
-
-                    </div>
+                    </section>
                 )}
             </div>
         </AppLayout>
@@ -409,25 +332,61 @@ const MetricCard = ({
     icon?: string
     sub?: string
 }) => (
-    <div className="group rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-4 shadow-md transition hover:scale-[1.03] hover:border-white/20">
-
-        {/* TOP */}
+    <div className="group rounded-3xl border border-white/8 bg-white/6 p-3 shadow-sm transition hover:border-white/16 hover:bg-white/8">
         <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-400">{label}</p>
-            {icon && <span className="text-sm opacity-80 group-hover:scale-110 transition">{icon}</span>}
+            <p className="text-xs text-purple-100/55">{label}</p>
+            {icon ? <span className="text-sm opacity-80 transition group-hover:scale-110">{icon}</span> : null}
         </div>
 
-        {/* VALUE */}
-        <p className="text-xl sm:text-2xl font-bold text-white mt-2 tracking-tight">
+        <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl">
             {value}
         </p>
 
-        {/* SUBTEXT */}
-        {sub && (
-            <p className="text-[11px] text-gray-500 mt-1">
+        {sub ? (
+            <p className="mt-0.5 text-[11px] text-purple-100/45">
                 {sub}
             </p>
-        )}
+        ) : null}
+    </div>
+)
+
+const DualMetricCard = ({
+    label,
+    leftIcon,
+    leftLabel,
+    leftValue,
+    rightIcon,
+    rightLabel,
+    rightValue
+}: {
+    label: string
+    leftIcon: string
+    leftLabel: string
+    leftValue: number | string
+    rightIcon: string
+    rightLabel: string
+    rightValue: number | string
+}) => (
+    <div className="rounded-3xl border border-white/8 bg-white/6 p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs text-purple-100/55">{label}</p>
+            <div className="flex items-center gap-2 text-sm opacity-80">
+                <span>{leftIcon}</span>
+                <span>{rightIcon}</span>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl border border-white/6 bg-black/14 px-3 py-2.5">
+                <p className="text-[11px] text-purple-100/45">{leftLabel}</p>
+                <p className="mt-0.5 text-lg font-bold text-white">{leftValue}</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/6 bg-black/14 px-3 py-2.5">
+                <p className="text-[11px] text-purple-100/45">{rightLabel}</p>
+                <p className="mt-0.5 text-lg font-bold text-white">{rightValue}</p>
+            </div>
+        </div>
     </div>
 )
 

@@ -65,7 +65,7 @@ export const handleRecordView = async (req: AuthRequest, res: Response) => {
         const { publicId } = req.body
         const video = await findVideoByPublicId(publicId)
 
-        if (!video) return res.status(404).json({ message: "Video not found" })
+        if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
         const recent = await prisma.videoView.findFirst({
@@ -105,7 +105,7 @@ export const handleWatchProgress = async (req: AuthRequest, res: Response) => {
         if (!safeWatched) return res.json({ success: true })
 
         const video = await findVideoByPublicId(publicId)
-        if (!video) return res.status(404).json({ message: "Video not found" })
+        if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
         await prisma.watchHistory.upsert({
@@ -147,7 +147,7 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
         }
 
         const video = await findVideoByPublicId(publicId)
-        if (!video) return res.status(404).json({ message: "Video not found" })
+        if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
         const existing = await prisma.videoReaction.findUnique({
@@ -193,7 +193,7 @@ export const handleComment = async (req: AuthRequest, res: Response) => {
         if (!text?.trim()) return res.status(400).json({ message: "Comment text is required" })
 
         const video = await findVideoByPublicId(publicId)
-        if (!video) return res.status(404).json({ message: "Video not found" })
+        if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
         const comment = await prisma.videoComment.create({
@@ -255,7 +255,7 @@ export const handleToggleSubscribe = async (req: AuthRequest, res: Response) => 
         const { publicId } = req.body
         const video = await findVideoByPublicId(publicId)
 
-        if (!video?.channel?.id) return res.status(404).json({ message: "Channel not found" })
+        if (!video || video.status !== "ACTIVE" || !video?.channel?.id) return res.status(404).json({ message: "Channel not found" })
         await assertVideoAccess(video, req.user.id)
 
         if (video.channel.userId === req.user.id) {
@@ -310,7 +310,7 @@ export const handleAddToPlaylist = async (req: AuthRequest, res: Response) => {
                 }
             }
         })
-        if (!video) return res.status(404).json({ message: "Video not found" })
+        if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
         const action = await prisma.videoAction.create({
@@ -367,7 +367,7 @@ export const handleGetVideoActions = async (req: AuthRequest, res: Response) => 
         const publicId = req.params.publicId
         const video = await findVideoByPublicId(publicId)
 
-        if (!video) {
+        if (!video || video.status !== "ACTIVE") {
             return res.status(404).json({
                 success: false,
                 message: "Video not found"
@@ -461,7 +461,10 @@ export const handleGetFavouriteVideos = async (req: AuthRequest, res: Response) 
         const likes = await prisma.videoReaction.findMany({
             where: {
                 userId: req.user.id,
-                type: "LIKE"
+                type: "LIKE",
+                video: {
+                    status: "ACTIVE"
+                }
             },
             include: {
                 video: {
@@ -515,7 +518,6 @@ export const handleGetFavouriteVideos = async (req: AuthRequest, res: Response) 
 
         return res.json(videos)
     } catch (error) {
-        console.error("🔥 Favourite API Error:", error)
         return res.status(500).json({ message: "Failed to fetch favourite videos" })
     }
 }
@@ -528,7 +530,12 @@ export const handleGetUserPlaylistsWithVideos = async (req: AuthRequest, res: Re
             where: { userId: req.user.id },
             include: {
                 actions: {
-                    where: { actionType: "ADD_TO_PLAYLIST" },
+                    where: {
+                        actionType: "ADD_TO_PLAYLIST",
+                        video: {
+                            status: "ACTIVE"
+                        }
+                    },
                     include: {
                         video: {
                             include: {
@@ -587,7 +594,6 @@ export const handleGetUserPlaylistsWithVideos = async (req: AuthRequest, res: Re
 
         return res.json(formatted)
     } catch (error) {
-        console.error("🔥 Playlist API Error:", error)
         return res.status(500).json({ message: "Failed to fetch playlists" })
     }
 }
@@ -598,25 +604,46 @@ export const handleGetUserActivity = async (req: AuthRequest, res: Response) => 
 
         const [watch, likes, comments, shares] = await Promise.all([
             prisma.watchHistory.findMany({
-                where: { userId: req.user.id },
+                where: {
+                    userId: req.user.id,
+                    video: {
+                        status: "ACTIVE"
+                    }
+                },
                 include: { video: true },
                 orderBy: { lastWatchedAt: "desc" },
                 take: 20
             }),
             prisma.videoReaction.findMany({
-                where: { userId: req.user.id, type: "LIKE" },
+                where: {
+                    userId: req.user.id,
+                    type: "LIKE",
+                    video: {
+                        status: "ACTIVE"
+                    }
+                },
                 include: { video: true },
                 orderBy: { createdAt: "desc" },
                 take: 20
             }),
             prisma.videoComment.findMany({
-                where: { userId: req.user.id },
+                where: {
+                    userId: req.user.id,
+                    video: {
+                        status: "ACTIVE"
+                    }
+                },
                 include: { video: true },
                 orderBy: { createdAt: "desc" },
                 take: 20
             }),
             prisma.videoShare.findMany({
-                where: { userId: req.user.id },
+                where: {
+                    userId: req.user.id,
+                    video: {
+                        status: "ACTIVE"
+                    }
+                },
                 include: { video: true },
                 orderBy: { createdAt: "desc" },
                 take: 20
@@ -650,7 +677,6 @@ export const handleGetUserActivity = async (req: AuthRequest, res: Response) => 
 
         return res.json(activity)
     } catch (error) {
-        console.error("🔥 Activity API Error:", error)
         return res.status(500).json({ message: "Failed to fetch activity" })
     }
 }

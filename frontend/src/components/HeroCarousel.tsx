@@ -98,8 +98,6 @@ const HeroCarousel = ({ videos }: Props) => {
 
     return (
         <div className="relative">
-
-            {/* HERO CARD */}
             <HeroCard
                 key={randomVideos[safeIndex].publicId}
                 video={randomVideos[safeIndex]}
@@ -107,21 +105,15 @@ const HeroCarousel = ({ videos }: Props) => {
                 onPrev={handlePrev}
             />
 
-            {/* COUNTER */}
-            <div className="absolute top-4 right-4 text-white text-xs bg-black/50 px-2 py-1 rounded">
-                {safeIndex + 1} / {randomVideos.length}
-            </div>
-
-            {/* DOTS */}
-            <div className="absolute bottom-4 right-6 flex gap-2">
+            <div className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/35 px-2.5 py-2 backdrop-blur-sm">
                 {randomVideos.map((_, index) => (
                     <div
                         key={index}
                         className={`
-                            h-2 rounded-full transition-all duration-300
+                            h-1.5 rounded-full transition-all duration-300
                             ${index === safeIndex
-                                ? "bg-white w-6"
-                                : "bg-white/40 w-2"}
+                                ? "w-5 bg-white"
+                                : "w-1.5 bg-white/35"}
                         `}
                     />
                 ))}

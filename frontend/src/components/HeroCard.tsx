@@ -1,4 +1,3 @@
-import { Play } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useEffect, useRef } from "react"
 
@@ -19,6 +18,12 @@ interface Props {
     onNext?: () => void
 }
 
+const clampTitleWords = (value: string, maxWords = 8) => {
+    const words = value.trim().split(/\s+/).filter(Boolean)
+    if (words.length <= maxWords) return value
+    return `${words.slice(0, maxWords).join(" ")}...`
+}
+
 const HeroCard = ({ video, onPrev, onNext }: Props) => {
     const navigate = useNavigate()
     const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -35,6 +40,7 @@ const HeroCard = ({ video, onPrev, onNext }: Props) => {
         video?.aiTitle ||
         video?.title ||
         (video ? `Video #${video.publicId}` : "")
+    const compactTitle = clampTitleWords(title, 8)
 
     useEffect(() => {
         if (videoRef.current) {
@@ -57,13 +63,14 @@ const HeroCard = ({ video, onPrev, onNext }: Props) => {
     return (
         <div
             data-hero-id={video.publicId}
+            onClick={() => navigate(`/video/${video.publicId}`)}
             className="
                 relative w-full
-                h-50 sm:h-65 lg:h-80
+                h-56 sm:h-64 lg:h-72
                 rounded-2xl overflow-hidden
-                group bg-black
+                group cursor-pointer bg-black
                 border border-white/10
-                shadow-lg
+                shadow-[0_20px_60px_rgba(0,0,0,0.28)]
             "
         >
             {videoUrl ? (
@@ -95,44 +102,10 @@ const HeroCard = ({ video, onPrev, onNext }: Props) => {
                     "
                 />
             )}
-
-            <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-black/50 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 h-36 rounded-b-2xl bg-linear-to-t from-black/80 to-transparent" />
-
-            <div
-                className="
-                    absolute bottom-6 sm:bottom-12
-                    left-4 sm:left-10 right-4
-                    space-y-3 sm:space-y-5
-                    max-w-2xl text-white
-                "
-            >
-                <span className="bg-orange-500 px-3 py-1 rounded-full text-xs font-semibold shadow">
-                    🔥 Trending
-                </span>
-
-                <h1 className="
-                    text-xl sm:text-2xl lg:text-3xl
-                    font-extrabold leading-tight
-                    drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]
-                ">
-                    {title}
+            <div className="absolute bottom-4 left-4 right-20 sm:bottom-5 sm:left-6 sm:right-24 lg:left-8">
+                <h1 className="line-clamp-1 text-sm font-semibold text-white/92 drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)] sm:text-base lg:text-lg">
+                    {compactTitle}
                 </h1>
-
-                <button
-                    onClick={() => navigate(`/video/${video.publicId}`)}
-                    className="
-                        flex items-center gap-2
-                        bg-white text-black
-                        px-5 py-2.5 rounded-lg
-                        font-semibold
-                        hover:bg-gray-200
-                        active:scale-95 transition
-                    "
-                >
-                    <Play size={18} />
-                    Play
-                </button>
             </div>
         </div>
     )

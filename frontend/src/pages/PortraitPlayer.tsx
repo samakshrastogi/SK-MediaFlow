@@ -65,9 +65,14 @@ const PortraitPlayer = () => {
     const [showPlaylist, setShowPlaylist] = useState(false)
     const [newPlaylistName, setNewPlaylistName] = useState("")
     const [showSharePopup, setShowSharePopup] = useState(false)
+    const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+    const [descriptionOverflowing, setDescriptionOverflowing] = useState(false)
+    const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
 
     const videoRef = useRef<HTMLVideoElement | null>(null)
     const commentsRef = useRef<HTMLDivElement | null>(null)
+    const descriptionRef = useRef<HTMLParagraphElement | null>(null)
+    const playlistMenuRef = useRef<HTMLDivElement | null>(null)
     const wheelLockRef = useRef(false)
     const touchStartYRef = useRef<number | null>(null)
     const watchedBufferRef = useRef(0)
@@ -82,7 +87,6 @@ const PortraitPlayer = () => {
                 const data = Array.isArray(res.data?.data) ? (res.data.data as VideoDetail[]) : []
                 setVideos(data)
             } catch (error) {
-                console.error("Failed to load portrait feed", error)
                 setVideos([])
             } finally {
                 setLoading(false)
@@ -124,12 +128,31 @@ const PortraitPlayer = () => {
     }, [activeVideo?.publicId])
 
     useEffect(() => {
+        setDescriptionExpanded(false)
+        setVideoAspectRatio(null)
+    }, [activeVideo?.publicId])
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                showPlaylist &&
+                playlistMenuRef.current &&
+                !playlistMenuRef.current.contains(event.target as Node)
+            ) {
+                setShowPlaylist(false)
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [showPlaylist])
+
+    useEffect(() => {
         const loadPlaylists = async () => {
             try {
                 const res = await api.get("/video-actions/playlists")
                 setPlaylists(res.data || [])
             } catch (err) {
-                console.error("Failed to load playlists", err)
             }
         }
 
@@ -156,7 +179,6 @@ const PortraitPlayer = () => {
             setLiked(res.data.userReaction === "LIKE")
             setDisliked(res.data.userReaction === "DISLIKE")
         } catch (err) {
-            console.error("Failed to load actions", err)
         }
     }
 
@@ -279,7 +301,6 @@ const PortraitPlayer = () => {
             try {
                 await navigator.clipboard.writeText(videoLink)
             } catch (error) {
-                console.error("Copy link failed", error)
             }
         } else if (method === "NATIVE" && "share" in navigator) {
             try {
@@ -288,7 +309,6 @@ const PortraitPlayer = () => {
                     url: videoLink
                 })
             } catch (error) {
-                console.error("Native share cancelled/failed", error)
             }
         } else if (targetUrl) {
             window.open(targetUrl, "_blank", "noopener,noreferrer")
@@ -382,14 +402,32 @@ const PortraitPlayer = () => {
 
     const title = activeVideo.aiTitle || activeVideo.title || "Untitled"
     const description = activeVideo.aiDescription?.trim() || "No description available."
+    const fallbackAspectRatio =
+        activeVideo.orientation === "SQUARE"
+            ? 1
+            : 9 / 16
+    const resolvedAspectRatio = videoAspectRatio || fallbackAspectRatio
+
+    useEffect(() => {
+        const el = descriptionRef.current
+        if (!el) return
+
+        const updateOverflow = () => {
+            setDescriptionOverflowing(el.scrollWidth > el.clientWidth + 1)
+        }
+
+        updateOverflow()
+        window.addEventListener("resize", updateOverflow)
+        return () => window.removeEventListener("resize", updateOverflow)
+    }, [description, descriptionExpanded])
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-black text-white">
             <Topbar />
             <Sidebar />
 
-            <main className="pt-[80px] pb-24 px-3">
-                <div className="max-w-[1380px] mx-auto grid lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_120px] gap-6 items-start">
+            <main className="px-3 pt-[80px] pb-24 xl:px-6 2xl:px-8">
+                <div className="grid w-full items-start gap-6 xl:gap-8 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)_120px]">
                     <section className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-5 h-fit shadow-lg">
 
                         {/* TITLE */}
@@ -437,14 +475,21 @@ const PortraitPlayer = () => {
                         </div>
 
                         {/* DESCRIPTION (COLLAPSIBLE READY) */}
-                        <div className="text-sm text-gray-300 leading-6 max-h-[120px] overflow-hidden relative group">
-
-                            <p className="whitespace-pre-wrap">
+                        <div className="space-y-1 text-sm text-gray-300">
+                            <p
+                                ref={descriptionRef}
+                                className={`${descriptionExpanded ? "whitespace-pre-wrap" : "truncate"} leading-6`}
+                            >
                                 {description}
                             </p>
-
-                            {/* FADE EFFECT */}
-                            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/70 to-transparent pointer-events-none group-hover:opacity-0 transition" />
+                            {descriptionOverflowing && (
+                                <button
+                                    onClick={() => setDescriptionExpanded((prev) => !prev)}
+                                    className="text-xs font-medium text-purple-200 transition hover:text-white"
+                                >
+                                    {descriptionExpanded ? "See less" : "See more"}
+                                </button>
+                            )}
                         </div>
 
                         {/* ACTIONS */}
@@ -466,35 +511,47 @@ const PortraitPlayer = () => {
 
                         {/* VIDEO PLAYER */}
                         <div
-                            className="w-full max-w-[480px] mx-auto"
+                            className="mx-auto w-full max-w-[640px]"
                             onWheel={onWheel}
                             onTouchStart={onTouchStart}
                             onTouchEnd={onTouchEnd}
                         >
-                            <div className="relative rounded-[28px] overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.6)] bg-black">
+                            <div className="rounded-[28px] border border-white/15 bg-gradient-to-br from-[#151028] via-[#0f0c1f] to-black p-3 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
 
-                                {/* VIDEO */}
-                                <video
-                                    key={activeVideo.publicId}
-                                    ref={videoRef}
-                                    src={activeVideo.signedUrl}
-                                    controls
-                                    autoPlay
-                                    playsInline
-                                    controlsList="nodownload"
-                                    onEnded={goNext}
-                                    className="w-full h-[80vh] object-contain bg-black"
-                                />
+                                <div
+                                    className="relative mx-auto overflow-hidden rounded-[22px] bg-black"
+                                    style={{
+                                        aspectRatio: resolvedAspectRatio,
+                                        maxHeight: "80vh"
+                                    }}
+                                >
+                                    <video
+                                        key={activeVideo.publicId}
+                                        ref={videoRef}
+                                        src={activeVideo.signedUrl}
+                                        controls
+                                        autoPlay
+                                        playsInline
+                                        controlsList="nodownload"
+                                        onEnded={goNext}
+                                        onLoadedMetadata={(e) => {
+                                            const el = e.currentTarget
+                                            if (el.videoWidth && el.videoHeight) {
+                                                setVideoAspectRatio(el.videoWidth / el.videoHeight)
+                                            }
+                                        }}
+                                        className="w-full h-full object-contain bg-black"
+                                    />
 
-                                {/* GRADIENT OVERLAY (TOP + BOTTOM FADE) */}
-                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40" />
+                                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40" />
+                                </div>
 
                             </div>
                         </div>
 
 
                         {/* COMMENTS SECTION */}
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 max-w-[920px] shadow-lg">
+                        <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-5 shadow-lg backdrop-blur-xl">
 
                             {/* HEADER */}
                             <div className="flex items-center justify-between mb-4">
@@ -531,7 +588,7 @@ const PortraitPlayer = () => {
                                                 </div>
 
                                                 {/* TEXT */}
-                                                <p className="leading-relaxed">{c.commentText}</p>
+                                                <ExpandableCommentText text={c.commentText} />
                                             </div>
                                         </div>
                                     )
@@ -572,7 +629,7 @@ const PortraitPlayer = () => {
 
                     </section>
 
-                    <aside className="flex lg:flex-col items-center gap-4 lg:sticky lg:top-28">
+                    <aside ref={playlistMenuRef} className="flex lg:flex-col items-center gap-4 lg:sticky lg:top-28">
 
                         {/* ACTION STACK */}
                         <div className="flex lg:flex-col gap-3 bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-2 shadow-lg">
@@ -625,56 +682,55 @@ const PortraitPlayer = () => {
 
                         {/* PLAYLIST POPUP */}
                         {showPlaylist && (
-                            <div className="mt-2 lg:absolute lg:right-0 lg:top-[240px] rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl p-4 space-y-3 min-w-[260px] shadow-xl">
-
-                                {/* HEADER */}
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-white">Playlists</p>
-                                    <span className="text-xs text-gray-400">{playlists.length}</span>
+                            <div className="mt-2 lg:absolute lg:right-0 lg:top-[240px] w-[320px] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+                                <div className="border-b border-white/10 px-5 py-4">
+                                    <p className="text-[15px] font-semibold">Save video to...</p>
                                 </div>
 
-                                {/* LIST */}
-                                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                                    {playlists.length === 0 && (
-                                        <p className="text-xs text-gray-400">
+                                <div className="max-h-56 overflow-y-auto">
+                                    {playlists.length === 0 ? (
+                                        <div className="px-5 py-4 text-sm text-purple-100/70">
                                             No playlist yet.
-                                        </p>
+                                        </div>
+                                    ) : (
+                                        playlists.map((p) => (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => addVideoToPlaylist(p.id)}
+                                                className="flex w-full items-center justify-between border-b border-white/6 px-5 py-4 text-left transition hover:bg-white/6"
+                                            >
+                                                <span className="text-sm font-medium">{p.name}</span>
+                                                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-white/15 bg-white/6 text-[11px] text-purple-100">
+                                                    +
+                                                </span>
+                                            </button>
+                                        ))
                                     )}
+                                </div>
 
-                                    {playlists.map((p) => (
+                                <div className="border-t border-white/10 px-5 py-4">
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={newPlaylistName}
+                                            onChange={(e) => setNewPlaylistName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault()
+                                                    createPlaylist()
+                                                }
+                                            }}
+                                            placeholder="New playlist"
+                                            className="flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none placeholder:text-purple-100/45 focus:border-purple-400"
+                                        />
+
                                         <button
-                                            key={p.id}
-                                            onClick={() => addVideoToPlaylist(p.id)}
-                                            className="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/15 transition text-sm"
+                                            onClick={createPlaylist}
+                                            className="rounded-xl bg-white/10 px-3 py-2 text-sm font-medium text-purple-100 transition hover:bg-white/16"
                                         >
-                                            {p.name}
+                                            Create
                                         </button>
-                                    ))}
+                                    </div>
                                 </div>
-
-                                {/* CREATE */}
-                                <div className="flex gap-2 pt-1">
-                                    <input
-                                        value={newPlaylistName}
-                                        onChange={(e) => setNewPlaylistName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault()
-                                                createPlaylist()
-                                            }
-                                        }}
-                                        placeholder="New playlist"
-                                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500"
-                                    />
-
-                                    <button
-                                        onClick={createPlaylist}
-                                        className="bg-purple-600 hover:bg-purple-500 px-4 rounded-lg text-sm"
-                                    >
-                                        Create
-                                    </button>
-                                </div>
-
                             </div>
                         )}
                     </aside>
@@ -686,6 +742,47 @@ const PortraitPlayer = () => {
                 onShare={shareVideo}
                 videoUrl={`${window.location.origin}/portrait/${activeVideo.publicId}`}
             />
+        </div>
+    )
+}
+
+const ExpandableCommentText = ({ text }: { text: string }) => {
+    const [expanded, setExpanded] = useState(false)
+    const [isOverflowing, setIsOverflowing] = useState(false)
+    const textRef = useRef<HTMLParagraphElement | null>(null)
+
+    useEffect(() => {
+        const el = textRef.current
+        if (!el) return
+        setIsOverflowing(el.scrollHeight > el.clientHeight + 1)
+    }, [text, expanded])
+
+    return (
+        <div className="space-y-1">
+            <p
+                ref={textRef}
+                className="leading-relaxed whitespace-pre-wrap"
+                style={
+                    expanded
+                        ? undefined
+                        : {
+                            display: "-webkit-box",
+                            WebkitBoxOrient: "vertical",
+                            WebkitLineClamp: 2,
+                            overflow: "hidden"
+                        }
+                }
+            >
+                {text}
+            </p>
+            {isOverflowing && (
+                <button
+                    onClick={() => setExpanded((prev) => !prev)}
+                    className="text-xs font-medium text-purple-200 transition hover:text-white"
+                >
+                    {expanded ? "See less" : "See more"}
+                </button>
+            )}
         </div>
     )
 }

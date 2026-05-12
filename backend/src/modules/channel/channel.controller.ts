@@ -38,8 +38,6 @@ export const handleCreateChannel = async (
             data: channel
         })
     } catch (error: any) {
-        console.error("Create channel error:", error)
-
         return res.status(400).json({
             success: false,
             message: error.message || "Failed to create channel",
@@ -74,8 +72,6 @@ export const handleGetMyChannel = async (
             data: channel
         })
     } catch (error) {
-        console.error("Get channel error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Failed to fetch channel"

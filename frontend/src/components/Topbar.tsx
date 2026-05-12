@@ -14,14 +14,38 @@ interface NotificationItem {
     createdAt: string
 }
 
-interface ActiveOrganizationLite {
-    id: string
-    name: string
-    ownerId?: string
-}
+const NOTIFICATIONS_TTL_MS = 15000
 
-interface OrganizationMembershipLite {
-    organization?: ActiveOrganizationLite
+let notificationsCache: NotificationItem[] | null = null
+let notificationsCacheAt = 0
+let notificationsPromise: Promise<NotificationItem[]> | null = null
+
+const getNotifications = async () => {
+    if (
+        notificationsCache &&
+        Date.now() - notificationsCacheAt < NOTIFICATIONS_TTL_MS
+    ) {
+        return notificationsCache
+    }
+
+    if (!notificationsPromise) {
+        notificationsPromise = api.get("/notification")
+            .then((res) => {
+                notificationsCache = (res.data?.data || []) as NotificationItem[]
+                notificationsCacheAt = Date.now()
+                return notificationsCache
+            })
+            .catch(() => {
+                notificationsCache = []
+                notificationsCacheAt = Date.now()
+                return []
+            })
+            .finally(() => {
+                notificationsPromise = null
+            })
+    }
+
+    return notificationsPromise
 }
 
 const Topbar = () => {
@@ -31,20 +55,12 @@ const Topbar = () => {
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [notificationOpen, setNotificationOpen] = useState(false)
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
-    const [activeOrganization, setActiveOrganization] = useState<ActiveOrganizationLite | null>(null)
-    const [canLeaveOrganization, setCanLeaveOrganization] = useState(false)
-
     const dropdownRef = useRef<HTMLDivElement>(null)
     const notificationRef = useRef<HTMLDivElement>(null)
 
     const loadNotifications = async () => {
-        try {
-            const res = await api.get("/notification")
-            const rows = (res.data?.data || []) as NotificationItem[]
-            setNotifications(rows)
-        } catch {
-            setNotifications([])
-        }
+        const rows = await getNotifications()
+        setNotifications(rows)
     }
 
     useEffect(() => {
@@ -81,60 +97,9 @@ const Topbar = () => {
         }
     }, [])
 
-    useEffect(() => {
-        const fetchOrg = async () => {
-            try {
-                const res = await api.get("/organization/my")
-                const memberships = (res.data?.data?.memberships || []) as OrganizationMembershipLite[]
-                const accessOrgId = res.data?.data?.access?.activeOrganizationId
-                const activeMembership = memberships.find(
-                    (m) => m.organization?.id === accessOrgId
-                )
-
-                if (activeMembership?.organization) {
-                    setActiveOrganization({
-                        id: activeMembership.organization.id,
-                        name: activeMembership.organization.name,
-                        ownerId: activeMembership.organization.ownerId
-                    })
-                } else {
-                    setActiveOrganization(null)
-                }
-
-                const canLeave =
-                    Boolean(activeMembership?.organization) &&
-                    activeMembership?.organization?.ownerId !== user?.id
-                setCanLeaveOrganization(canLeave)
-            } catch {
-                setActiveOrganization(null)
-                setCanLeaveOrganization(false)
-            }
-        }
-
-        fetchOrg()
-    }, [user?.id])
-
     const handleLogout = async () => {
         await logout()
         navigate("/login")
-    }
-
-    const handleLeaveOrganization = async () => {
-        if (!activeOrganization) return
-        const ok = window.confirm(
-            `Leave ${activeOrganization.name}?`
-        )
-        if (!ok) return
-
-        try {
-            await api.post("/organization/leave", {
-                organizationId: activeOrganization.id
-            })
-            setActiveOrganization(null)
-            setDropdownOpen(false)
-        } catch (error) {
-            console.error("Leave organization failed", error)
-        }
     }
 
     const handleSearch = () => navigate("/search")
@@ -163,6 +128,8 @@ const Topbar = () => {
     const markAllRead = async () => {
         try {
             await api.post("/notification/read-all")
+            notificationsCache = notifications.map((n) => ({ ...n, isRead: true }))
+            notificationsCacheAt = Date.now()
             setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
         } catch {
             // no-op
@@ -189,12 +156,12 @@ const Topbar = () => {
                 >
                     <img
                         src="/images/logo.png"
-                        alt="SK Cinema Logo"
+                        alt="StreamHub Logo"
                         className="w-6 h-6 sm:w-7 sm:h-7 object-contain"
                     />
 
                     <h1 className="text-base sm:text-lg md:text-xl font-bold">
-                        SK Cinema
+                        StreamHub
                     </h1>
                 </div>
             </div>
@@ -227,43 +194,79 @@ const Topbar = () => {
                     </button>
 
                     {notificationOpen && (
-                        <div className="absolute right-0 mt-3 w-80 max-h-96 overflow-y-auto bg-gray-900 border border-gray-800 rounded-xl shadow-xl p-3">
-                            <div className="mb-2 flex items-center justify-between">
-                                <p className="text-sm font-semibold">Notifications</p>
+                        <div className="absolute right-0 mt-3 w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/85 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                            <div className="border-b border-white/8 px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-base font-semibold text-white">Notifications</p>
+                                        <p className="mt-0.5 text-xs text-purple-100/45">
+                                            Latest alerts and activity updates
+                                        </p>
+                                    </div>
                                 {notifications.length > 0 && unreadCount > 0 && (
                                     <button
                                         onClick={markAllRead}
-                                        className="text-xs text-blue-300 hover:text-blue-200"
+                                        className="rounded-full border border-white/8 bg-white/6 px-3 py-1 text-[11px] text-purple-100/75 transition hover:bg-white/10"
                                     >
                                         Mark all read
                                     </button>
                                 )}
+                                </div>
                             </div>
 
-                            {notifications.length === 0 ? (
-                                <p className="text-xs text-gray-400">No notifications yet.</p>
-                            ) : (
-                                <div className="space-y-2">
+                            <div className="max-h-96 overflow-y-auto p-3">
+                                {notifications.length === 0 ? (
+                                    <div className="rounded-2xl border border-white/8 bg-white/5 px-4 py-6 text-center">
+                                        <p className="text-sm font-medium text-white">No notifications yet</p>
+                                        <p className="mt-1 text-xs text-purple-100/45">
+                                            New updates will appear here.
+                                        </p>
+                                    </div>
+                                ) : (
+                                <div className="space-y-2.5">
                                     {notifications.map((item) => (
                                         <button
                                             key={item.id}
                                             onClick={() => handleNotificationClick(item)}
-                                            className={`w-full text-left p-2 rounded-lg transition border ${
+                                            className={`w-full rounded-2xl border p-3 text-left transition ${
                                                 item.isRead
-                                                    ? "bg-white/5 hover:bg-white/10 border-white/5"
-                                                    : "bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30"
+                                                    ? "border-white/6 bg-white/[0.06] hover:bg-white/[0.09]"
+                                                    : "border-blue-400/20 bg-linear-to-br from-blue-500/14 to-cyan-400/8 hover:from-blue-500/18 hover:to-cyan-400/12"
                                             }`}
                                         >
-                                            <p className="text-sm text-white truncate">
-                                                {item.title}
-                                            </p>
-                                            <p className="text-xs text-gray-300 line-clamp-2">
-                                                {item.message}
-                                            </p>
+                                            <div className="flex items-start gap-3">
+                                                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                                    item.isRead ? "bg-white/8 text-purple-100/55" : "bg-blue-500/18 text-blue-200"
+                                                }`}>
+                                                    {item.isRead ? "✓" : "•"}
+                                                </div>
+
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <p className="line-clamp-1 text-sm font-semibold text-white">
+                                                            {item.title}
+                                                        </p>
+                                                        {!item.isRead && (
+                                                            <span className="mt-0.5 inline-flex rounded-full bg-blue-500/18 px-2 py-0.5 text-[10px] font-medium text-blue-200">
+                                                                New
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-purple-100/65">
+                                                        {item.message}
+                                                    </p>
+
+                                                    <p className="mt-2 text-[11px] text-purple-100/38">
+                                                        {new Date(item.createdAt).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </button>
                                     ))}
                                 </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -283,7 +286,7 @@ const Topbar = () => {
                     </div>
 
                     {dropdownOpen && user && (
-                        <div className="absolute right-0 mt-3 w-60 bg-gray-900 border border-gray-800 rounded-xl shadow-xl p-4">
+                        <div className="absolute right-0 mt-3 w-60 rounded-xl border border-white/10 bg-[#111827]/80 p-4 shadow-xl backdrop-blur-xl">
                             <p className="font-semibold text-lg">{user.name}</p>
 
                             <p className="text-sm text-gray-400">
@@ -293,31 +296,24 @@ const Topbar = () => {
                                     : "N/A"}
                             </p>
 
-                            <button
-                                onClick={() => {
-                                    setDropdownOpen(false)
-                                    navigate("/profile")
-                                }}
-                                className="mt-4 w-full bg-purple-600 hover:bg-purple-700 transition p-2 rounded-lg text-sm"
-                            >
-                                View Profile
-                            </button>
-
-                            {activeOrganization && canLeaveOrganization && (
+                            <div className="mt-4 grid grid-cols-2 gap-2">
                                 <button
-                                    onClick={handleLeaveOrganization}
-                                    className="mt-2 w-full bg-amber-600 hover:bg-amber-700 transition p-2 rounded-lg text-sm"
+                                    onClick={() => {
+                                        setDropdownOpen(false)
+                                        navigate("/profile")
+                                    }}
+                                    className="rounded-lg bg-purple-600 p-2 text-sm transition hover:bg-purple-700"
                                 >
-                                    Leave Organization
+                                    View Profile
                                 </button>
-                            )}
 
-                            <button
-                                onClick={handleLogout}
-                                className="mt-2 w-full bg-red-600 hover:bg-red-700 transition p-2 rounded-lg text-sm"
-                            >
-                                Logout
-                            </button>
+                                <button
+                                    onClick={handleLogout}
+                                    className="rounded-lg bg-red-600 p-2 text-sm transition hover:bg-red-700"
+                                >
+                                    Logout
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

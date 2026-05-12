@@ -75,16 +75,16 @@ router.get("/metrics", authenticate, requirePlatformAdmin, async (_req: AuthRequ
             organizations.map(async (organization) => {
                 const [shares, likes, views] = await Promise.all([
                     prisma.videoShare.count({
-                        where: { video: { organizationId: organization.id } }
+                        where: { video: { organizationId: organization.id, status: "ACTIVE" } }
                     }),
                     prisma.videoReaction.count({
                         where: {
                             type: "LIKE",
-                            video: { organizationId: organization.id }
+                            video: { organizationId: organization.id, status: "ACTIVE" }
                         }
                     }),
                     prisma.videoView.count({
-                        where: { video: { organizationId: organization.id } }
+                        where: { video: { organizationId: organization.id, status: "ACTIVE" } }
                     })
                 ])
 

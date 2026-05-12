@@ -66,10 +66,7 @@ const shortenTranscript = (text: string) => {
 
 const processVideoAI = async (job: Job) => {
 
-    const start = Date.now()
     const { videoId } = job.data
-
-    console.log("AI Worker started:", videoId)
 
     const updateProgress = async (progress: number) => {
         await job.updateProgress({ videoId, progress })
@@ -94,8 +91,6 @@ const processVideoAI = async (job: Job) => {
             data: { status: "processing" }
         })
 
-        console.log("Downloading video")
-
         const object = await s3.send(
             new GetObjectCommand({
                 Bucket: process.env.AWS_BUCKET!,
@@ -107,13 +102,9 @@ const processVideoAI = async (job: Job) => {
 
         await updateProgress(25)
 
-        console.log("Extracting audio")
-
         await extractAudio(tempVideoPath, tempAudioPath)
 
         await updateProgress(45)
-
-        console.log("Calling remote Whisper via AI server")
 
         const form = new FormData()
         form.append("file", fs.createReadStream(tempAudioPath))
@@ -130,8 +121,6 @@ const processVideoAI = async (job: Job) => {
         const transcript = whisperRes.data.transcript
 
         await updateProgress(65)
-
-        console.log("Calling remote Ollama via AI server")
 
         const rawResponseRes = await axios.post(
             `${process.env.AI_SERVER_URL}/generate`,
@@ -162,8 +151,6 @@ ${shortenTranscript(transcript)}
         )
 
         const rawResponse = rawResponseRes.data.response
-
-        console.log("OLLAMA RAW:", rawResponse)
 
         const parsed = extractJSON(rawResponse)
 
@@ -197,14 +184,9 @@ ${shortenTranscript(transcript)}
         await updateProgress(100)
         emitProcessingEvent("ai-completed", { videoId })
 
-        console.log("AI completed:", videoId)
-        console.log("AI time:", Date.now() - start, "ms")
-
         return { videoId }
 
     } catch (error) {
-
-        console.error("AI job failed:", videoId, error)
 
         const fallbackDescription = video.title?.trim() || "Uploaded video"
 
@@ -244,12 +226,8 @@ const worker = new Worker(
     }
 )
 
-worker.on("completed", (job) => {
-    console.log(`Job completed: ${job.id}`)
-})
+worker.on("completed", () => {})
 
-worker.on("failed", (job, err) => {
-    console.error(`Job failed: ${job?.id}`, err)
-})
+worker.on("failed", () => {})
 
 export default worker

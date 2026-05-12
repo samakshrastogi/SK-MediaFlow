@@ -57,7 +57,7 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
         const [videosCount, playlistsCount, favoritesCount, commentsCount] =
             await Promise.all([
                 prisma.video.count({
-                    where: { channelId: user.channel?.id, status: "UPLOADED" }
+                    where: { channelId: user.channel?.id, status: "ACTIVE" }
                 }),
                 prisma.playlist.count({
                     where: { userId: user.id }
@@ -75,7 +75,7 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
         const uploadedVideos = await prisma.video.findMany({
             where: {
                 channelId: user.channel?.id,
-                status: "UPLOADED"
+                status: "ACTIVE"
             },
             include: {
                 aiData: true,
@@ -98,7 +98,10 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
         /* ---------------- HISTORY (TEMP SAFE) ---------------- */
         const historyActions = await prisma.watchHistory.findMany({
             where: {
-                userId: user.id
+                userId: user.id,
+                video: {
+                    status: "ACTIVE"
+                }
             },
             include: {
                 video: {
@@ -127,7 +130,10 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
         const favoriteActions = await prisma.videoReaction.findMany({
             where: {
                 userId: user.id,
-                type: "LIKE"
+                type: "LIKE",
+                video: {
+                    status: "ACTIVE"
+                }
             },
             include: {
                 video: {
@@ -157,7 +163,12 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
             where: { userId: user.id },
             include: {
                 actions: {
-                    where: { actionType: "ADD_TO_PLAYLIST" },
+                    where: {
+                        actionType: "ADD_TO_PLAYLIST",
+                        video: {
+                            status: "ACTIVE"
+                        }
+                    },
                     include: {
                         video: {
                             include: { aiData: true }
@@ -302,8 +313,6 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
         })
 
     } catch (error) {
-        console.error("Profile API Error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Server error"
@@ -381,8 +390,6 @@ router.patch("/profile", authenticate, async (req: AuthRequest, res) => {
         })
 
     } catch (error) {
-        console.error("Profile update error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Profile update failed"
@@ -441,8 +448,6 @@ router.post("/avatar-upload-url", authenticate, async (req: AuthRequest, res) =>
         })
 
     } catch (error) {
-        console.error("Avatar upload url error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Failed to generate upload URL"
@@ -474,8 +479,6 @@ router.post("/avatar", authenticate, async (req: AuthRequest, res) => {
         })
 
     } catch (error) {
-        console.error("Avatar save error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Failed to save avatar"
@@ -528,8 +531,6 @@ router.post("/cover-upload-url", authenticate, async (req: AuthRequest, res) => 
             key
         })
     } catch (error) {
-        console.error("Cover upload url error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Failed to generate cover upload URL"
@@ -560,8 +561,6 @@ router.post("/cover", authenticate, async (req: AuthRequest, res) => {
             coverUrl
         })
     } catch (error) {
-        console.error("Cover save error:", error)
-
         return res.status(500).json({
             success: false,
             message: "Failed to save cover photo"

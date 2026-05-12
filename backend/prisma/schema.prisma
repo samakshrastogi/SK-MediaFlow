@@ -12,7 +12,7 @@ model User {
   email    String @unique
   username String? @unique
   password String?
-  googleId String? @unique
+  googleId String?
   name     String? @db.String
   avatarKey String?
   coverKey  String?
@@ -78,7 +78,7 @@ model Video {
   size String
   thumbnailKey String?
   uploadSource UploadSource
-  status UploadStatus @default(UPLOADING)
+  status UploadStatus @default(ACTIVE)
   visibility VideoVisibility @default(PUBLIC)
   channelId String @db.ObjectId
   channel Channel @relation(fields: [channelId], references: [id])
@@ -351,8 +351,8 @@ enum Orientation {
 }
 
 enum UploadStatus {
-  UPLOADING
-  UPLOADED
+  ACTIVE
+  DELETED
   FAILED
 }
 

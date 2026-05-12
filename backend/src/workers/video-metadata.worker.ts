@@ -15,8 +15,6 @@ new Worker(
             throw new Error("Invalid videoId in metadata job")
         }
 
-        console.log("[metadata] started", videoId)
-
         const metadata = await extractVideoMetadata(videoId)
         const orientation = (metadata.orientation || "LANDSCAPE") as Orientation
 
@@ -33,7 +31,6 @@ new Worker(
             }
         })
 
-        console.log("[metadata] completed", videoId)
     },
     {
         connection: redisConnection as any,

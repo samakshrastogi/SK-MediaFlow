@@ -42,8 +42,6 @@ const OAuthSuccess = () => {
                 navigate("/home", { replace: true })
 
             } catch (err) {
-
-                console.error("OAuth error:", err)
                 navigate("/login", { replace: true })
 
             } finally {

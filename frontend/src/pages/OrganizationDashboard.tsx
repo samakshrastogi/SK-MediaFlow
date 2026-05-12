@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Info } from "lucide-react"
+import { Info, X } from "lucide-react"
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
 
@@ -111,6 +111,7 @@ const OrganizationDashboard = () => {
     const [copiedType, setCopiedType] = useState<string | null>(null)
     const [savedSettings, setSavedSettings] = useState(false)
     const [selectedMember, setSelectedMember] = useState<Membership | null>(null)
+    const [showAccessModal, setShowAccessModal] = useState(false)
 
     const approvedMembers = useMemo(() =>
         memberships.filter(
@@ -253,7 +254,6 @@ const OrganizationDashboard = () => {
             try {
                 await loadAll()
             } catch (err) {
-                console.error(err)
                 setMessage("Failed to load organization dashboard.")
             }
         }
@@ -355,230 +355,71 @@ const OrganizationDashboard = () => {
 
     return (
         <AppLayout>
-            <div className="mx-auto max-w-7xl space-y-8 px-2 sm:px-4">
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-5 shadow-lg space-y-4">
+            <div className="w-full px-2 sm:px-4">
+                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br from-[#6c36a8]/42 via-[#453994]/38 to-[#1c1f49]/62 shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+                    <div className="space-y-4 px-5 py-5 sm:px-7">
 
-                    {/* TOP ROW */}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        {/* TOP ROW */}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-white">
-                                Organization Dashboard
-                            </h1>
-                            <p className="text-sm text-gray-400 mt-1">
-                                {orgName || "No active admin organization"}
-                            </p>
-                        </div>
-
-                        {/* QUICK ACTIONS */}
-                        <div className="flex flex-wrap gap-2">
-
-                            {/* PUBLIC */}
-                            <button
-                                onClick={() => copyLink(organizationPublicLink, "public")}
-                                className="rounded-lg bg-emerald-600 hover:bg-emerald-500 transition px-3 py-2 text-xs font-medium shadow"
-                            >
-                                {copiedType === "public" ? "Copied!" : "Copy Public Link"}
-                            </button>
-
-                            {/* PRIVATE */}
-                            <button
-                                onClick={() => copyLink(organizationPrivateLink, "private")}
-                                className="rounded-lg bg-amber-600 hover:bg-amber-500 transition px-3 py-2 text-xs font-medium shadow"
-                            >
-                                {copiedType === "private" ? "Copied!" : "Copy Private Link"}
-                            </button>
-
-                            {/* INVITE */}
-                            <button
-                                onClick={invite}
-                                className="rounded-lg bg-purple-600 hover:bg-purple-500 transition px-3 py-2 text-xs font-medium shadow"
-                            >
-                                Invite User
-                            </button>
-
-                        </div>
-                    </div>
-
-                    {/* MESSAGE */}
-                    {message && (
-                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-300">
-                            {message}
-                        </div>
-                    )}
-
-                </div>
-
-                {totals && (
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-
-                        {Object.entries(totals).map(([k, v]) => (
-                            <div
-                                key={k}
-                                className="rounded-xl border border-white/10 bg-gradient-to-br from-black/40 to-black/20 p-4 hover:scale-[1.02] transition shadow-sm"
-                            >
-
-                                {/* LABEL */}
-                                <p className="text-xs capitalize text-gray-400 tracking-wide">
-                                    {k}
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-white">
+                                    Organization Dashboard
+                                </h1>
+                                <p className="mt-1 text-sm text-purple-100/58">
+                                    {orgName || "No active admin organization"}
                                 </p>
-
-                                {/* VALUE */}
-                                <p className="text-xl sm:text-2xl font-bold text-white mt-1">
-                                    {String(v)}
-                                </p>
-
-                                {/* SUBTEXT (INSIGHT) */}
-                                <p className="text-[10px] text-gray-500 mt-1">
-                                    Total {k}
-                                </p>
-
-                            </div>
-                        ))}
-
-                    </div>
-                )}
-                <div className="grid gap-6 md:grid-cols-2">
-
-                    {/* JOIN LINKS */}
-                    <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl p-5 space-y-5 shadow-md">
-
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">Organization Join Links</h2>
-                            <p className="text-xs text-gray-300 mt-1">
-                                Share links to let users join your organization instantly or via approval.
-                            </p>
-                        </div>
-
-                        {/* PUBLIC LINK */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-emerald-300 font-medium">Public Access</p>
-                                <span className="text-[10px] text-gray-400">No approval required</span>
                             </div>
 
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                                <input
-                                    value={organizationPublicLink}
-                                    readOnly
-                                    aria-label="public link"
-                                    className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm tracking-wide"
-                                />
+                            {/* QUICK ACTIONS */}
+                            <div className="flex flex-wrap gap-2">
                                 <button
-                                    onClick={() => copyLink(organizationPublicLink, "public")}
-                                    className="rounded-lg bg-emerald-600 hover:bg-emerald-500 transition px-3 py-2 text-xs font-medium shadow"
+                                    onClick={() => setShowAccessModal(true)}
+                                    className="rounded-xl bg-purple-600 hover:bg-purple-500 transition px-4 py-2.5 text-sm font-medium shadow"
                                 >
-                                    {copiedType === "public" ? "Copied!" : "Copy"}
+                                    Invite User
                                 </button>
                             </div>
                         </div>
 
-                        {/* PRIVATE LINK */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-amber-300 font-medium">Private Access</p>
-                                <span className="text-[10px] text-gray-400">Approval required</span>
+                        {/* MESSAGE */}
+                        {message && (
+                            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-300">
+                                {message}
                             </div>
-
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                                <input
-                                    value={organizationPrivateLink}
-                                    readOnly
-                                    aria-label="private link"
-                                    className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm tracking-wide"
-                                />
-                                <button
-                                    onClick={() => copyLink(organizationPrivateLink, "private")}
-                                    className="rounded-lg bg-amber-600 hover:bg-amber-500 transition px-3 py-2 text-xs font-medium shadow"
-                                >
-                                    {copiedType === "private" ? "Copied!" : "Copy"}
-                                </button>
-                            </div>
-                        </div>
-
-                        
+                        )}
                     </div>
 
-                    {/* INVITE + PROMOTE */}
-                    <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-5 space-y-5 shadow-md">
+                    <div className="space-y-6 border-t border-white/10 px-5 py-6 sm:px-7">
+                        {totals && (
+                            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
 
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">Invite & Manage Access</h2>
-                            <p className="text-xs text-gray-400 mt-1">
-                                Invite users via email or channel name, and promote members to admin roles.
-                            </p>
-                        </div>
-
-                        {/* INVITE */}
-                        <div className="space-y-2">
-                            <label className="text-xs text-gray-400">Invite by Email or Channel Name</label>
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                                <input
-                                    value={inviteEmail}
-                                    onChange={(e) => setInviteEmail(e.target.value)}
-                                    placeholder="user@example.com or channel-name"
-                                    aria-label="invite email"
-                                    className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                                />
-                                <button
-                                    onClick={invite}
-                                    className="rounded-lg bg-purple-600 hover:bg-purple-500 transition px-4 py-2 text-sm font-medium shadow-md"
-                                >
-                                    Invite
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* INVITE LINK */}
-                        {latestInviteLink && (
-                            <div className="rounded-lg border border-white/10 bg-black/25 p-3 space-y-2">
-                                <p className="text-xs text-gray-300">
-                                    Latest invite link (valid for 24h or until used)
-                                </p>
-                                <div className="flex flex-col gap-2 sm:flex-row">
-                                    <input
-                                        value={latestInviteLink}
-                                        readOnly
-                                        aria-label="latest invite link"
-                                        className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm"
-                                    />
-                                    <button
-                                        onClick={() => copyLink(latestInviteLink, "Invite link copied")}
-                                        className="rounded-lg bg-blue-600 hover:bg-blue-500 transition px-3 py-2 text-xs font-medium"
+                                {Object.entries(totals).map(([k, v]) => (
+                                    <div
+                                        key={k}
+                                        className="rounded-xl border border-white/10 bg-gradient-to-br from-black/28 to-black/14 p-4 hover:scale-[1.02] transition shadow-sm"
                                     >
-                                        Copy
-                                    </button>
-                                </div>
+
+                                        <p className="text-xs capitalize text-gray-300 tracking-wide">
+                                            {k}
+                                        </p>
+
+                                        <p className="mt-1 text-xl font-bold text-white sm:text-2xl">
+                                            {String(v)}
+                                        </p>
+
+                                        <p className="mt-1 text-[10px] text-gray-400">
+                                            Total {k}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
-                        {/* PROMOTE */}
-                        <div className="border-t border-white/10 pt-3 space-y-2">
-                            <label className="text-xs text-gray-400">Promote to Admin by Email or Channel Name</label>
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                                <input
-                                    value={promoteEmail}
-                                    onChange={(e) => setPromoteEmail(e.target.value)}
-                                    placeholder="member@example.com or channel-name"
-                                    aria-label="promote email"
-                                    className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                                />
-                                <button
-                                    onClick={makeAdminByEmail}
-                                    className="rounded-lg bg-indigo-600 hover:bg-indigo-500 transition px-4 py-2 text-sm font-medium shadow-md"
-                                >
-                                    Promote
-                                </button>
-                            </div>
-                        </div>
+                        <div className="grid gap-6 md:grid-cols-2">
 
-                    </div>
-
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-
-                    {/* SETTINGS */}
-                    <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-6 space-y-5 shadow-lg">
+                            {/* SETTINGS */}
+                            <div className="rounded-2xl border border-white/10 bg-black/18 p-6 space-y-5 shadow-lg">
 
                         <div>
                             <h2 className="text-lg font-semibold text-white">Organization Settings</h2>
@@ -710,10 +551,10 @@ const OrganizationDashboard = () => {
                         >
                             {savedSettings ? "Saved!" : "Save Settings"}
                         </button>
-                    </div>
+                            </div>
 
-                    {/* BILLING */}
-                    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-6 space-y-5 shadow-lg">
+                            {/* BILLING */}
+                            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/6 to-white/10 p-6 space-y-5 shadow-lg">
 
                         <div>
                             <h2 className="text-lg font-semibold text-white">Billing & Plans</h2>
@@ -749,14 +590,14 @@ const OrganizationDashboard = () => {
                             </button>
 
                         </div>
-                    </div>
+                            </div>
 
-                </div>
+                        </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
+                        <div className="grid gap-6 md:grid-cols-2">
 
                     {/* PENDING REQUESTS */}
-                    <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-5 space-y-4 shadow-md">
+                    <div className="rounded-2xl border border-white/10 bg-black/18 p-5 space-y-4 shadow-md">
 
                         <div>
                             <h2 className="text-lg font-semibold text-white">Pending Requests</h2>
@@ -803,7 +644,7 @@ const OrganizationDashboard = () => {
                     </div>
 
                     {/* MEMBERS */}
-                    <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-5 space-y-4 shadow-md">
+                    <div className="rounded-2xl border border-white/10 bg-black/18 p-5 space-y-4 shadow-md">
 
                         <div>
                             <h2 className="text-lg font-semibold text-white">Members</h2>
@@ -871,11 +712,11 @@ const OrganizationDashboard = () => {
                         </div>
                     </div>
 
-                </div>
+                        </div>
 
 
 
-                <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-5 space-y-4 shadow-md">
+                        <div className="rounded-2xl border border-white/10 bg-black/18 p-5 space-y-4 shadow-md">
 
                     <div>
                         <h2 className="text-lg font-semibold text-white">
@@ -929,30 +770,48 @@ const OrganizationDashboard = () => {
                         )}
 
                     </div>
-                </div>
-
-                {activity && (
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        <LineChartCard
-                            title="Views By Video"
-                            dates={graphSeries.views.dates}
-                            series={graphSeries.views.series}
-                        />
-                        <BarChartCard
-                            title="Shares By Video"
-                            dates={graphSeries.shares.dates}
-                            series={graphSeries.shares.series}
-                        />
-                        <div className="lg:col-span-2">
-                            <LineChartCard
-                                title="Engagement Mix"
-                                dates={graphSeries.engagement.dates}
-                                series={graphSeries.engagement.series}
-                            />
                         </div>
+
+                        {activity && (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <LineChartCard
+                                    title="Views By Video"
+                                    dates={graphSeries.views.dates}
+                                    series={graphSeries.views.series}
+                                />
+                                <BarChartCard
+                                    title="Shares By Video"
+                                    dates={graphSeries.shares.dates}
+                                    series={graphSeries.shares.series}
+                                />
+                                <div className="lg:col-span-2">
+                                    <LineChartCard
+                                        title="Engagement Mix"
+                                        dates={graphSeries.engagement.dates}
+                                        series={graphSeries.engagement.series}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
+            {showAccessModal && (
+                <AccessControlModal
+                    organizationPublicLink={organizationPublicLink}
+                    organizationPrivateLink={organizationPrivateLink}
+                    latestInviteLink={latestInviteLink}
+                    inviteEmail={inviteEmail}
+                    setInviteEmail={setInviteEmail}
+                    promoteEmail={promoteEmail}
+                    setPromoteEmail={setPromoteEmail}
+                    copiedType={copiedType}
+                    onCopyLink={copyLink}
+                    onInvite={invite}
+                    onPromote={makeAdminByEmail}
+                    onClose={() => setShowAccessModal(false)}
+                />
+            )}
             {selectedMember && (
                 <MemberInfoModal
                     member={selectedMember}
@@ -966,6 +825,186 @@ const OrganizationDashboard = () => {
         </AppLayout>
     )
 }
+
+const AccessControlModal = ({
+    organizationPublicLink,
+    organizationPrivateLink,
+    latestInviteLink,
+    inviteEmail,
+    setInviteEmail,
+    promoteEmail,
+    setPromoteEmail,
+    copiedType,
+    onCopyLink,
+    onInvite,
+    onPromote,
+    onClose
+}: {
+    organizationPublicLink: string
+    organizationPrivateLink: string
+    latestInviteLink: string
+    inviteEmail: string
+    setInviteEmail: (value: string) => void
+    promoteEmail: string
+    setPromoteEmail: (value: string) => void
+    copiedType: string | null
+    onCopyLink: (link: string, type: string) => void
+    onInvite: () => void
+    onPromote: () => void
+    onClose: () => void
+}) => (
+    <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
+        onClick={onClose}
+    >
+        <div
+            className="w-full max-w-4xl rounded-[28px] border border-white/12 bg-gradient-to-br from-[#251d46]/96 via-[#19192f]/96 to-[#11131f]/96 shadow-[0_32px_90px_rgba(0,0,0,0.4)]"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+                <div>
+                    <h2 className="text-2xl font-semibold text-white">Invite & Manage Access</h2>
+                    <p className="mt-1 text-sm text-purple-100/58">
+                        Share organization links, invite new users, and promote trusted members from one place.
+                    </p>
+                </div>
+                <button
+                    onClick={onClose}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+                <section className="space-y-5 border-b border-white/10 px-6 py-6 lg:border-b-0 lg:border-r">
+                    <div>
+                        <h3 className="text-lg font-semibold text-white">Organization Join Links</h3>
+                        <p className="mt-1 text-sm text-purple-100/55">
+                            Public links join instantly. Private links keep access approval in your control.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border border-emerald-500/18 bg-emerald-500/8 p-4">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium text-emerald-300">Public Access</p>
+                                <span className="text-[11px] text-purple-100/45">No approval required</span>
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input
+                                    value={organizationPublicLink}
+                                    readOnly
+                                    aria-label="public organization link"
+                                    className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white"
+                                />
+                                <button
+                                    onClick={() => onCopyLink(organizationPublicLink, "public")}
+                                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-emerald-500"
+                                >
+                                    {copiedType === "public" ? "Copied!" : "Copy Public Link"}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-500/18 bg-amber-500/8 p-4">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium text-amber-300">Private Access</p>
+                                <span className="text-[11px] text-purple-100/45">Approval required</span>
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input
+                                    value={organizationPrivateLink}
+                                    readOnly
+                                    aria-label="private organization link"
+                                    className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white"
+                                />
+                                <button
+                                    onClick={() => onCopyLink(organizationPrivateLink, "private")}
+                                    className="rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-amber-500"
+                                >
+                                    {copiedType === "private" ? "Copied!" : "Copy Private Link"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="space-y-5 px-6 py-6">
+                    <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-white">Invite User</h3>
+                            <p className="mt-1 text-sm text-purple-100/55">
+                                Invite by email address or channel name.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                placeholder="user@example.com or channel-name"
+                                aria-label="invite user"
+                                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <button
+                                onClick={onInvite}
+                                className="rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-500"
+                            >
+                                Send Invite
+                            </button>
+                        </div>
+
+                        {latestInviteLink && (
+                            <div className="rounded-xl border border-white/10 bg-black/22 p-3 space-y-2">
+                                <p className="text-xs text-purple-100/60">
+                                    Latest invite link, valid for 24 hours or until used.
+                                </p>
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                    <input
+                                        value={latestInviteLink}
+                                        readOnly
+                                        aria-label="latest invite link"
+                                        className="flex-1 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white"
+                                    />
+                                    <button
+                                        onClick={() => onCopyLink(latestInviteLink, "invite")}
+                                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-500"
+                                    >
+                                        {copiedType === "invite" ? "Copied!" : "Copy Invite"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-white">Promote Member</h3>
+                            <p className="mt-1 text-sm text-purple-100/55">
+                                Grant admin access by email or channel name.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                                value={promoteEmail}
+                                onChange={(e) => setPromoteEmail(e.target.value)}
+                                placeholder="member@example.com or channel-name"
+                                aria-label="promote member"
+                                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                                onClick={onPromote}
+                                className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+                            >
+                                Promote
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+)
 
 const CHART_COLORS = ["#60a5fa", "#34d399", "#f59e0b", "#f472b6"]
 
@@ -1124,14 +1163,28 @@ const MemberInfoModal = ({
     onRemoveAdmin: (id: string) => Promise<void>
     onRemoveMember: (id: string) => Promise<void>
 }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={onClose}>
+    <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(7,9,18,0.62)] px-4 backdrop-blur-md"
+        onClick={onClose}
+    >
         <div
-            className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            className="w-full max-w-3xl rounded-[28px] border border-white/12 bg-[linear-gradient(145deg,rgba(40,30,74,0.96),rgba(22,22,38,0.97)_44%,rgba(13,15,26,0.98))] p-6 shadow-[0_32px_90px_rgba(0,0,0,0.42)]"
             onClick={(event) => event.stopPropagation()}
         >
-            <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">Member Details</h2>
-                <button onClick={onClose} className="text-sm text-gray-400 hover:text-white">Close</button>
+            <div className="mb-5 flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+                <div>
+                    <h2 className="text-2xl font-semibold text-white">Member Details</h2>
+                    <p className="mt-1 text-sm text-purple-100/58">
+                        Review the user identity, channel details, and organization access status.
+                    </p>
+                </div>
+                <button
+                    onClick={onClose}
+                    aria-label="Close member details"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                >
+                    <X size={18} />
+                </button>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1141,14 +1194,14 @@ const MemberInfoModal = ({
                 <InfoRow label="Membership Requested" value={member.requestedAt ? new Date(member.requestedAt).toLocaleString() : "—"} />
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-3 border-t border-white/10 pt-5">
                 {member.role !== "ADMIN" && (
                     <button
                         onClick={async () => {
                             await onMakeAdmin(member.id)
                             onClose()
                         }}
-                        className="rounded bg-indigo-600 hover:bg-indigo-500 transition px-4 py-2 text-sm font-medium"
+                        className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
                     >
                         Make Admin
                     </button>
@@ -1160,7 +1213,7 @@ const MemberInfoModal = ({
                             await onRemoveAdmin(member.id)
                             onClose()
                         }}
-                        className="rounded bg-rose-600 hover:bg-rose-500 transition px-4 py-2 text-sm font-medium"
+                        className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-500"
                     >
                         Remove Admin
                     </button>
@@ -1172,7 +1225,7 @@ const MemberInfoModal = ({
                             await onRemoveMember(member.id)
                             onClose()
                         }}
-                        className="rounded bg-gray-700 hover:bg-gray-600 transition px-4 py-2 text-sm font-medium"
+                        className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/16"
                     >
                         Remove User
                     </button>
@@ -1183,9 +1236,9 @@ const MemberInfoModal = ({
 )
 
 const InfoRow = ({ label, value }: { label: string; value: string }) => (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-        <p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
-        <p className="mt-1 text-sm text-white break-words">{value}</p>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-purple-100/40">{label}</p>
+        <p className="mt-2 break-words text-sm text-white">{value}</p>
     </div>
 )
 

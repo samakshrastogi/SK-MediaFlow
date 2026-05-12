@@ -14,7 +14,6 @@ const PortraitPage = () => {
                 const data = Array.isArray(res.data?.data) ? res.data.data : []
                 setVideos(data)
             } catch (error) {
-                console.error("Failed to load portrait videos", error)
                 setVideos([])
             } finally {
                 setLoading(false)
@@ -39,9 +38,12 @@ const PortraitPage = () => {
                 ) : videos.length === 0 ? (
                     <div className="text-gray-400">No portrait videos found.</div>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                    <div
+                        className="grid justify-start gap-4"
+                        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 240px))" }}
+                    >
                         {videos.map((video, index) => (
-                            <div key={video.publicId || `portrait-${index}`}>
+                            <div key={video.publicId || `portrait-${index}`} className="w-full max-w-[240px]">
                                 <VideoCard video={video} />
                             </div>
                         ))}

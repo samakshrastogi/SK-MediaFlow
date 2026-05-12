@@ -3,6 +3,7 @@ import { api } from "@/api/axios"
 import AppLayout from "@/layouts/AppLayout"
 import HeroCarousel from "@/components/HeroCarousel"
 import VideoRow from "@/components/VideoRow"
+import { getCachedPageData, setCachedPageData } from "@/utils/pageCache"
 
 /* ---------------- TYPES ---------------- */
 
@@ -53,18 +54,30 @@ interface OrganizationOption {
   name: string
 }
 
+interface HomePageCache {
+  videos: Video[]
+  landscapeVideos: Video[]
+  portraitVideos: Video[]
+  orgVideos: Video[]
+  orgMemberships: OrganizationMembership[]
+  selectedOrgId: string | null
+  selectedOrgName: string
+}
+
 /* ---------------- COMPONENT ---------------- */
 
 const Home = () => {
+  const cached = getCachedPageData<HomePageCache>("page:home")
+  const savedOrgStorageKey = "home:last-selected-organization"
 
-  const [videos, setVideos] = useState<Video[]>([])
-  const [landscapeVideos, setLandscapeVideos] = useState<Video[]>([])
-  const [portraitVideos, setPortraitVideos] = useState<Video[]>([])
-  const [orgVideos, setOrgVideos] = useState<Video[]>([])
-  const [orgMemberships, setOrgMemberships] = useState<OrganizationMembership[]>([])
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
-  const [selectedOrgName, setSelectedOrgName] = useState<string>("")
-  const [loading, setLoading] = useState(true)
+  const [videos, setVideos] = useState<Video[]>(cached?.videos || [])
+  const [landscapeVideos, setLandscapeVideos] = useState<Video[]>(cached?.landscapeVideos || [])
+  const [portraitVideos, setPortraitVideos] = useState<Video[]>(cached?.portraitVideos || [])
+  const [orgVideos, setOrgVideos] = useState<Video[]>(cached?.orgVideos || [])
+  const [orgMemberships, setOrgMemberships] = useState<OrganizationMembership[]>(cached?.orgMemberships || [])
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(cached?.selectedOrgId || null)
+  const [selectedOrgName, setSelectedOrgName] = useState<string>(cached?.selectedOrgName || "")
+  const [loading, setLoading] = useState(!cached)
   const [orgRowLoading, setOrgRowLoading] = useState(false)
 
   /* ---------------- HELPERS ---------------- */
@@ -108,20 +121,27 @@ const Home = () => {
 
       const memberships = ((orgRes.data?.data?.memberships || []) as OrganizationMembership[]).filter((m) => m.status === "APPROVED")
       setOrgMemberships(memberships)
+
+      const savedOrgId = localStorage.getItem(savedOrgStorageKey)
       const activeOrgId = orgRes.data?.data?.access?.activeOrganizationId ?? null
-      const defaultOrg = activeOrgId
-        ? memberships.find((m) => m.organization?.id === activeOrgId)
-        : null
-      if (defaultOrg?.organization?.id) {
-        setSelectedOrgId(defaultOrg.organization.id)
-        setSelectedOrgName(defaultOrg.organization.name || "Organization")
+      const preferredOrg =
+        (savedOrgId
+          ? memberships.find((m) => m.organization?.id === savedOrgId)
+          : null) ||
+        (activeOrgId
+          ? memberships.find((m) => m.organization?.id === activeOrgId)
+          : null)
+      if (preferredOrg?.organization?.id) {
+        setSelectedOrgId(preferredOrg.organization.id)
+        setSelectedOrgName(preferredOrg.organization.name || "Organization")
+        localStorage.setItem(savedOrgStorageKey, preferredOrg.organization.id)
       } else {
         setSelectedOrgId(null)
         setSelectedOrgName("")
+        localStorage.removeItem(savedOrgStorageKey)
       }
 
     } catch (error) {
-      console.error("Home page load error", error)
     } finally {
       setLoading(false)
     }
@@ -147,7 +167,6 @@ const Home = () => {
       const raw: RawVideo[] = res.data?.data || []
       setOrgVideos(normalize(raw))
     } catch (err) {
-      console.error("Organization row load error", err)
       setOrgVideos([])
     } finally {
       setOrgRowLoading(false)
@@ -162,6 +181,24 @@ const Home = () => {
     }
   }, [selectedOrgId, fetchOrgRow])
 
+  useEffect(() => {
+    if (selectedOrgId) {
+      localStorage.setItem(savedOrgStorageKey, selectedOrgId)
+    }
+  }, [selectedOrgId])
+
+  useEffect(() => {
+    setCachedPageData<HomePageCache>("page:home", {
+      videos,
+      landscapeVideos,
+      portraitVideos,
+      orgVideos,
+      orgMemberships,
+      selectedOrgId,
+      selectedOrgName
+    }, 120000)
+  }, [videos, landscapeVideos, portraitVideos, orgVideos, orgMemberships, selectedOrgId, selectedOrgName])
+
   /* ---------------- UI ---------------- */
 
   return (
@@ -169,7 +206,7 @@ const Home = () => {
 
       <div
         className="
-          max-w-375 mx-auto
+          w-full
           space-y-10 sm:space-y-12
         "
       >
@@ -198,22 +235,25 @@ const Home = () => {
                     {orgRowLoading && (
                       <span className="text-xs text-gray-400">Loading...</span>
                     )}
-                    <select
-                      value={selectedOrgId}
-                      onChange={(e) => {
-                        const nextId = e.target.value
-                        const nextOrg = orgOptions.find((o) => o.id === nextId)
-                        setSelectedOrgId(nextId)
-                        setSelectedOrgName(nextOrg?.name || "Organization")
-                      }}
-                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs"
-                    >
-                      {orgOptions.map((org) => (
-                        <option key={org.id} value={org.id}>
-                          {org.name}
-                        </option>
-                      ))}
-                    </select>
+                    {orgOptions.length > 1 && (
+                      <select
+                        value={selectedOrgId}
+                        onChange={(e) => {
+                          const nextId = e.target.value
+                          const nextOrg = orgOptions.find((o) => o.id === nextId)
+                          setSelectedOrgId(nextId)
+                          setSelectedOrgName(nextOrg?.name || "Organization")
+                          localStorage.setItem(savedOrgStorageKey, nextId)
+                        }}
+                        className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs"
+                      >
+                        {orgOptions.map((org) => (
+                          <option key={org.id} value={org.id}>
+                            {org.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 }
               />

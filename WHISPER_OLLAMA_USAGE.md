@@ -1,89 +1,258 @@
 # Whisper and Ollama Usage in sk-cinema
 
-## Table of Contents
-1. [Introduction](#introduction)
-2. [What is Whisper?](#what-is-whisper)
-3. [What is Ollama?](#what-is-ollama)
-4. [How Whisper is Used in sk-cinema](#how-whisper-is-used-in-sk-cinema)
-    - [Integration Points](#whisper-integration-points)
-    - [Workflow](#whisper-workflow)
-    - [Code References](#whisper-code-references)
-5. [How Ollama is Used in sk-cinema](#how-ollama-is-used-in-sk-cinema)
-    - [Integration Points](#ollama-integration-points)
-    - [Workflow](#ollama-workflow)
-    - [Code References](#ollama-code-references)
-6. [Combined Usage: AI Video Metadata and Suggestions](#combined-usage)
-7. [Extending or Modifying the Integration](#extending-or-modifying)
-8. [Summary](#summary)
+## Important Context
+
+This repository does not run Whisper or Ollama directly inside the main backend process.
+
+Instead, the backend AI worker sends requests to an external AI service configured through:
+
+- `AI_SERVER_URL`
+
+That AI service is expected to provide endpoints compatible with the current worker logic:
+
+- `POST /transcribe`
+- `POST /generate`
+
+In practice:
+
+- transcription behaves like a Whisper step
+- generation behaves like an Ollama/LLM step
+
+So this document explains the logical usage of Whisper and Ollama in the system, and where that integration is triggered.
 
 ---
 
-## 1. Introduction
-This document explains how the Whisper and Ollama AI models are integrated and used within the sk-cinema project, including their roles, workflows, and code locations.
+## AI Flow Summary
+
+The AI flow looks like this:
+
+1. A video is uploaded or imported.
+2. Backend post-upload processing creates a `videoAI` record with pending status.
+3. A BullMQ job is added to `videoAIQueue`.
+4. `backend/src/workers/video-ai.worker.ts` processes the job.
+5. The worker downloads the video from S3.
+6. The worker extracts audio as MP3.
+7. The worker sends audio to the external AI server for transcription.
+8. The worker sends the transcript to the external AI server for metadata generation.
+9. The worker stores transcript, title, description, keywords, and tags in the database.
+10. Socket events notify the frontend about progress and completion.
 
 ---
 
-## 2. What is Whisper?
-**Whisper** is an automatic speech recognition (ASR) system developed by OpenAI. It transcribes spoken audio into text, supporting multiple languages and robust to various audio qualities.
+## Where Transcription Happens
+
+### Trigger Point
+
+The AI job is queued in:
+
+- `backend/src/modules/video/video-processing.service.ts`
+
+### Worker
+
+The job is executed in:
+
+- `backend/src/workers/video-ai.worker.ts`
+
+### Audio Extraction
+
+Audio is extracted using FFmpeg logic in:
+
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/utils/extract-audio.ts`
+
+In the worker, `fluent-ffmpeg` converts the uploaded video to MP3 before the transcription request is sent.
+
+### Request to AI Server
+
+The worker sends the extracted audio file to:
+
+- `POST ${AI_SERVER_URL}/transcribe`
+
+The expected response shape includes:
+
+- `transcript`
+
+That transcript is then used as input for the next step.
 
 ---
 
-## 3. What is Ollama?
-**Ollama** is a framework for running large language models (LLMs) locally or in the cloud. It enables natural language processing tasks such as summarization, question answering, and content generation.
+## Where Ollama-Style Generation Happens
+
+After transcription, the worker sends a prompt to:
+
+- `POST ${AI_SERVER_URL}/generate`
+
+The prompt instructs the model to return strict JSON with:
+
+- `title`
+- `description`
+- `keywords`
+- `tags`
+
+The worker then:
+
+- extracts JSON from the raw response
+- normalizes arrays
+- applies fallbacks if the response is incomplete
+- writes the result into the `videoAI` record
+
+This logic lives in:
+
+- `backend/src/workers/video-ai.worker.ts`
 
 ---
 
-## 4. How Whisper is Used in sk-cinema
-### Whisper Integration Points
-- **Purpose**: Transcribe audio from uploaded videos to generate subtitles, searchable transcripts, and enable AI-powered metadata extraction.
-- **Likely Usage Locations**:
-    - Backend services: `src/services/ffmpeg.service.ts`, `src/services/video-processing.service.ts`, `src/utils/extract-audio.ts`
-    - AI module: `src/modules/ai/`
+## Database Output
 
-### Whisper Workflow
-1. **Audio Extraction**: When a video is uploaded, its audio track is extracted (using FFmpeg).
-2. **Transcription**: The extracted audio is sent to the Whisper model (either via API or local inference).
-3. **Result Handling**: The transcribed text is saved as subtitles, transcript, or used for further AI processing.
+AI output is stored in the `videoAI` model.
 
-### Whisper Code References
-- `extract-audio.ts`: Extracts audio from video files for transcription.
-- `video-processing.service.ts`: Orchestrates the pipeline, calling Whisper for transcription.
-- `ai/` module: May use Whisper output for metadata extraction or AI suggestions.
+Typical fields filled by the worker:
 
----
+- `transcript`
+- `aiTitle`
+- `aiDescription`
+- `keywords`
+- `tags`
+- `status`
 
-## 5. How Ollama is Used in sk-cinema
-### Ollama Integration Points
-- **Purpose**: Analyze transcribed text, generate metadata, suggest tags, summarize content, or provide AI-powered recommendations.
-- **Likely Usage Locations**:
-    - Backend AI module: `src/modules/ai/`
-    - Services: `src/services/video-processing.service.ts`, `src/services/ffmpeg.service.ts`
+That data is later used in:
 
-### Ollama Workflow
-1. **Input**: Receives transcribed text from Whisper or other video metadata.
-2. **Processing**: Uses LLMs (via Ollama) to analyze, summarize, or generate suggestions.
-3. **Output**: Stores AI-generated metadata, tags, or suggestions in the database for use in the frontend.
-
-### Ollama Code References
-- `ai/` module: Handles LLM interactions and stores results.
-- `video-processing.service.ts`: Coordinates the flow between transcription and LLM analysis.
+- upload flow UI
+- profile and video editing UX
+- metadata endpoints
+- optional AI suggestion application
 
 ---
 
-## 6. Combined Usage: AI Video Metadata and Suggestions
-- **Pipeline**: Video upload → Audio extraction → Whisper transcription → Ollama LLM analysis → Store metadata/suggestions.
-- **Benefits**: Enables advanced search, recommendations, and accessibility features.
+## Applying AI Results
+
+The AI module reads or applies stored metadata.
+
+Relevant file:
+
+- `backend/src/modules/ai/ai.service.ts`
+
+Current behavior includes:
+
+- reading generated metadata for a video
+- applying AI title suggestions back to the main `video` record
 
 ---
 
-## 7. Extending or Modifying the Integration
-- **To change the model**: Update the service or module that calls Whisper or Ollama.
-- **To add new AI features**: Extend the `ai/` module and update the video processing pipeline.
-- **To run locally**: Ensure Whisper and Ollama are installed and accessible to the backend (update environment/config as needed).
+## Real-Time Progress
+
+The worker emits progress updates during the transcription/generation pipeline.
+
+Relevant files:
+
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/services/realtime.service.ts`
+- `backend/src/server.ts`
+
+Frontend consumers include:
+
+- `frontend/src/pages/Upload.tsx`
+
+Events emitted:
+
+- `ai-progress`
+- `ai-completed`
+- `ai-failed`
+
+This is how the upload screen knows when AI processing is still running or has completed.
 
 ---
 
-## 8. Summary
-Whisper and Ollama are used together in sk-cinema to automate video transcription and AI-powered metadata generation. Whisper handles speech-to-text, while Ollama provides advanced language understanding and content generation, making the platform smarter and more user-friendly.
+## Why This Design Was Chosen
 
-For exact code, see the referenced files and modules in the backend `src/` directory.
+Using an external AI server instead of embedding Whisper and Ollama directly in the main backend has a few advantages:
+
+- keeps the main API process lighter
+- separates media/API concerns from AI runtime concerns
+- allows local or remote AI infrastructure changes without rewriting the core app
+- makes it easier to swap models or inference environments later
+
+---
+
+## Operational Requirements
+
+For the AI flow to work, you need:
+
+- backend API running
+- Redis running
+- worker process running
+- AI server reachable at `AI_SERVER_URL`
+- FFmpeg available locally
+- S3 access working
+
+If any of these fail, the worker can mark `videoAI.status` as `failed`.
+
+---
+
+## Common Failure Points
+
+### No transcript generated
+
+Possible causes:
+
+- audio extraction failed
+- AI server is offline
+- `/transcribe` endpoint failed
+
+### Metadata missing
+
+Possible causes:
+
+- transcript request succeeded but `/generate` failed
+- LLM returned malformed JSON
+- worker crashed before DB update
+
+### Upload completes but AI never updates
+
+Possible causes:
+
+- worker process not running
+- Redis unavailable
+- `videoAIQueue` jobs not being consumed
+
+### Progress UI does not update
+
+Possible causes:
+
+- Socket.IO connection mismatch
+- backend server not emitting events
+- worker never reaching progress milestones
+
+---
+
+## Relevant Files
+
+### Backend
+
+- `backend/src/modules/video/video-processing.service.ts`
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/modules/ai/ai.service.ts`
+- `backend/src/services/realtime.service.ts`
+- `backend/src/server.ts`
+- `backend/src/utils/extract-audio.ts`
+
+### Frontend
+
+- `frontend/src/pages/Upload.tsx`
+
+---
+
+## Summary
+
+In `sk-cinema`:
+
+- Whisper-style transcription is triggered by the video AI worker through an external AI server.
+- Ollama-style metadata generation is triggered by the same worker after transcription.
+- Results are stored in the database and surfaced back into the UI through APIs and real-time events.
+
+The project’s AI integration is therefore:
+
+- queue-driven
+- worker-based
+- dependent on external AI runtime services
+- tightly connected to the upload and post-processing pipeline

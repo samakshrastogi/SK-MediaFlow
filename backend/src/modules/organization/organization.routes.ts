@@ -792,9 +792,7 @@ router.post("/invite", authenticate, async (req: AuthRequest, res) => {
             email,
             organization?.name || "Organization",
             inviteLink
-        ).catch((err) => {
-            console.error("Failed to send invite email", err)
-        })
+        ).catch(() => {})
 
         const invitedUser = resolvedUser || await prisma.user.findUnique({ where: { email } })
         if (invitedUser) {
@@ -1228,7 +1226,7 @@ router.get("/dashboard/:organizationId", authenticate, async (req: AuthRequest, 
 
         const [videos, views, likes, dislikes, shares, watchHistory] = await Promise.all([
             prisma.video.findMany({
-                where: { organizationId, status: "UPLOADED" },
+                where: { organizationId, status: "ACTIVE" },
                 select: {
                     id: true,
                     publicId: true,
@@ -1237,27 +1235,27 @@ router.get("/dashboard/:organizationId", authenticate, async (req: AuthRequest, 
                 }
             }),
             prisma.videoView.findMany({
-                where: { video: { organizationId } },
+                where: { video: { organizationId, status: "ACTIVE" } },
                 include: { user: { select: { id: true, name: true, email: true } }, video: { select: { id: true, publicId: true, title: true } } },
                 orderBy: { createdAt: "asc" }
             }),
             prisma.videoReaction.findMany({
-                where: { video: { organizationId }, type: "LIKE" },
+                where: { video: { organizationId, status: "ACTIVE" }, type: "LIKE" },
                 include: { user: { select: { id: true, name: true, email: true } }, video: { select: { id: true, publicId: true, title: true } } },
                 orderBy: { createdAt: "asc" }
             }),
             prisma.videoReaction.findMany({
-                where: { video: { organizationId }, type: "DISLIKE" },
+                where: { video: { organizationId, status: "ACTIVE" }, type: "DISLIKE" },
                 include: { user: { select: { id: true, name: true, email: true } }, video: { select: { id: true, publicId: true, title: true } } },
                 orderBy: { createdAt: "asc" }
             }),
             prisma.videoShare.findMany({
-                where: { video: { organizationId } },
+                where: { video: { organizationId, status: "ACTIVE" } },
                 include: { user: { select: { id: true, name: true, email: true } }, video: { select: { id: true, publicId: true, title: true } } },
                 orderBy: { createdAt: "asc" }
             }),
             prisma.watchHistory.findMany({
-                where: { video: { organizationId } },
+                where: { video: { organizationId, status: "ACTIVE" } },
                 include: { user: { select: { id: true, name: true, email: true } }, video: { select: { id: true, publicId: true, title: true } } },
                 orderBy: { updatedAt: "desc" }
             })
