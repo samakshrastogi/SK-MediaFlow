@@ -18,7 +18,7 @@ import {
 import { nanoid } from "nanoid"
 import { prisma } from "../../config/prisma"
 import { AuthRequest } from "../../middlewares/auth.middleware"
-import { processVideoAfterUpload } from "./video-processing.service"
+import { startVideoPostUploadPipeline } from "./video-processing.service"
 import { getSignedUrl as getCFSignedUrl } from "@aws-sdk/cloudfront-signer"
 
 const signCloudFrontUrl = (key: string) => {
@@ -201,7 +201,7 @@ export const importSelectedVideos = async (
                     }
                 })
 
-                await processVideoAfterUpload(
+                await startVideoPostUploadPipeline(
                     video.id,
                     key,
                     user.channel.username

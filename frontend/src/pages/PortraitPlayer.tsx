@@ -629,7 +629,7 @@ const PortraitPlayer = () => {
 
                     </section>
 
-                    <aside ref={playlistMenuRef} className="flex lg:flex-col items-center gap-4 lg:sticky lg:top-28">
+                    <aside ref={playlistMenuRef} className="relative flex lg:flex-col items-center gap-4 lg:sticky lg:top-28">
 
                         {/* ACTION STACK */}
                         <div className="flex lg:flex-col gap-3 bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-2 shadow-lg">
@@ -682,7 +682,7 @@ const PortraitPlayer = () => {
 
                         {/* PLAYLIST POPUP */}
                         {showPlaylist && (
-                            <div className="mt-2 lg:absolute lg:right-0 lg:top-[240px] w-[320px] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+                            <div className="mt-2 w-[320px] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl lg:absolute lg:left-full lg:top-1/2 lg:z-30 lg:mt-0 lg:ml-4 lg:-translate-y-1/2">
                                 <div className="border-b border-white/10 px-5 py-4">
                                     <p className="text-[15px] font-semibold">Save video to...</p>
                                 </div>

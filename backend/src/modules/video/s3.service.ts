@@ -13,7 +13,7 @@ import { encrypt, decrypt } from "../../utils/crypto";
 import { s3 } from "../../config/s3";
 import { generateThumbnail } from "../../utils/thumbnail";
 import { emitNewVideoUploaded } from "../../services/realtime.service";
-import { processVideoAfterUpload } from "./video-processing.service";
+import { startVideoPostUploadPipeline } from "./video-processing.service";
 
 import fs from "fs";
 import path from "path";
@@ -203,7 +203,7 @@ export const importVideoFromUserBucket = async (
         include: { channel: true },
     });
 
-    await processVideoAfterUpload(
+    await startVideoPostUploadPipeline(
         video.id,
         destinationKey,
         cred.user.channel.username

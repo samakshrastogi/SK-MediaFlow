@@ -17,6 +17,7 @@ import videoActionRoutes from "./modules/video/video-action.routes"
 import organizationRoutes from "./modules/organization/organization.routes"
 import notificationRoutes from "./modules/notification/notification.routes"
 import adminRoutes from "./modules/admin/admin.routes"
+import { requestLogger } from "./middlewares/request-logger.middleware"
 import {
     buildLoginSessionMeta,
     createUniqueUsername,
@@ -25,6 +26,7 @@ import {
 
 import { prisma } from "./config/prisma"
 import { s3 } from "./config/s3"
+import { logger } from "./utils/logger"
 
 import "./workers"
 
@@ -38,6 +40,11 @@ if (!JWT_SECRET) {
     throw new Error("JWT_SECRET not defined")
 }
 
+logger.info("APP", "Express application initialized", {
+    clientUrl: CLIENT_URL,
+    nodeEnv: process.env.NODE_ENV || "development"
+})
+
 app.use(
     cors({
         origin: CLIENT_URL,
@@ -46,6 +53,7 @@ app.use(
 )
 
 app.use(express.json())
+app.use(requestLogger)
 
 app.use(
     session({

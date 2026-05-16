@@ -10,6 +10,7 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { videoAIQueue } from "../../queues/video-ai.queue"
 import { thumbnailQueue, videoMetadataQueue } from "../../services/video-processing.service"
 import { pipeline } from "stream/promises"
+import { logger } from "../../utils/logger"
 
 const execAsync = promisify(exec)
 const MAX_SPRITE_FRAMES = 120
@@ -44,9 +45,13 @@ const optimizeVideoForStreaming = async (
 export const processVideoAfterUpload = async (
     videoId: string,
     s3Key: string,
-    channelUsername: string,
-    initialDescription?: string
+    channelUsername: string
 ) => {
+    logger.info("VIDEO_PROCESSING", "Post-upload processing started", {
+        videoId,
+        s3Key,
+        channelUsername
+    })
     let sourceVideoPath = ""
     let tempVideoPath = ""
     let optimizedVideoPath = ""
@@ -122,97 +127,37 @@ export const processVideoAfterUpload = async (
         )
 
         await pipeline(object.Body as any, fs.createWriteStream(sourceVideoPath))
+        logger.info("VIDEO_PROCESSING", "Source video downloaded", {
+            videoId,
+            sourceVideoPath
+        })
 
         try {
             optimizedVideoPath = await optimizeVideoForStreaming(tempVideoPath, s3Key)
             tempVideoPath = optimizedVideoPath
+            logger.info("VIDEO_PROCESSING", "Video optimized for streaming", {
+                videoId,
+                optimizedVideoPath
+            })
         } catch (streamingError) {
+            logger.warn("VIDEO_PROCESSING", "Streaming optimization failed, continuing with source video", {
+                videoId,
+                error: streamingError instanceof Error ? streamingError : new Error(String(streamingError))
+            })
         }
-
-        const currentVideo = await prisma.video.findUnique({
-            where: { id: videoId },
-            select: { thumbnailKey: true }
-        })
 
         try {
             await generateSpritesheet()
         } catch (spriteError) {
-        }
-
-        await prisma.videoAI.upsert({
-            where: { videoId },
-            update: {
-                status: "pending",
-                ...(initialDescription?.trim()
-                    ? { aiDescription: initialDescription.trim() }
-                    : {})
-            },
-            create: {
+            logger.warn("VIDEO_PROCESSING", "Spritesheet generation failed", {
                 videoId,
-                status: "pending",
-                aiDescription: initialDescription?.trim() || null,
-                keywords: [],
-                tags: []
-            }
-        })
-
-        if (!currentVideo?.thumbnailKey) {
-            await thumbnailQueue.add(
-                "generateThumbnail",
-                { videoId },
-                {
-                    attempts: 3,
-                    backoff: {
-                        type: "exponential",
-                        delay: 5000
-                    },
-                    removeOnComplete: true,
-                    removeOnFail: false
-                }
-            )
+                error: spriteError instanceof Error ? spriteError : new Error(String(spriteError))
+            })
         }
-
-        await videoAIQueue.add(
-            "processVideoAI",
-            { videoId },
-            {
-                attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: 5000
-                },
-                removeOnComplete: true,
-                removeOnFail: false
-            }
-        )
-
-        await videoMetadataQueue.add(
-            "extractVideoMetadata",
-            { videoId },
-            {
-                attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: 5000
-                },
-                removeOnComplete: true,
-                removeOnFail: false
-            }
-        )
-
     } catch (error) {
-
-        await prisma.videoAI.upsert({
-            where: { videoId },
-            update: {
-                status: "failed"
-            },
-            create: {
-                videoId,
-                status: "failed",
-                keywords: [],
-                tags: []
-            }
+        logger.error("VIDEO_PROCESSING", "Post-upload processing failed", {
+            videoId,
+            error: error instanceof Error ? error : new Error(String(error))
         })
 
         throw error
@@ -222,7 +167,104 @@ export const processVideoAfterUpload = async (
         if (sourceVideoPath && fs.existsSync(sourceVideoPath)) fs.unlinkSync(sourceVideoPath)
         if (optimizedVideoPath && fs.existsSync(optimizedVideoPath)) fs.unlinkSync(optimizedVideoPath)
         if (tempSpritePath && fs.existsSync(tempSpritePath)) fs.unlinkSync(tempSpritePath)
+        logger.info("VIDEO_PROCESSING", "Post-upload processing finished", {
+            videoId
+        })
 
     }
 
+}
+
+export const startVideoPostUploadPipeline = async (
+    videoId: string,
+    s3Key: string,
+    channelUsername: string,
+    initialDescription?: string
+) => {
+    const currentVideo = await prisma.video.findUnique({
+        where: { id: videoId },
+        select: { thumbnailKey: true }
+    })
+
+    await prisma.videoAI.upsert({
+        where: { videoId },
+        update: {
+            status: "pending",
+            ...(initialDescription?.trim()
+                ? { aiDescription: initialDescription.trim() }
+                : {})
+        },
+        create: {
+            videoId,
+            status: "pending",
+            aiDescription: initialDescription?.trim() || null,
+            keywords: [],
+            tags: []
+        }
+    })
+
+    if (!currentVideo?.thumbnailKey) {
+        const thumbnailJob = await thumbnailQueue.add(
+            "generateThumbnail",
+            { videoId },
+            {
+                attempts: 3,
+                backoff: {
+                    type: "exponential",
+                    delay: 5000
+                },
+                removeOnComplete: true,
+                removeOnFail: false
+            }
+        )
+        logger.info("VIDEO_PROCESSING", "Thumbnail job queued", {
+            videoId,
+            jobId: thumbnailJob.id
+        })
+    }
+
+    const videoAIJob = await videoAIQueue.add(
+        "processVideoAI",
+        { videoId },
+        {
+            attempts: 3,
+            backoff: {
+                type: "exponential",
+                delay: 5000
+            },
+            removeOnComplete: true,
+            removeOnFail: false
+        }
+    )
+    logger.info("VIDEO_PROCESSING", "AI job queued", {
+        videoId,
+        jobId: videoAIJob.id
+    })
+
+    const metadataJob = await videoMetadataQueue.add(
+        "extractVideoMetadata",
+        { videoId },
+        {
+            attempts: 3,
+            backoff: {
+                type: "exponential",
+                delay: 5000
+            },
+            removeOnComplete: true,
+            removeOnFail: false
+        }
+    )
+    logger.info("VIDEO_PROCESSING", "Metadata job queued", {
+        videoId,
+        jobId: metadataJob.id
+    })
+
+    setImmediate(() => {
+        void processVideoAfterUpload(videoId, s3Key, channelUsername).catch((error) => {
+            logger.error("VIDEO_PROCESSING", "Background post-upload preprocessing failed", {
+                videoId,
+                error: error instanceof Error ? error : new Error(String(error))
+            })
+        })
+    })
 }

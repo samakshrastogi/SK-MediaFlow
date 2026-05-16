@@ -1,5 +1,6 @@
 import "./thumbnail.worker"
 import "./video-ai.worker"
 import "./video-metadata.worker"
+import { logger } from "../utils/logger"
 
-console.log("🚀 All workers started...")
+logger.info("WORKERS", "All workers started")

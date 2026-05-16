@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { logger } from "../utils/logger";
 
 if (!process.env.REDIS_URL) {
     throw new Error("REDIS_URL not defined ❌");
@@ -27,10 +28,14 @@ export const redisConnection = new Redis({
 });
 
 redisConnection.on("connect", () => {
-    console.log("✅ Redis connected");
+    logger.info("REDIS", "Redis connected");
 });
 
 redisConnection.on("ready", () => {
-    console.log("🚀 Redis ready");
+    logger.info("REDIS", "Redis ready");
+});
+
+redisConnection.on("error", (error) => {
+    logger.error("REDIS", "Redis error", { error });
 });
 

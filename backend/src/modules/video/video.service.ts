@@ -19,7 +19,7 @@ import { s3 } from "../../config/s3"
 import { emitNewVideoUploaded } from "../../services/realtime.service"
 import { getOrganizationAccessContext } from "../organization/organization.service"
 
-import { processVideoAfterUpload } from "./video-processing.service"
+import { startVideoPostUploadPipeline } from "./video-processing.service"
 
 const AWS_BUCKET = process.env.AWS_BUCKET as string
 const execAsync = promisify(exec)
@@ -188,7 +188,7 @@ export const completeUpload = async (
         }
     })
 
-    await processVideoAfterUpload(
+    await startVideoPostUploadPipeline(
         video.id,
         key,
         user.channel.username,

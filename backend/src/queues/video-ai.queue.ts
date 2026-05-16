@@ -1,5 +1,6 @@
 import { Queue } from "bullmq";
 import { redisConnection } from "../config/redis";
+import { logger } from "../utils/logger";
 
 /* ---------------- QUEUE ---------------- */
 
@@ -34,6 +35,10 @@ export const addVideoAIJob = async (videoId: string) => {
     const existingJob = await videoAIQueue.getJob(jobId);
 
     if (existingJob) {
+        logger.info("VIDEO_AI_QUEUE", "Reusing existing AI job", {
+            videoId,
+            jobId
+        })
         return existingJob;
     }
 
@@ -45,6 +50,11 @@ export const addVideoAIJob = async (videoId: string) => {
             priority: 1
         }
     );
+
+    logger.info("VIDEO_AI_QUEUE", "AI job added", {
+        videoId,
+        jobId: job.id
+    })
 
     return job;
 };

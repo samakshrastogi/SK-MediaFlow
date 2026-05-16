@@ -536,7 +536,7 @@ const VideoPlayer = () => {
                                     </button>
 
                                     {showPlaylist && (
-                                        <div className="absolute right-0 top-full z-30 mt-3 w-[320px] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+                                        <div className="absolute right-0 top-full z-30 mt-3 w-[320px] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl lg:left-full lg:right-auto lg:top-1/2 lg:mt-0 lg:ml-3 lg:-translate-y-1/2">
                                             <div className="border-b border-white/10 px-5 py-4">
                                                 <p className="text-[15px] font-semibold">Save video to...</p>
                                             </div>
