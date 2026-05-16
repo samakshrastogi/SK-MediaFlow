@@ -1,4 +1,4 @@
-# Whisper and Ollama Usage in sk-cinema
+# Whisper and Ollama Usage in SKFlix
 
 ## Important Context
 
@@ -244,7 +244,7 @@ Possible causes:
 
 ## Summary
 
-In `sk-cinema`:
+In `SKFlix`:
 
 - Whisper-style transcription is triggered by the video AI worker through an external AI server.
 - Ollama-style metadata generation is triggered by the same worker after transcription.

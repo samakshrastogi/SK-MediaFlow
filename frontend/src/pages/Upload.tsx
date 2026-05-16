@@ -615,7 +615,7 @@ const Upload = () => {
 
         <AppLayout>
 
-            <div className="w-full px-6 py-10 space-y-10">
+            <div className="w-full px-3 sm:px-4 lg:px-6 py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10">
 
                 {/* HEADER */}
 
@@ -671,67 +671,116 @@ const Upload = () => {
                 />
 
                 {!channel && (
-                    <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center px-4">
-                        <div className="w-full max-w-xl bg-[#111] border border-white/10 rounded-2xl p-6 space-y-4">
-                            <h2 className="text-xl font-semibold">Create Your Channel</h2>
-                            <p className="text-sm text-gray-400">
-                                Before your first upload, create a channel.
-                            </p>
-
-                            <div className="space-y-1">
-                                <label className="text-sm text-gray-300">Channel Name *</label>
-                                <input
-                                    value={channelNameInput}
-                                    onChange={(e) => setChannelNameInput(e.target.value)}
-                                    placeholder="Enter channel name"
-                                    className="w-full bg-[#0b1120] border border-gray-700 rounded-lg px-4 py-2 focus:border-purple-500 outline-none"
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-sm text-gray-300">Channel Description</label>
-                                <textarea
-                                    rows={3}
-                                    value={channelDescriptionInput}
-                                    onChange={(e) => setChannelDescriptionInput(e.target.value)}
-                                    placeholder="Tell viewers about your channel"
-                                    className="w-full bg-[#0b1120] border border-gray-700 rounded-lg px-4 py-2 focus:border-purple-500 outline-none"
-                                />
-                            </div>
-
-                            {channelError && (
-                                <p className="text-sm text-red-400">{channelError}</p>
-                            )}
-
-                            {channelSuggestions.length > 0 && (
-                                <div className="space-y-2">
-                                    <p className="text-xs text-gray-400">
-                                        Try one of these related names:
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {channelSuggestions.map((suggestion) => (
-                                            <button
-                                                key={suggestion}
-                                                type="button"
-                                                onClick={() => setChannelNameInput(suggestion)}
-                                                className="rounded-full bg-white/10 hover:bg-white/15 px-3 py-1 text-xs text-gray-200"
-                                            >
-                                                {suggestion}
-                                            </button>
-                                        ))}
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.16),_transparent_28%),rgba(5,3,14,0.82)] px-3 sm:px-4 backdrop-blur-sm">
+                        <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(20,18,39,0.98),rgba(11,10,28,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
+                            <div className="flex items-start justify-between border-b border-white/8 px-6 py-5">
+                                <div className="max-w-lg">
+                                    <div className="mb-3 inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
+                                        Channel Setup
                                     </div>
+                                    <h2 className="text-3xl font-semibold tracking-tight text-white">
+                                        Create Your Channel
+                                    </h2>
+                                    <p className="mt-2 text-sm leading-6 text-gray-400">
+                                        Your upload workspace needs a channel first. Add a strong name and a short description so your videos have a proper home.
+                                    </p>
                                 </div>
-                            )}
 
-                            <div className="flex justify-end">
                                 <button
                                     type="button"
-                                    onClick={createChannelFirstTime}
-                                    disabled={creatingChannel}
-                                    className="bg-purple-600 hover:bg-purple-700 transition px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                                    onClick={() => navigate("/profile")}
+                                    aria-label="Close and return to profile"
+                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-lg text-gray-300 transition hover:bg-white/10 hover:text-white"
                                 >
-                                    {creatingChannel ? "Creating..." : "Create Channel"}
+                                    ×
                                 </button>
+                            </div>
+
+                            <div className="max-h-[calc(90vh-92px)] space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                                <div className="grid gap-5 md:grid-cols-[1.2fr_0.8fr]">
+                                    <div className="space-y-5">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-200">Channel Name *</label>
+                                            <input
+                                                value={channelNameInput}
+                                                onChange={(e) => setChannelNameInput(e.target.value)}
+                                                placeholder="Enter channel name"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-gray-500 focus:border-fuchsia-500 focus:outline-none"
+                                            />
+                                            <p className="text-xs text-gray-500">
+                                                Pick a name viewers will recognize easily.
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-200">Channel Description</label>
+                                            <textarea
+                                                rows={4}
+                                                value={channelDescriptionInput}
+                                                onChange={(e) => setChannelDescriptionInput(e.target.value)}
+                                                placeholder="Tell viewers what your channel is about"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-gray-500 focus:border-fuchsia-500 focus:outline-none"
+                                            />
+                                            <p className="text-xs text-gray-500">
+                                                A short summary helps organize your first uploads.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-3xl border border-white/8 bg-white/[0.04] p-4">
+                                        <h3 className="text-sm font-semibold text-white">Before you continue</h3>
+                                        <div className="mt-3 space-y-3 text-sm text-gray-400">
+                                            <p>1. Create one channel identity for your uploads.</p>
+                                            <p>2. Add a simple description so your profile looks complete.</p>
+                                            <p>3. After channel setup, you can upload videos or import from S3.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {channelError && (
+                                    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                                        {channelError}
+                                    </div>
+                                )}
+
+                                {channelSuggestions.length > 0 && (
+                                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500">
+                                            Suggested Names
+                                        </p>
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            {channelSuggestions.map((suggestion) => (
+                                                <button
+                                                    key={suggestion}
+                                                    type="button"
+                                                    onClick={() => setChannelNameInput(suggestion)}
+                                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200 transition hover:bg-white/10"
+                                                >
+                                                    {suggestion}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate("/profile")}
+                                        className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+                                    >
+                                        Back to Profile
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={createChannelFirstTime}
+                                        disabled={creatingChannel}
+                                        className="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:from-fuchsia-500 hover:to-violet-400 disabled:opacity-60"
+                                    >
+                                        {creatingChannel ? "Creating..." : "Create Channel"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -854,11 +854,11 @@ const AccessControlModal = ({
     onClose: () => void
 }) => (
     <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
         onClick={onClose}
     >
         <div
-            className="w-full max-w-4xl rounded-[28px] border border-white/12 bg-gradient-to-br from-[#251d46]/96 via-[#19192f]/96 to-[#11131f]/96 shadow-[0_32px_90px_rgba(0,0,0,0.4)]"
+            className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/12 bg-gradient-to-br from-[#251d46]/96 via-[#19192f]/96 to-[#11131f]/96 shadow-[0_32px_90px_rgba(0,0,0,0.4)]"
             onClick={(e) => e.stopPropagation()}
         >
             <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
@@ -876,7 +876,7 @@ const AccessControlModal = ({
                 </button>
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="grid max-h-[calc(90vh-88px)] gap-0 overflow-y-auto lg:grid-cols-[1.05fr_0.95fr]">
                 <section className="space-y-5 border-b border-white/10 px-6 py-6 lg:border-b-0 lg:border-r">
                     <div>
                         <h3 className="text-lg font-semibold text-white">Organization Join Links</h3>
@@ -1164,11 +1164,11 @@ const MemberInfoModal = ({
     onRemoveMember: (id: string) => Promise<void>
 }) => (
     <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(7,9,18,0.62)] px-4 backdrop-blur-md"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(7,9,18,0.62)] px-4 backdrop-blur-md"
         onClick={onClose}
     >
         <div
-            className="w-full max-w-3xl rounded-[28px] border border-white/12 bg-[linear-gradient(145deg,rgba(40,30,74,0.96),rgba(22,22,38,0.97)_44%,rgba(13,15,26,0.98))] p-6 shadow-[0_32px_90px_rgba(0,0,0,0.42)]"
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/12 bg-[linear-gradient(145deg,rgba(40,30,74,0.96),rgba(22,22,38,0.97)_44%,rgba(13,15,26,0.98))] p-4 sm:p-6 shadow-[0_32px_90px_rgba(0,0,0,0.42)]"
             onClick={(event) => event.stopPropagation()}
         >
             <div className="mb-5 flex items-start justify-between gap-4 border-b border-white/10 pb-4">

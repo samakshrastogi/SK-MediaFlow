@@ -1,6 +1,6 @@
-# sk-cinema
+# SKFlix
 
-`sk-cinema` is a full-stack video platform for uploading, managing, organizing, and streaming video content. It includes media processing, AI-assisted metadata generation, profile and channel management, organization-scoped content, and admin workflows.
+`SKFlix` is a full-stack video platform for uploading, managing, organizing, and streaming video content. It includes media processing, AI-assisted metadata generation, profile and channel management, organization-scoped content, and admin workflows.
 
 ## Features
 
@@ -47,7 +47,7 @@
 ## Repository Structure
 
 ```text
-sk-cinema/
+SKFlix/
 ├── README.md
 ├── PROJECT_OVERVIEW.md
 ├── SETUP_GUIDE.md

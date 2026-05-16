@@ -7,6 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getSignedUrl as getCFSignedUrl } from "@aws-sdk/cloudfront-signer"
 import { s3 } from "../../config/s3"
 import { generateUniqueChannelUsername } from "../channel/channel.service"
+import { listUserSessions, revokeUserSession } from "../auth/auth.service"
 
 const router = Router()
 
@@ -69,6 +70,12 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
                     where: { userId: user.id }
                 })
             ])
+
+        const sessions = await listUserSessions(user.id)
+        const currentSession = req.user.loginId
+            ? sessions.find((session) => session.id === req.user?.loginId)
+            : null
+        const latestSuccessfulSession = sessions[0] || null
 
         /* ---------------- UPLOADED VIDEOS ---------------- */
 
@@ -213,6 +220,25 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
                     playlists: playlistsCount,
                     favorites: favoritesCount,
                     comments: commentsCount
+                },
+                security: {
+                    currentLoginId: req.user.loginId || null,
+                    lastSuccessfulLogin: latestSuccessfulSession
+                        ? {
+                            createdAt: latestSuccessfulSession.createdAt,
+                            deviceLabel: latestSuccessfulSession.deviceLabel,
+                            ipAddress: latestSuccessfulSession.ipAddress,
+                        }
+                        : null,
+                    currentSession: currentSession
+                        ? {
+                            id: currentSession.id,
+                            createdAt: currentSession.createdAt,
+                            deviceLabel: currentSession.deviceLabel,
+                            ipAddress: currentSession.ipAddress,
+                        }
+                        : null,
+                    sessions,
                 },
 
                 /* ---------- VIDEOS ---------- */
@@ -482,6 +508,33 @@ router.post("/avatar", authenticate, async (req: AuthRequest, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to save avatar"
+        })
+    }
+})
+
+router.delete("/sessions/:sessionId", authenticate, async (req: AuthRequest, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized",
+            })
+        }
+
+        const result = await revokeUserSession(
+            req.user.id,
+            String(req.params.sessionId || ""),
+            req.user.loginId
+        )
+
+        return res.json({
+            success: true,
+            message: result.message,
+        })
+    } catch (error: any) {
+        return res.status(error?.statusCode || 500).json({
+            success: false,
+            message: error?.message || "Failed to revoke session",
         })
     }
 })

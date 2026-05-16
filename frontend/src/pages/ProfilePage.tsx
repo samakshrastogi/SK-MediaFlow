@@ -123,7 +123,7 @@ interface ProfilePageCache {
 
 const ProfilePage = () => {
     const navigate = useNavigate()
-    const { user: authUser } = useAuth()
+    const { user: authUser, updateUser } = useAuth()
     const cached = getCachedPageData<ProfilePageCache>("page:profile")
 
     const [user, setUser] = useState<User | null>(cached?.user || null)
@@ -191,6 +191,9 @@ const ProfilePage = () => {
             const data = res.data?.data || {}
 
             setUser(data.user || null)
+            if (data.user) {
+                updateUser(data.user)
+            }
 
             setStats(data.stats || null)
             setHistory(normalizeVideos(data.history))
@@ -215,7 +218,7 @@ const ProfilePage = () => {
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [updateUser])
 
     useEffect(() => {
         void fetchProfile()
@@ -579,8 +582,8 @@ const ProfilePage = () => {
                         </div>
 
                         {/* STATS */}
-                        <div className="mt-3">
-                            <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-2 shadow-sm backdrop-blur">
+                        <div className="mt-4">
+                            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2.5">
                                 <InlineStat label="Uploads" value={ownUploadCount} />
                                 <InlineStat label="Favorites" value={stats?.favorites || 0} />
                                 <InlineStat label="Playlists" value={stats?.playlists || 0} />
@@ -599,11 +602,8 @@ const ProfilePage = () => {
                 )}
 
                 {/* TABS + ACTIONS */}
-                <div className="px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
-
-                    {/* LEFT TABS */}
-                    <div className="flex flex-wrap gap-2 bg-white/5 border border-white/10 rounded-xl p-1 backdrop-blur">
-
+                <div className="px-4 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         <Pill
                             label="Continue Watching"
                             active={activeTab === "history"}
@@ -616,50 +616,46 @@ const ProfilePage = () => {
                             onClick={() => setActiveTab("uploads")}
                         />
 
-                        <button
+                        <QuickNavPill
+                            label="Organization"
                             onClick={() => navigate("/organization")}
-                            className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-white/10 transition"
-                        >
-                            Organization
-                        </button>
+                        />
 
-                        {(authUser?.email === "samakshrastogi885@gmail.com" || authUser?.platformAdmin) && (
-                            <button
+                        {(user?.email === "samakshrastogi885@gmail.com" || user?.platformAdmin) && (
+                            <QuickNavPill
+                                label="Admin"
                                 onClick={() => navigate("/admin")}
-                                className="px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-white/10 transition"
-                            >
-                                Admin
-                            </button>
+                            />
                         )}
-                    </div>
 
-                    {/* RIGHT CTA */}
-                    {activeTab === "uploads" && (
-                        <button
-                            onClick={() => navigate("/upload")}
-                            className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm font-medium shadow"
-                        >
-                            + Upload
-                        </button>
-                    )}
+                    </div>
                 </div>
 
                 {/* UPLOAD FILTER */}
                 {activeTab === "uploads" && (
                     <div className="px-4 sm:px-6">
-                        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-1 w-fit">
-                            {availableUploadTabs.map((tab) => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setUploadVisibility(tab.key)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs transition ${uploadVisibility === tab.key
-                                        ? "bg-white text-black"
-                                        : "text-gray-300 hover:bg-white/10"
-                                        }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+                        <div className="flex flex-wrap items-center gap-3 sm:justify-between">
+                            <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-1.5 shadow-sm backdrop-blur">
+                                {availableUploadTabs.map((tab) => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setUploadVisibility(tab.key)}
+                                        className={`rounded-xl px-3.5 py-2 text-xs font-medium transition ${uploadVisibility === tab.key
+                                            ? "bg-white text-black shadow-sm"
+                                            : "text-gray-300 hover:bg-white/10"
+                                            }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => navigate("/upload")}
+                                className="sm:ml-auto inline-flex items-center rounded-full border border-fuchsia-300/20 bg-gradient-to-r from-fuchsia-600 via-violet-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(139,92,246,0.28)] transition hover:scale-[1.02] hover:brightness-110"
+                            >
+                                + Upload Video
+                            </button>
                         </div>
                     </div>
                 )}
@@ -727,24 +723,51 @@ const InlineStat = ({
     label: string
     value: number
 }) => (
-    <div className="flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5">
-        <span className="text-sm font-semibold text-white sm:text-base">
+    <div className="inline-flex min-w-0 w-full items-center gap-2 rounded-full border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.03] px-3 py-2 sm:min-w-[124px] sm:w-auto sm:gap-3 sm:px-4 sm:py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
+        <div className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/10 px-2 text-base font-bold tracking-tight text-white sm:h-9 sm:min-w-9 sm:text-lg">
             {value}
-        </span>
-        <span className="text-[11px] uppercase tracking-wide text-gray-300">
-            {label}
-        </span>
+        </div>
+        <div className="leading-tight">
+            <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-purple-100/45 sm:text-[10px] sm:tracking-[0.22em]">
+                Total
+            </span>
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-purple-100/75 sm:text-xs sm:tracking-[0.18em]">
+                {label}
+            </span>
+        </div>
     </div>
+)
+
+const QuickNavPill = ({
+    label,
+    count,
+    onClick
+}: {
+    label: string
+    count?: number
+    onClick: () => void
+}) => (
+    <button
+        onClick={onClick}
+        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-medium text-purple-100/85 transition hover:bg-white/[0.09] hover:text-white"
+    >
+        {typeof count === "number" ? (
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white">
+                {count}
+            </span>
+        ) : null}
+        <span>{label}</span>
+    </button>
 )
 
 const VideoGrid = ({ videos }: { videos: Video[] }) => {
 
     if (!videos.length) {
         return (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400">
-                <p className="text-lg font-medium">No videos yet</p>
-                <p className="text-sm text-gray-500 mt-1">
-                    Your content will appear here once uploaded
+            <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent px-6 py-14 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur">
+                <p className="text-xl font-semibold text-white">Nothing to continue yet</p>
+                <p className="mt-2 text-sm text-purple-100/55">
+                    Videos you watch will appear here for quick return access.
                 </p>
             </div>
         )
@@ -752,7 +775,7 @@ const VideoGrid = ({ videos }: { videos: Video[] }) => {
 
     return (
         <div
-            className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
         >
 
             {videos.map((v) => (
@@ -778,10 +801,10 @@ const EditableVideoGrid = ({
 
     if (!videos.length) {
         return (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400">
-                <p className="text-lg font-medium">No videos yet</p>
-                <p className="text-sm text-gray-500 mt-1">
-                    Upload videos to start managing your content
+            <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent px-6 py-14 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur">
+                <p className="text-xl font-semibold text-white">No uploads yet</p>
+                <p className="mt-2 text-sm text-purple-100/55">
+                    Upload videos to start managing your content from this profile.
                 </p>
             </div>
         )
@@ -789,7 +812,7 @@ const EditableVideoGrid = ({
 
     return (
         <div
-            className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
         >
 
             {videos.map((v) => (
@@ -844,7 +867,7 @@ const EditVideoModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.24),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.24),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
             onClick={onClose}
         >
             <div
@@ -1040,12 +1063,11 @@ const Pill = ({
 }) => (
     <button
         onClick={onClick}
-        className={`
-            px-4 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
-            ${active
-                ? "bg-white text-black shadow-sm"
-                : "text-gray-300 hover:bg-white/10 hover:text-white"}
-        `}
+        className={`inline-flex items-center rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 ${
+            active
+                ? "border-white/15 bg-white text-black shadow-[0_8px_18px_rgba(255,255,255,0.12)]"
+                : "border-white/10 bg-white/[0.05] text-purple-100/85 hover:bg-white/[0.09] hover:text-white"
+        }`}
     >
         {label}
     </button>
@@ -1068,11 +1090,11 @@ const EditModal = ({
     onSave
 }: EditModalProps) => (
     <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
         onClick={onClose}
     >
         <div
-            className="w-full max-w-2xl rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-6 shadow-[0_24px_80px_rgba(6,8,20,0.34)]"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-4 sm:p-6 shadow-[0_24px_80px_rgba(6,8,20,0.34)]"
             onClick={(e) => e.stopPropagation()}
         >
             <div className="space-y-6">

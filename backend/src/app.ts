@@ -17,6 +17,11 @@ import videoActionRoutes from "./modules/video/video-action.routes"
 import organizationRoutes from "./modules/organization/organization.routes"
 import notificationRoutes from "./modules/notification/notification.routes"
 import adminRoutes from "./modules/admin/admin.routes"
+import {
+    buildLoginSessionMeta,
+    createUniqueUsername,
+    normalizeEmail,
+} from "./modules/auth/auth.utils"
 
 import { prisma } from "./config/prisma"
 import { s3 } from "./config/s3"
@@ -24,6 +29,7 @@ import { s3 } from "./config/s3"
 import "./workers"
 
 const app = express()
+app.set("trust proxy", 1)
 
 const JWT_SECRET = process.env.JWT_SECRET!
 const CLIENT_URL = process.env.CLIENT_URL!
@@ -62,16 +68,18 @@ passport.use(
         {
             clientID: process.env.GOOGLE_CLIENT_ID as string,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-            callbackURL: process.env.GOOGLE_CALLBACK_URL
+            callbackURL: process.env.GOOGLE_CALLBACK_URL,
+            passReqToCallback: true,
         },
-        async (_accessToken: string, _refreshToken: string, profile: any, done: any) => {
+        async (req: express.Request, _accessToken: string, _refreshToken: string, profile: any, done: any) => {
 
             try {
 
-                const email = profile.emails?.[0]?.value
+                const email = normalizeEmail(profile.emails?.[0]?.value || "")
                 const googleId = profile.id
                 const name = profile.displayName
                 const avatarUrl = profile.photos?.[0]?.value
+                const sessionMeta = buildLoginSessionMeta(req)
 
                 if (!email) {
                     return done(new Error("Google email not found"), false)
@@ -116,7 +124,7 @@ passport.use(
 
                 if (!user) {
 
-                    const username = email.split("@")[0]
+                    const username = await createUniqueUsername(email)
 
                     user = await prisma.user.create({
                         data: {
@@ -160,14 +168,17 @@ passport.use(
                 const loginRecord = await prisma.userLogin.create({
                     data: {
                         userId: user.id,
-                        method: "GOOGLE"
+                        method: "GOOGLE",
+                        ipAddress: sessionMeta.ipAddress,
+                        userAgent: sessionMeta.userAgent,
+                        deviceLabel: sessionMeta.deviceLabel,
                     }
                 })
 
                 /* ---------------- JWT TOKEN ---------------- */
 
                 const token = jwt.sign(
-                    { sub: user.id, email: user.email },
+                    { sub: user.id, email: user.email, loginId: loginRecord.id },
                     JWT_SECRET,
                     { expiresIn: "30d" }
                 )

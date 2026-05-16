@@ -1,4 +1,4 @@
-# sk-cinema Setup Guide
+# SKFlix Setup Guide
 
 ## What You Need
 
@@ -21,7 +21,7 @@ This project is not fully self-contained. Upload processing and AI features depe
 ## Project Structure
 
 ```text
-sk-cinema/
+SKFlix/
 ├── backend/
 └── frontend/
 ```
@@ -32,7 +32,7 @@ sk-cinema/
 
 ```powershell
 git clone <repo-url>
-cd sk-cinema
+cd SKFlix
 ```
 
 ### Backend dependencies

@@ -239,7 +239,7 @@ const S3Import = () => {
 
     return (
         <AppLayout>
-            <div className="w-full px-6 pt-6 pb-10 space-y-8">
+            <div className="w-full px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 pb-8 sm:pb-10 space-y-6 sm:space-y-8">
 
                 {/* Header */}
                 <div className="flex justify-between items-center">
@@ -427,8 +427,8 @@ const S3Import = () => {
                 )}
                 {/* Add Bucket Modal */}
                 {showAddModal && (
-                    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                        <div className="relative w-full max-w-md bg-[#0b1120] border border-white/10 rounded-2xl p-8 shadow-2xl">
+                    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+                        <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1120] p-5 sm:p-8 shadow-2xl">
                             {/* Close Button */}
                             <button
                                 onClick={() => setShowAddModal(false)}
@@ -519,8 +519,8 @@ const S3Import = () => {
                     </div>
                 )}
                 {showImportModal && (
-                    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                        <div className="w-full max-w-lg bg-[#0b1120] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4">
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+                        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1120] p-4 sm:p-6 shadow-2xl space-y-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-white">Import Progress</h3>
                                 {!importing && (

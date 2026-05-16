@@ -71,8 +71,8 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="bg-gray-900 text-white px-6 py-3 flex justify-between items-center border-b border-gray-800">
-            <div className="text-xl font-bold">🎬 StreamHub</div>
+        <nav className="bg-gray-900 text-white px-3 sm:px-4 md:px-6 py-3 flex justify-between items-center border-b border-gray-800">
+            <div className="text-xl font-bold">🎬 SKFlix</div>
 
             <div className="flex items-center gap-6 relative">
                 <button

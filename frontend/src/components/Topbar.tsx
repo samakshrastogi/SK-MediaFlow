@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Search, Bell } from "lucide-react"
+import { Bell } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigate } from "react-router-dom"
 import UserAvatar from "@/components/UserAvatar"
@@ -102,8 +102,6 @@ const Topbar = () => {
         navigate("/login")
     }
 
-    const handleSearch = () => navigate("/search")
-
     const unreadCount = notifications.filter((n) => !n.isRead).length
 
     const handleNotificationClick = async (item: NotificationItem) => {
@@ -156,27 +154,18 @@ const Topbar = () => {
                 >
                     <img
                         src="/images/logo.png"
-                        alt="StreamHub Logo"
+                        alt="SKFlix Logo"
                         className="w-6 h-6 sm:w-7 sm:h-7 object-contain"
                     />
 
                     <h1 className="text-base sm:text-lg md:text-xl font-bold">
-                        StreamHub
+                        SKFlix
                     </h1>
                 </div>
             </div>
 
             {/* 🔷 RIGHT */}
             <div className="flex items-center gap-3 md:gap-4 relative">
-
-                {/* SEARCH ICON (MOBILE) */}
-                <button
-                    className="md:hidden p-2 bg-white/10 rounded-lg"
-                    aria-label="Search"
-                    onClick={handleSearch}
-                >
-                    <Search size={18} />
-                </button>
 
                 {/* NOTIFICATIONS */}
                 <div ref={notificationRef} className="relative">
@@ -194,7 +183,7 @@ const Topbar = () => {
                     </button>
 
                     {notificationOpen && (
-                        <div className="absolute right-0 mt-3 w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/85 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                        <div className="absolute right-0 mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/85 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
                             <div className="border-b border-white/8 px-4 py-3">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -286,7 +275,7 @@ const Topbar = () => {
                     </div>
 
                     {dropdownOpen && user && (
-                        <div className="absolute right-0 mt-3 w-60 rounded-xl border border-white/10 bg-[#111827]/80 p-4 shadow-xl backdrop-blur-xl">
+                        <div className="absolute right-0 mt-3 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-white/10 bg-[#111827]/80 p-4 shadow-xl backdrop-blur-xl">
                             <p className="font-semibold text-lg">{user.name}</p>
 
                             <p className="text-sm text-gray-400">

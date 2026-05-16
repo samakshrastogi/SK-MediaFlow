@@ -65,7 +65,7 @@ const SharePopup = ({ open, onClose, onShare, videoUrl }: SharePopupProps) => {
             onClick={onClose}
         >
             <div
-                className="w-full max-w-xl rounded-[28px] border border-white/10 bg-gradient-to-br from-[#1c1930] via-[#191726] to-[#12121b] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)]"
+                className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-gradient-to-br from-[#1c1930] via-[#191726] to-[#12121b] p-4 sm:p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)]"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-start justify-between gap-4">

@@ -3,6 +3,7 @@ import passport from "passport"
 import {
     register,
     verifyEmailOTP,
+    resendEmailOTP,
     login,
     endSession,
     forgotPassword,
@@ -15,6 +16,7 @@ const CLIENT_URL = process.env.CLIENT_URL
 
 router.post("/register", register)
 router.post("/verify-otp", verifyEmailOTP)
+router.post("/resend-otp", resendEmailOTP)
 router.post("/login", login)
 router.post("/session-end", endSession)
 router.post("/forgot-password", forgotPassword)

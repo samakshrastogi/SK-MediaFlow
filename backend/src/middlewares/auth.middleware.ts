@@ -13,6 +13,7 @@ export interface AuthRequest extends Request {
     user?: {
         id: string
         email: string
+        loginId?: string
     }
 }
 
@@ -43,6 +44,7 @@ export const authenticate = async (
         const decoded = jwt.verify(token, JWT_SECRET) as unknown as {
             sub: string
             email: string
+            loginId?: string
         }
 
         const userId = String(decoded.sub || "")
@@ -55,7 +57,8 @@ export const authenticate = async (
 
         req.user = {
             id: userId,
-            email: decoded.email
+            email: decoded.email,
+            loginId: decoded.loginId,
         }
 
         const user = await prisma.user.findUnique({
@@ -68,6 +71,24 @@ export const authenticate = async (
                 success: false,
                 message: "Account is not verified"
             })
+        }
+
+        if (decoded.loginId) {
+            const loginRecord = await prisma.userLogin.findUnique({
+                where: { id: decoded.loginId },
+                select: { userId: true, revokedAt: true },
+            })
+
+            if (
+                !loginRecord ||
+                loginRecord.userId !== userId ||
+                loginRecord.revokedAt
+            ) {
+                return res.status(401).json({
+                    success: false,
+                    message: "This session has expired. Please sign in again.",
+                })
+            }
         }
 
         next()

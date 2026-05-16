@@ -1,63 +1,55 @@
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import crypto from "crypto"
-import nodemailer from "nodemailer"
-import SMTPTransport from "nodemailer/lib/smtp-transport"
 import { prisma } from "../../config/prisma"
+import { sendEmail, type MailSendResult } from "../../services/mail.service"
+import {
+    createUniqueUsername,
+    normalizeEmail,
+    type LoginSessionMeta,
+} from "./auth.utils"
 const EMAIL_FROM = process.env.EMAIL_FROM as string
 const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO as string
 const JWT_SECRET = process.env.JWT_SECRET as string
 const CLIENT_URL = process.env.CLIENT_URL
 if (!JWT_SECRET) throw new Error("JWT_SECRET not defined")
-const BREVO_USER = process.env.BREVO_USER as string
-const BREVO_PASS = process.env.BREVO_PASS as string
-
-if (!BREVO_USER || !BREVO_PASS)
-    throw new Error("Brevo SMTP credentials missing")
-
 
 const SALT_ROUNDS = 12
 const OTP_EXPIRY_MINUTES = 10
+const OTP_RESEND_COOLDOWN_SECONDS = 60
+const OTP_MAX_ATTEMPTS = 5
+const OTP_MAX_RESENDS_PER_HOUR = 5
+const OTP_RESEND_WINDOW_MS = 60 * 60 * 1000
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const MAX_FAILED_ATTEMPTS_PER_IP = 8
+const MAX_FAILED_ATTEMPTS_PER_EMAIL = 5
+const ACCOUNT_LOCK_THRESHOLD = 5
+const ACCOUNT_LOCK_MS = 15 * 60 * 1000
+const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000
+const RESET_REQUEST_COOLDOWN_MS = 60 * 1000
+
+type AuthOtpResponse = {
+    message: string
+    emailDeliveryMode: MailSendResult["mode"]
+    email: string
+    otpExpiresAt: string
+    resendCooldownSeconds: number
+    resendCountRemaining: number
+}
 
 class AuthError extends Error {
     statusCode: number
-    constructor(message: string, statusCode = 400) {
+    details?: Record<string, unknown>
+    constructor(
+        message: string,
+        statusCode = 400,
+        details?: Record<string, unknown>
+    ) {
         super(message)
         this.statusCode = statusCode
+        this.details = details
     }
 }
-
-/* ---------------- EMAIL TRANSPORT ---------------- */
-
-const transporter = nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 2525,
-    secure: false,
-    auth: {
-        user: BREVO_USER,
-        pass: BREVO_PASS,
-    },
-    requireTLS: true,
-    connectionTimeout: 20000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-    family: 4,
-    tls: {
-        minVersion: "TLSv1.2",
-        rejectUnauthorized: false,
-    },
-    debug: true,
-    logger: true,
-} as SMTPTransport.Options)
-transporter.on("error", console.error)
-
-transporter.verify((err, success) => {
-    if (err) {
-        console.error("❌ SMTP ERROR:", err)
-    } else {
-        console.log("✅ SMTP READY")
-    }
-})
 
 /* ---------------- EMAIL TEMPLATE ---------------- */
 
@@ -95,7 +87,7 @@ const renderEmailLayout = (
   <tr>
   <td style="background:#2563eb;padding:22px;text-align:center;">
   <span style="font-size:22px;font-weight:700;color:#fff;">
-  🎬 SK Cinema
+  🎬 SKFlix
   </span>
   </td>
   </tr>
@@ -122,7 +114,7 @@ const renderEmailLayout = (
   <tr>
   <td style="background:#fafafa;padding:18px;text-align:center;
   border-top:1px solid #eee;font-size:12px;color:#9ca3af;">
-  © ${new Date().getFullYear()} SK Cinema. All rights reserved.
+  © ${new Date().getFullYear()} SKFlix. All rights reserved.
   </td>
   </tr>
 
@@ -137,12 +129,198 @@ const renderEmailLayout = (
 const generateOTP = () =>
     Math.floor(100000 + Math.random() * 900000).toString()
 
+const buildOtpExpiry = () =>
+    new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000)
+
+const getOtpCooldownRemainingSeconds = (lastSentAt?: Date | null) => {
+    if (!lastSentAt) return 0
+
+    const remainingMs =
+        lastSentAt.getTime() + OTP_RESEND_COOLDOWN_SECONDS * 1000 - Date.now()
+
+    return Math.max(0, Math.ceil(remainingMs / 1000))
+}
+
+const getOtpResendState = (
+    resendCount: number,
+    resendWindowStart?: Date | null
+) => {
+    if (
+        !resendWindowStart ||
+        resendWindowStart.getTime() <= Date.now() - OTP_RESEND_WINDOW_MS
+    ) {
+        return {
+            resendCount: 0,
+            resendWindowStart: new Date(),
+        }
+    }
+
+    return {
+        resendCount,
+        resendWindowStart,
+    }
+}
+
+const failedLoginAttemptsByIp = new Map<string, number[]>()
+const failedLoginAttemptsByEmail = new Map<string, number[]>()
+
+const pruneAttempts = (attempts: number[]) =>
+    attempts.filter((timestamp) => timestamp > Date.now() - LOGIN_WINDOW_MS)
+
+const recordAttempt = (map: Map<string, number[]>, key: string) => {
+    if (!key) return 0
+
+    const attempts = pruneAttempts(map.get(key) || [])
+    attempts.push(Date.now())
+    map.set(key, attempts)
+    return attempts.length
+}
+
+const getAttemptCount = (map: Map<string, number[]>, key: string) => {
+    if (!key) return 0
+
+    const attempts = pruneAttempts(map.get(key) || [])
+    map.set(key, attempts)
+    return attempts.length
+}
+
+const clearAttempts = (map: Map<string, number[]>, key: string) => {
+    if (key) map.delete(key)
+}
+
+const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms))
+
+const enforceFailedLoginRateLimit = (normalizedEmail: string, ipAddress: string) => {
+    const ipFailures = getAttemptCount(failedLoginAttemptsByIp, ipAddress)
+    if (ipFailures >= MAX_FAILED_ATTEMPTS_PER_IP) {
+        throw new AuthError(
+            "Too many failed login attempts from this network. Please wait 15 minutes and try again.",
+            429
+        )
+    }
+
+    const emailFailures = getAttemptCount(
+        failedLoginAttemptsByEmail,
+        normalizedEmail
+    )
+    if (emailFailures >= MAX_FAILED_ATTEMPTS_PER_EMAIL) {
+        throw new AuthError(
+            "Too many failed login attempts for this email. Please wait 15 minutes and try again.",
+            429
+        )
+    }
+}
+
+const registerFailedLogin = async (
+    normalizedEmail: string,
+    ipAddress: string,
+    userId?: string
+) => {
+    const ipFailures = recordAttempt(failedLoginAttemptsByIp, ipAddress)
+    const emailFailures = recordAttempt(
+        failedLoginAttemptsByEmail,
+        normalizedEmail
+    )
+
+    if (userId) {
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { failedLoginAttempts: true },
+        })
+
+        const nextAttempts = (currentUser?.failedLoginAttempts || 0) + 1
+        const lockUntil =
+            nextAttempts >= ACCOUNT_LOCK_THRESHOLD
+                ? new Date(Date.now() + ACCOUNT_LOCK_MS)
+                : null
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                failedLoginAttempts: nextAttempts,
+                lockUntil,
+            },
+        })
+
+        if (lockUntil) {
+            throw new AuthError(
+                "Your account is temporarily locked for 15 minutes after repeated failed login attempts.",
+                423
+            )
+        }
+
+        await sleep(Math.min(nextAttempts * 400, 2000))
+    } else {
+        await sleep(Math.min(Math.max(ipFailures, emailFailures) * 300, 1500))
+    }
+}
+
+const clearFailedLoginState = async (normalizedEmail: string, ipAddress: string, userId: string) => {
+    clearAttempts(failedLoginAttemptsByIp, ipAddress)
+    clearAttempts(failedLoginAttemptsByEmail, normalizedEmail)
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: {
+            failedLoginAttempts: 0,
+            lockUntil: null,
+        },
+    })
+}
+
+const createLoginSession = async (
+    user: {
+        id: string
+        email: string
+        username: string | null
+        name: string | null
+        avatarKey: string | null
+        platformAdmin: boolean
+    },
+    method: "LOCAL" | "GOOGLE",
+    remember: boolean,
+    meta: LoginSessionMeta
+) => {
+    const loginRecord = await prisma.userLogin.create({
+        data: {
+            userId: user.id,
+            method,
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+            deviceLabel: meta.deviceLabel,
+        },
+    })
+
+    const token = jwt.sign(
+        { sub: user.id, email: user.email, loginId: loginRecord.id },
+        JWT_SECRET,
+        { expiresIn: remember ? "30d" : "1d" }
+    )
+
+    return {
+        token,
+        loginId: loginRecord.id,
+        user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            name: user.name,
+            avatarKey: user.avatarKey,
+            platformAdmin: user.platformAdmin,
+        },
+    }
+}
+
 /* ---------------- EMAIL SENDERS ---------------- */
 
-const sendOTPEmail = async (email: string, otp: string) => {
+const sendOTPEmail = async (
+    email: string,
+    otp: string
+): Promise<MailSendResult> => {
     const body = `
   <p style="font-size:15px;color:#6b7280;">
-  Enter the verification code below to verify your SK Cinema account.
+  Enter the verification code below to verify your SKFlix account.
   </p>
 
   <div style="margin:32px auto;font-size:40px;font-weight:700;
@@ -157,19 +335,23 @@ const sendOTPEmail = async (email: string, otp: string) => {
   </p>
   `
 
-    await transporter.sendMail({
-        from: `"SK Cinema Team" <${EMAIL_FROM}>`,
-        replyTo: `"SK Cinema Support" <${EMAIL_REPLY_TO}>`,
+    return sendEmail({
+        from: `"SKFlix Team" <${EMAIL_FROM}>`,
+        replyTo: `"SKFlix Support" <${EMAIL_REPLY_TO}>`,
         to: email,
-        subject: "Welcome to SK Cinema 🎬 – Verify Your Email",
+        subject: "Welcome to SKFlix 🎬 – Verify Your Email",
+        text: `Your SKFlix verification code is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
         html: renderEmailLayout("Verify your account", body, {
-            text: "Open SK Cinema",
-            link: CLIENT_URL,
+            text: "Open SKFlix",
+            link: CLIENT_URL || "http://localhost:5173",
         }),
     })
 }
 
-const sendResetEmail = async (email: string, resetLink: string) => {
+const sendResetEmail = async (
+    email: string,
+    resetLink: string
+): Promise<MailSendResult> => {
     const body = `
   <p style="font-size:15px;color:#6b7280;">
   Click the button below to reset your password.
@@ -180,10 +362,11 @@ const sendResetEmail = async (email: string, resetLink: string) => {
   </p>
   `
 
-    await transporter.sendMail({
-        from: `"SK Cinema" <${BREVO_USER}>`,
+    return sendEmail({
+        from: `"SKFlix" <${EMAIL_FROM}>`,
         to: email,
-        subject: "Reset your SK Cinema password",
+        subject: "Reset your SKFlix password",
+        text: `Reset your SKFlix password using this link: ${resetLink}`,
         html: renderEmailLayout("Reset your password", body, {
             text: "Reset Password",
             link: resetLink,
@@ -193,13 +376,43 @@ const sendResetEmail = async (email: string, resetLink: string) => {
 
 /* ---------------- AUTH SERVICES ---------------- */
 
+const sendOtpForUser = async (
+    email: string,
+    otp: string,
+    otpExpiry: Date,
+    message: string,
+    resendCount = 0
+): Promise<AuthOtpResponse> => {
+    let mailResult: MailSendResult = { delivered: false, mode: "console" }
+
+    try {
+        mailResult = await sendOTPEmail(email, otp)
+    } catch (err) {
+        console.error("Email failed:", err)
+    }
+
+    return {
+        message: mailResult.delivered
+            ? message
+            : "Account created, but OTP email could not be delivered.",
+        emailDeliveryMode: mailResult.mode,
+        email,
+        otpExpiresAt: otpExpiry.toISOString(),
+        resendCooldownSeconds: OTP_RESEND_COOLDOWN_SECONDS,
+        resendCountRemaining: Math.max(0, OTP_MAX_RESENDS_PER_HOUR - resendCount),
+    }
+}
+
 export const registerUser = async (
     name: string,
     email: string,
     password: string,
     confirmPassword: string
 ) => {
-    if (!name || !email || !password || !confirmPassword)
+    const normalizedEmail = normalizeEmail(email)
+    const trimmedName = name.trim()
+
+    if (!trimmedName || !normalizedEmail || !password || !confirmPassword)
         throw new AuthError("All fields are required")
 
     if (password !== confirmPassword)
@@ -208,49 +421,196 @@ export const registerUser = async (
     if (password.length < 6)
         throw new AuthError("Password must be at least 6 characters")
 
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-
-    if (existingUser) throw new AuthError("Email already registered", 409)
-
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS)
     const otp = generateOTP()
+    const otpExpiry = buildOtpExpiry()
+    const otpLastSentAt = new Date()
+    const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+    })
 
-    const username = email.split("@")[0]
+    if (existingUser?.isVerified) {
+        throw new AuthError("Email already registered", 409)
+    }
 
-    await prisma.user.create({
+    if (existingUser && existingUser.provider !== "LOCAL") {
+        throw new AuthError(
+            "This email is already linked to a social login. Please sign in with that provider.",
+            409
+        )
+    }
+
+    if (existingUser) {
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS)
+
+        await prisma.user.update({
+            where: { id: existingUser.id },
+            data: {
+                name: trimmedName,
+                email: normalizedEmail,
+                username:
+                    existingUser.username ||
+                    (await createUniqueUsername(normalizedEmail, existingUser.id)),
+                password: hashedPassword,
+                provider: "LOCAL",
+                otp,
+                otpExpiry,
+                otpAttemptCount: 0,
+                otpResendCount: 0,
+                otpResendWindowStart: otpLastSentAt,
+                otpLastSentAt,
+            },
+        })
+    } else {
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS)
+        const username = await createUniqueUsername(normalizedEmail)
+
+        await prisma.user.create({
+            data: {
+                name: trimmedName,
+                email: normalizedEmail,
+                username,
+                password: hashedPassword,
+                provider: "LOCAL",
+                otp,
+                otpExpiry,
+                otpAttemptCount: 0,
+                otpResendCount: 0,
+                otpResendWindowStart: otpLastSentAt,
+                otpLastSentAt,
+            },
+        })
+    }
+
+    return sendOtpForUser(
+        normalizedEmail,
+        otp,
+        otpExpiry,
+        existingUser ? "A new OTP has been sent to your email." : "OTP sent to your email.",
+        0
+    )
+}
+
+export const resendOTP = async (email: string) => {
+    const normalizedEmail = normalizeEmail(email)
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+
+    if (!user) throw new AuthError("User not found", 404)
+    if (user.provider !== "LOCAL")
+        throw new AuthError("This account uses a different sign-in provider.", 409)
+    if (user.isVerified) throw new AuthError("Account already verified")
+
+    const cooldownRemainingSeconds = getOtpCooldownRemainingSeconds(
+        user.otpLastSentAt
+    )
+    if (cooldownRemainingSeconds > 0) {
+        throw new AuthError(
+            `Please wait ${cooldownRemainingSeconds} seconds before requesting another OTP.`,
+            429,
+            {
+                cooldownSeconds: cooldownRemainingSeconds,
+            }
+        )
+    }
+
+    const resendState = getOtpResendState(
+        user.otpResendCount || 0,
+        user.otpResendWindowStart
+    )
+    if (resendState.resendCount >= OTP_MAX_RESENDS_PER_HOUR) {
+        throw new AuthError(
+            "You have reached the maximum OTP resend limit for this hour. Please try again later.",
+            429,
+            {
+                cooldownSeconds: Math.max(
+                    0,
+                    Math.ceil(
+                        (resendState.resendWindowStart.getTime() +
+                            OTP_RESEND_WINDOW_MS -
+                            Date.now()) /
+                            1000
+                    )
+                ),
+            }
+        )
+    }
+
+    const otp = generateOTP()
+    const otpExpiry = buildOtpExpiry()
+    const otpLastSentAt = new Date()
+    const nextResendCount = resendState.resendCount + 1
+
+    await prisma.user.update({
+        where: { id: user.id },
         data: {
-            name,
-            email,
-            username,
-            password: hashedPassword,
-            provider: "LOCAL",
             otp,
-            otpExpiry: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+            otpExpiry,
+            otpAttemptCount: 0,
+            otpResendCount: nextResendCount,
+            otpResendWindowStart: resendState.resendWindowStart,
+            otpLastSentAt,
         },
     })
 
-    const response = { message: "OTP sent to your email." }
-
-    sendOTPEmail(email, otp).catch((err) => {
-        console.error("Email failed:", err)
-    })
-
-    return response
+    return sendOtpForUser(
+        normalizedEmail,
+        otp,
+        otpExpiry,
+        "A new OTP has been sent to your email.",
+        nextResendCount
+    )
 }
 
 export const verifyOTP = async (email: string, otp: string) => {
-    const user = await prisma.user.findUnique({ where: { email } })
+    const normalizedEmail = normalizeEmail(email)
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
 
     if (!user) throw new AuthError("User not found", 404)
     if (user.isVerified) throw new AuthError("Account already verified")
 
     if (!user.otp || !user.otpExpiry) throw new AuthError("Invalid OTP")
-    if (user.otp !== otp) throw new AuthError("Incorrect OTP")
     if (user.otpExpiry < new Date()) throw new AuthError("OTP expired")
+
+    if (user.otp !== otp) {
+        const nextAttemptCount = (user.otpAttemptCount || 0) + 1
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data:
+                nextAttemptCount >= OTP_MAX_ATTEMPTS
+                    ? {
+                        otp: null,
+                        otpExpiry: null,
+                        otpAttemptCount: 0,
+                    }
+                    : {
+                        otpAttemptCount: nextAttemptCount,
+                    },
+        })
+
+        if (nextAttemptCount >= OTP_MAX_ATTEMPTS) {
+            throw new AuthError(
+                "Too many incorrect OTP attempts. Request a new code and try again.",
+                429
+            )
+        }
+
+        throw new AuthError(
+            `Incorrect OTP. ${OTP_MAX_ATTEMPTS - nextAttemptCount} attempt(s) remaining.`,
+            400
+        )
+    }
 
     await prisma.user.update({
         where: { id: user.id },
-        data: { isVerified: true, otp: null, otpExpiry: null },
+        data: {
+            isVerified: true,
+            otp: null,
+            otpExpiry: null,
+            otpAttemptCount: 0,
+            otpResendCount: 0,
+            otpResendWindowStart: null,
+            otpLastSentAt: null,
+        },
     })
 
     return { message: "Account verified successfully" }
@@ -259,59 +619,172 @@ export const verifyOTP = async (email: string, otp: string) => {
 export const loginUser = async (
     email: string,
     password: string,
-    remember = false
+    remember = false,
+    meta: LoginSessionMeta = {}
 ) => {
-    const user = await prisma.user.findUnique({ where: { email } })
+    const normalizedEmail = normalizeEmail(email)
+    const ipAddress = meta.ipAddress || "unknown"
 
-    if (!user || user.provider !== "LOCAL")
+    enforceFailedLoginRateLimit(normalizedEmail, ipAddress)
+
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+
+    if (!user || user.provider !== "LOCAL") {
+        await registerFailedLogin(normalizedEmail, ipAddress)
         throw new AuthError("Invalid credentials", 401)
+    }
+
+    if (user.lockUntil && user.lockUntil > new Date()) {
+        throw new AuthError(
+            "Your account is temporarily locked. Please try again later.",
+            423
+        )
+    }
 
     if (!user.isVerified)
-        throw new AuthError("Please verify your email first", 403)
+        throw new AuthError("Verify your email first", 403, {
+            requiresVerification: true,
+            email: normalizedEmail,
+        })
 
     const match = await bcrypt.compare(password, user.password!)
 
-    if (!match) throw new AuthError("Invalid credentials", 401)
+    if (!match) {
+        await registerFailedLogin(normalizedEmail, ipAddress, user.id)
+        throw new AuthError("Invalid credentials", 401)
+    }
 
-    const token = jwt.sign(
-        { sub: user.id, email: user.email, name: user.name },
-        JWT_SECRET,
-        { expiresIn: remember ? "30d" : "1d" }
-    )
+    await clearFailedLoginState(normalizedEmail, ipAddress, user.id)
 
-    return {
-        token,
-        user: {
+    return createLoginSession(
+        {
             id: user.id,
             email: user.email,
             username: user.username,
             name: user.name,
             avatarKey: user.avatarKey,
-            platformAdmin: user.platformAdmin
+            platformAdmin: user.platformAdmin,
         },
+        "LOCAL",
+        remember,
+        meta
+    )
+}
+
+export const listUserSessions = async (userId: string) => {
+    const sessions = await prisma.userLogin.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+    })
+
+    return sessions.map((session) => ({
+        id: session.id,
+        method: session.method,
+        deviceLabel: session.deviceLabel || "Unknown device",
+        ipAddress: session.ipAddress || "Unknown IP",
+        userAgent: session.userAgent || "Unknown browser",
+        sessionLengthSec: session.sessionLengthSec || 0,
+        createdAt: session.createdAt,
+        endedAt: session.endedAt,
+        revokedAt: session.revokedAt,
+    }))
+}
+
+export const revokeUserSession = async (
+    userId: string,
+    sessionId: string,
+    currentLoginId?: string
+) => {
+    if (currentLoginId && sessionId === currentLoginId) {
+        throw new AuthError("Use logout to end your current session.", 400)
     }
+
+    const session = await prisma.userLogin.findUnique({
+        where: { id: sessionId },
+    })
+
+    if (!session || session.userId !== userId) {
+        throw new AuthError("Session not found", 404)
+    }
+
+    if (session.revokedAt) {
+        return { message: "Session already revoked" }
+    }
+
+    await prisma.userLogin.update({
+        where: { id: sessionId },
+        data: {
+            revokedAt: new Date(),
+            revokedReason: "USER_REVOKED",
+        },
+    })
+
+    return { message: "Session revoked successfully" }
 }
 
 export const generateResetToken = async (email: string) => {
-    const user = await prisma.user.findUnique({ where: { email } })
+    const normalizedEmail = normalizeEmail(email)
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
 
-    if (!user) throw new AuthError("User not found", 404)
+    if (!user) {
+        return {
+            message: "If the account exists, reset instructions were sent.",
+            emailDeliveryMode: "smtp" as MailSendResult["mode"],
+            cooldownSeconds: Math.floor(RESET_REQUEST_COOLDOWN_MS / 1000),
+        }
+    }
+
+    if (
+        user.resetRequestedAt &&
+        user.resetRequestedAt.getTime() > Date.now() - RESET_REQUEST_COOLDOWN_MS
+    ) {
+        return {
+            message: "If the account exists, reset instructions were sent.",
+            emailDeliveryMode: "smtp" as MailSendResult["mode"],
+            cooldownSeconds: Math.ceil(
+                (user.resetRequestedAt.getTime() + RESET_REQUEST_COOLDOWN_MS - Date.now()) /
+                    1000
+            ),
+        }
+    }
 
     const resetToken = crypto.randomBytes(32).toString("hex")
-    const expiry = new Date(Date.now() + 60 * 60 * 1000)
+    const expiry = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS)
 
     await prisma.user.update({
         where: { id: user.id },
-        data: { resetToken, resetTokenExp: expiry },
+        data: {
+            resetToken,
+            resetTokenExp: expiry,
+            resetRequestedAt: new Date(),
+        },
     })
 
     const resetLink = `${CLIENT_URL}/reset-password?token=${resetToken}`
 
-    const response = { message: "Reset instructions sent to your email" }
+    let mailResult: MailSendResult = { delivered: false, mode: "console" }
 
-    sendResetEmail(email, resetLink).catch(err => {
+    try {
+        mailResult = await sendResetEmail(normalizedEmail, resetLink)
+    } catch (err) {
         console.error("Reset email failed:", err)
-    })
+    }
+
+    const response: {
+        message: string
+        resetLink?: string
+        emailDeliveryMode: MailSendResult["mode"]
+        cooldownSeconds: number
+    } = {
+        message: "If the account exists, reset instructions were sent.",
+        emailDeliveryMode: mailResult.mode,
+        cooldownSeconds: Math.floor(RESET_REQUEST_COOLDOWN_MS / 1000),
+    }
+
+    if (process.env.NODE_ENV !== "production" && !mailResult.delivered) {
+        response.resetLink = resetLink
+    }
 
     return response
 }
@@ -322,10 +795,10 @@ export const resetPassword = async (token: string, newPassword: string) => {
     })
 
     if (!user || !user.resetTokenExp)
-        throw new AuthError("Invalid or expired reset token")
+        throw new AuthError("This reset link is invalid or has already been used.")
 
     if (new Date(user.resetTokenExp).getTime() <= Date.now())
-        throw new AuthError("Reset token expired")
+        throw new AuthError("This reset link has expired. Request a new password reset email.")
 
     if (!newPassword || newPassword.length < 6)
         throw new AuthError("Password must be at least 6 characters")
@@ -334,8 +807,25 @@ export const resetPassword = async (token: string, newPassword: string) => {
 
     await prisma.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword, resetToken: null, resetTokenExp: null },
+        data: {
+            password: hashedPassword,
+            resetToken: null,
+            resetTokenExp: null,
+            resetRequestedAt: null,
+        },
     })
 
-    return { message: "Password reset successful" }
+    await prisma.userLogin.updateMany({
+        where: {
+            userId: user.id,
+        },
+        data: {
+            revokedAt: new Date(),
+            revokedReason: "PASSWORD_RESET",
+        },
+    })
+
+    return {
+        message: "Password reset successful. Please sign in again.",
+    }
 }

@@ -20,12 +20,26 @@ export interface LoginData {
     loginId?: string
 }
 
+export interface RegisterData {
+    email?: string
+    emailDeliveryMode?: "smtp" | "console"
+    otpExpiresAt?: string
+    resendCooldownSeconds?: number
+    resendCountRemaining?: number
+}
+
+export interface ForgotPasswordData {
+    resetLink?: string
+    emailDeliveryMode?: "smtp" | "console"
+    cooldownSeconds?: number
+}
+
 export const registerUser = async (
     name: string,
     email: string,
     password: string,
     confirmPassword: string
-): Promise<ApiResponse> => {
+): Promise<ApiResponse<RegisterData>> => {
     const { data } = await api.post("/auth/register", {
         name,
         email,
@@ -46,6 +60,15 @@ export const verifyOTP = async (
     return data
 }
 
+export const resendOTP = async (
+    email: string
+): Promise<ApiResponse<RegisterData>> => {
+    const { data } = await api.post("/auth/resend-otp", {
+        email,
+    })
+    return data
+}
+
 export const loginUser = async (
     email: string,
     password: string,
@@ -61,7 +84,7 @@ export const loginUser = async (
 
 export const forgotPassword = async (
     email: string
-): Promise<ApiResponse> => {
+): Promise<ApiResponse<ForgotPasswordData>> => {
     const { data } = await api.post("/auth/forgot-password", {
         email,
     })

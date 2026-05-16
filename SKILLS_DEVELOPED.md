@@ -1,4 +1,4 @@
-# Skills Developed Through sk-cinema
+# Skills Developed Through SKFlix
 
 This project develops practical skills across full-stack product engineering, media systems, cloud integration, and AI workflow orchestration.
 
@@ -76,7 +76,7 @@ This project develops practical skills across full-stack product engineering, me
 
 ## Summary
 
-`sk-cinema` builds experience in:
+`SKFlix` builds experience in:
 
 - frontend product UI
 - backend API systems

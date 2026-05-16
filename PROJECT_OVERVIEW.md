@@ -1,8 +1,8 @@
-# Project Overview: sk-cinema
+# Project Overview: SKFlix
 
 ## What This Project Is
 
-`sk-cinema` is a full-stack video platform for uploading, organizing, streaming, and managing video content. It supports:
+`SKFlix` is a full-stack video platform for uploading, organizing, streaming, and managing video content. It supports:
 
 - Manual uploads and S3-based imports
 - Public, private, and organization-scoped videos
@@ -55,7 +55,7 @@ That AI server is expected to expose:
 ## Repository Structure
 
 ```text
-sk-cinema/
+SKFlix/
 ├── PROJECT_OVERVIEW.md
 ├── SETUP_GUIDE.md
 ├── SKILLS_DEVELOPED.md
@@ -314,7 +314,7 @@ Frontend:
 
 ## Summary
 
-`sk-cinema` is a video platform with:
+`SKFlix` is a video platform with:
 
 - modern React frontend
 - Express/TypeScript backend

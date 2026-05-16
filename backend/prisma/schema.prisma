@@ -19,10 +19,17 @@ model User {
   provider AuthProvider @default(LOCAL)
   isVerified Boolean @default(false)
   platformAdmin Boolean @default(false)
+  failedLoginAttempts Int @default(0)
+  lockUntil DateTime?
   otp       String?
   otpExpiry DateTime?
+  otpAttemptCount Int @default(0)
+  otpResendCount Int @default(0)
+  otpResendWindowStart DateTime?
+  otpLastSentAt DateTime?
   resetToken    String?
   resetTokenExp DateTime?
+  resetRequestedAt DateTime?
   createdAt DateTime @default(now())
   channel Channel?
   s3Credentials S3Credential[]
@@ -41,6 +48,8 @@ model User {
   ownedOrganizations Organization[] @relation("OrganizationOwner")
   notifications Notification[]
   logins UserLogin[]
+  accessAuditActions AdminAccessAudit[] @relation("AdminAccessActor")
+  accessAuditTargets AdminAccessAudit[] @relation("AdminAccessTarget")
   activeOrganizationId String? @db.ObjectId
   activeOrganization Organization? @relation("ActiveOrganization", fields: [activeOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -52,7 +61,13 @@ model UserLogin {
   userId String @db.ObjectId
   user User @relation(fields: [userId], references: [id])
   method LoginMethod @default(LOCAL)
+  ipAddress String?
+  userAgent String?
+  deviceLabel String?
   sessionLengthSec Int?
+  endedAt DateTime?
+  revokedAt DateTime?
+  revokedReason String?
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
@@ -268,6 +283,20 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, isRead])
+}
+
+model AdminAccessAudit {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  actorUserId String @db.ObjectId
+  actor User @relation("AdminAccessActor", fields: [actorUserId], references: [id])
+  targetUserId String @db.ObjectId
+  target User @relation("AdminAccessTarget", fields: [targetUserId], references: [id])
+  action String
+  createdAt DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([createdAt])
 }
 
 model S3Credential {

@@ -57,7 +57,7 @@ const MobileBottomNav = () => {
     return (
         <div
             className="
-        fixed bottom-0 left-0 w-full z-50
+        fixed bottom-0 left-0 w-full z-40
         md:hidden
         bg-white/5 backdrop-blur-xl
         border-t border-white/10
