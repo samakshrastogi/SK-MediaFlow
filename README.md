@@ -118,6 +118,257 @@ flowchart TD
     CF --> FE3
 ```
 
+## Detailed Flowcharts
+
+### Authentication flow
+
+```mermaid
+flowchart TD
+    U["Visitor"] --> A1["Frontend Auth Pages"]
+
+    A1 --> R1["Register"]
+    R1 --> API1["POST /api/auth/register"]
+    API1 --> DB["User Record Created In MongoDB"]
+    API1 --> OTP["OTP Generated And Sent"]
+    OTP --> V1["POST /api/auth/verify-otp"]
+    V1 --> DB
+    DB --> READY["Verified Account Ready For Login"]
+
+    A1 --> L1["Login"]
+    L1 --> API2["POST /api/auth/login"]
+    API2 --> AUTH["Validate Password / Provider State"]
+    AUTH --> LOGINREC["Create UserLogin Session Record"]
+    LOGINREC --> JWT["Issue JWT Token"]
+    JWT --> FE["Token Stored In Frontend Auth Context"]
+
+    A1 --> G1["Google Sign-In"]
+    G1 --> GAPI["GET /api/auth/google"]
+    GAPI --> GOOGLE["Google OAuth Consent"]
+    GOOGLE --> GCALL["/api/auth/google/callback"]
+    GCALL --> PROFILE["Find Or Create User + Channel Context"]
+    PROFILE --> GLOGIN["Create UserLogin Session Record"]
+    GLOGIN --> GJWT["Issue JWT And Redirect To /oauth-success"]
+    GJWT --> FE
+
+    A1 --> FP["Forgot Password"]
+    FP --> FPAPI["POST /api/auth/forgot-password"]
+    FPAPI --> MAIL["Reset Link Delivery"]
+    MAIL --> RESET["POST /api/auth/reset-password"]
+    RESET --> DB
+
+    FE --> END["POST /api/auth/session-end"]
+    END --> DB
+```
+
+### User settings and security flow
+
+```mermaid
+flowchart TD
+    U["Authenticated User"] --> SET["Settings Page"]
+    SET --> LOAD["GET /api/user/settings"]
+    LOAD --> DB["User + UserLogin + Preferences Data"]
+    DB --> SET
+
+    SET --> PREF["PATCH /api/user/settings/preferences"]
+    PREF --> SAVE1["Save Notification, Privacy, Preference Flags"]
+    SAVE1 --> DB
+
+    SET --> EMAIL["PATCH /api/user/settings/email"]
+    EMAIL --> CHECKPW1["Validate Current Password If Required"]
+    CHECKPW1 --> UPDATEEMAIL["Update Email, Reset Verification State"]
+    UPDATEEMAIL --> REVOKE1["Revoke Sessions"]
+    REVOKE1 --> OTP["Send Verification OTP"]
+    OTP --> DB
+
+    SET --> PASS["PATCH /api/user/settings/password"]
+    PASS --> CHECKPW2["Validate Current Password"]
+    CHECKPW2 --> HASH["Hash New Password"]
+    HASH --> SAVE2["Persist New Password"]
+    SAVE2 --> REVOKE2["Revoke Other Sessions"]
+    REVOKE2 --> DB
+
+    SET --> SESS1["POST /api/user/settings/sessions/revoke-others"]
+    SESS1 --> DB
+
+    SET --> SESS2["DELETE /api/user/sessions/:sessionId"]
+    SESS2 --> DB
+
+    SET --> HIST["DELETE /api/user/settings/history/watch"]
+    HIST --> CLEAR["Clear WatchHistory"]
+    CLEAR --> DB
+
+    SET --> DEACT["POST /api/user/settings/account/deactivate"]
+    DEACT --> DEACTSAVE["Mark deactivatedAt + Revoke Sessions"]
+    DEACTSAVE --> DB
+
+    SET --> DEL["POST /api/user/settings/account/delete"]
+    DEL --> CONF["Require DELETE Confirmation"]
+    CONF --> ANON["Anonymize User Fields + Mark deletedAt"]
+    ANON --> DB
+```
+
+### Profile and media management flow
+
+```mermaid
+flowchart LR
+    U["Authenticated Creator"] --> PROF["Profile Page"]
+    PROF --> ME["GET /api/user/me"]
+    ME --> DB["Load User, Channel, Stats, Uploaded Videos, History, Favorites, Playlists"]
+    DB --> PROF
+
+    PROF --> AV1["Request Avatar Upload URL"]
+    AV1 --> S3A["Presigned S3 Target"]
+    S3A --> AV2["Upload Avatar To S3"]
+    AV2 --> AV3["Save Avatar Key In User Record"]
+    AV3 --> CF["CloudFront Signed URL Returned"]
+
+    PROF --> CV1["POST /api/user/cover-upload-url"]
+    CV1 --> S3C["Presigned Cover Upload Target"]
+    S3C --> CV2["Upload Cover To S3"]
+    CV2 --> CV3["POST /api/user/cover"]
+    CV3 --> DB2["Save coverKey"]
+    DB2 --> CF
+
+    PROF --> VIDEOS["Owned Video Management"]
+    VIDEOS --> EDIT["PATCH /api/video/:publicId"]
+    VIDEOS --> DEL["DELETE /api/video/:publicId"]
+    EDIT --> DB3["Update Metadata, Visibility, Ownership Fields"]
+    DEL --> DB4["Soft Delete / Status Update"]
+```
+
+### S3 import flow
+
+```mermaid
+flowchart TD
+    U["Authenticated User"] --> IMP["S3 Import Page"]
+    IMP --> CREDS["POST /api/video/s3/buckets"]
+    CREDS --> DB["Store User S3 Credential Record"]
+
+    IMP --> LIST["GET /api/video/s3/buckets"]
+    LIST --> DB
+    DB --> IMP
+
+    IMP --> SCAN["GET /api/video/s3/buckets/:id/scan"]
+    SCAN --> S3["External Bucket Listing"]
+    S3 --> FILES["Return Candidate Media Files"]
+    FILES --> IMP
+
+    IMP --> PICK["Select Videos To Import"]
+    PICK --> IMPORT["POST /api/video/s3/import or POST /api/video/import"]
+    IMPORT --> VIDEO["Create Video Records With uploadSource = S3_IMPORT"]
+    VIDEO --> DB2["Persist Imported Video Entries"]
+    VIDEO --> ORCH["Start Standard Post-Upload Orchestration"]
+    ORCH --> JOBS["Spritesheet + Metadata + Thumbnail + AI Jobs"]
+```
+
+### Playback access flow
+
+```mermaid
+flowchart TD
+    U["Viewer"] --> PAGE["Video Player Or Portrait Player"]
+    PAGE --> FETCH["GET /api/video/:publicId"]
+    FETCH --> AUTH["Authenticate User"]
+    AUTH --> LOOKUP["Load Video + Channel + AI + Metadata"]
+    LOOKUP --> VIS["Evaluate Visibility Rules"]
+
+    VIS --> PUB["PUBLIC"]
+    VIS --> PRI["PRIVATE"]
+    VIS --> ORG["ORGANIZATION"]
+
+    PUB --> SIGN["Generate Signed CloudFront Media URL"]
+    PRI --> OWN["Allow Only Authorized Owner / Private Access"]
+    OWN --> SIGN
+    ORG --> MEMBER["Validate Organization Membership Or Policy"]
+    MEMBER --> SIGN
+
+    SIGN --> RESP["Return Playback Payload"]
+    RESP --> PLAYER["Frontend Player Loads Media"]
+
+    PLAYER --> VIEW["POST /api/video-actions/view"]
+    PLAYER --> WATCH["POST /api/video-actions/watch-progress"]
+    VIEW --> DB["Record VideoView"]
+    WATCH --> DB2["Upsert WatchHistory"]
+```
+
+### Video interaction and analytics flow
+
+```mermaid
+flowchart TD
+    U["Authenticated Viewer"] --> PLAYER["Frontend Playback And Action UI"]
+
+    PLAYER --> REACT["POST /api/video-actions/react"]
+    REACT --> DB1["Create Or Update VideoReaction"]
+
+    PLAYER --> COMMENT["POST /api/video-actions/comment"]
+    COMMENT --> DB2["Create VideoComment"]
+
+    PLAYER --> SHARE["POST /api/video-actions/share"]
+    SHARE --> DB3["Create VideoShare"]
+
+    PLAYER --> PLAYLIST["POST /api/video-actions/playlist"]
+    PLAYLIST --> DB4["Create Playlist Or Add VideoAction Link"]
+
+    PLAYER --> SUB["POST /api/video-actions/subscribe"]
+    SUB --> DB5["Toggle Channel Subscription"]
+
+    PLAYER --> READ1["GET /api/video-actions/video/:publicId"]
+    READ1 --> AGG1["Aggregate Counts, Reactions, Comments, Playlist State"]
+    AGG1 --> PLAYER
+
+    PLAYER --> READ2["GET /api/video-actions/favorites"]
+    PLAYER --> READ3["GET /api/video-actions/playlists"]
+    PLAYER --> READ4["GET /api/video-actions/playlists-with-videos"]
+    PLAYER --> READ5["GET /api/video-actions/activity"]
+
+    DB1 --> ADMIN["Admin / Organization Analytics"]
+    DB2 --> ADMIN
+    DB3 --> ADMIN
+    DB5 --> ADMIN
+```
+
+### AI suggestion lifecycle
+
+```mermaid
+flowchart TD
+    V["Video Record"] --> JOB["Video AI Worker"]
+    JOB --> TRANS["Request Transcript From External AI Service"]
+    TRANS --> EXT["External AI Service"]
+    EXT --> META["Generate Title, Description, Keywords, Tags"]
+    META --> SAVE["Persist VideoAI Record"]
+    SAVE --> DB["MongoDB"]
+
+    U["Creator Or Editor"] --> PROFILE["Profile / Video Edit UI"]
+    PROFILE --> READ["GET /api/video/ai-insights or GET /api/ai/video/:videoId"]
+    READ --> DB
+    DB --> SUGGEST["Show Transcript And AI Suggestions"]
+
+    SUGGEST --> APPLY["POST /api/ai/video/:videoId/apply"]
+    APPLY --> MERGE["Copy AI Fields To Main Video Record"]
+    MERGE --> DB2["Update Video Title / Description / Tags"]
+```
+
+### Notification flow
+
+```mermaid
+flowchart TD
+    SRC1["Organization Invite Flow"] --> CREATE["Create Notification Record"]
+    SRC2["Membership Approval Flow"] --> CREATE
+    SRC3["General Platform Events"] --> CREATE
+    CREATE --> DB["MongoDB Notification Collection"]
+
+    U["Authenticated User"] --> NPAGE["Notification UI"]
+    NPAGE --> LOAD["GET /api/notification"]
+    LOAD --> DB
+    DB --> LIST["Return Notifications + unreadCount"]
+    LIST --> NPAGE
+
+    NPAGE --> READ1["POST /api/notification/:id/read"]
+    READ1 --> DB
+
+    NPAGE --> READALL["POST /api/notification/read-all"]
+    READALL --> DB
+```
+
 ## Repository Layout
 
 ```text
