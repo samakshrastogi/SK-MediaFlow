@@ -464,50 +464,50 @@ The backend is an Express service layer with modular domain areas and background
 
 Primary backend domains:
 
-- `backend/src/modules/auth`
+- Auth module
   Registration, OTP verification, login, password reset, session-end tracking, and Google OAuth
 
-- `backend/src/modules/user`
+- User module
   Profile data, avatar and cover updates, settings, session management, watch history cleanup, and account deactivate/delete actions
 
-- `backend/src/modules/channel`
+- Channel module
   Channel creation and maintenance
 
-- `backend/src/modules/video`
+- Video module
   Upload completion, listing, search, portrait feeds, channel-scoped listings, spritesheet retrieval, thumbnail saving, owned-video updates, deletion, and S3 import helpers
 
-- `backend/src/modules/video/video-action.*`
+- Video actions module
   Interaction flows such as views, likes, dislikes, comments, shares, watch events, and playlist linkage
 
-- `backend/src/modules/organization`
+- Organization module
   Organization creation, join links, invite workflows, member approval, uploader permissions, billing and subscription state, and organization-level content analytics
 
-- `backend/src/modules/admin`
+- Admin module
   Platform metrics, filter data, privileged user management, and admin access audit tracking
 
-- `backend/src/modules/notification`
+- Notification module
   Notification retrieval and state updates
 
-- `backend/src/modules/ai`
+- AI module
   AI metadata generation and application flows for videos
 
 Key backend services and workers:
 
-- `backend/src/modules/video/video-processing.service.ts`
+- Video processing orchestration
   Main post-upload orchestration for optimization, spritesheets, and queue dispatch
 
-- `backend/src/services/video-metadata.service.ts`
+- Video metadata service
   Technical metadata extraction including duration, dimensions, codecs, and orientation
 
-- `backend/src/services/thumbnail.service.ts`
+- Thumbnail service
   Thumbnail generation when a usable thumbnail does not already exist
 
-- `backend/src/services/realtime.service.ts`
+- Realtime service
   Progress and completion event emission for the frontend
 
-- `backend/src/workers/thumbnail.worker.ts`
-- `backend/src/workers/video-ai.worker.ts`
-- `backend/src/workers/video-metadata.worker.ts`
+- Thumbnail worker
+- Video AI worker
+- Video metadata worker
 
 ## Data Model Highlights
 
