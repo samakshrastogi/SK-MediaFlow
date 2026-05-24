@@ -236,6 +236,41 @@ flowchart LR
     DEL --> DB4["Soft Delete / Status Update"]
 ```
 
+### Channel creation and publishing ownership flow
+
+```mermaid
+flowchart TD
+    U["Authenticated User"] --> PROFILE["Profile Or Creator Workspace"]
+    PROFILE --> CHECK["Check Existing Channel Context"]
+
+    CHECK --> HAS["Channel Already Exists"]
+    CHECK --> CREATE["Create New Channel"]
+
+    CREATE --> DEFAULT["Assign Channel As Default Publishing Owner"]
+    DEFAULT --> SAVECH["Save Channel Ownership To User Context"]
+    SAVECH --> READY["Creator Ready To Publish"]
+
+    HAS --> READY
+
+    READY --> UPLOAD["Start Video Upload Or Import"]
+    UPLOAD --> OWNER["Resolve Publishing Owner"]
+
+    OWNER --> SELF["Personal Default Channel"]
+    OWNER --> ALT["Allowed Owned Channel"]
+
+    SELF --> RULES["Validate Ownership And Permissions"]
+    ALT --> RULES
+
+    RULES --> OK["Ownership Valid"]
+    RULES --> DENY["Ownership Invalid Or Not Allowed"]
+
+    OK --> VIDEO["Create Video Record With Channel Ownership"]
+    VIDEO --> DB["Persist Video And Channel Link"]
+    DB --> LIB["Show Video In Creator Library"]
+
+    DENY --> ERR["Return Ownership Error To User"]
+```
+
 ### S3 import flow
 
 ```mermaid
@@ -259,6 +294,38 @@ flowchart TD
     VIDEO --> DB2["Persist Imported Video Entries"]
     VIDEO --> ORCH["Start Standard Post-Upload Orchestration"]
     ORCH --> JOBS["Spritesheet + Metadata + Thumbnail + AI Jobs"]
+```
+
+### S3 bucket onboarding flow
+
+```mermaid
+flowchart TD
+    U["Authenticated User"] --> S3PAGE["S3 Import Workspace"]
+    S3PAGE --> FORM["Enter Bucket And Credential Details"]
+    FORM --> REGISTER["Register Bucket Connection"]
+
+    REGISTER --> VALIDATE["Validate Credentials And Bucket Access"]
+    VALIDATE --> FAIL["Validation Failed"]
+    VALIDATE --> PASS["Validation Succeeded"]
+
+    FAIL --> FIX["Prompt User To Correct Credentials Or Bucket Settings"]
+    FIX --> FORM
+
+    PASS --> STORE["Store Bucket Configuration"]
+    STORE --> READY["Bucket Ready For Scanning"]
+
+    READY --> SCAN["Start Bucket Scan"]
+    SCAN --> LIST["Load Candidate Media Files"]
+    LIST --> FILTER["Filter Supported And Eligible Video Files"]
+
+    FILTER --> EMPTY["No Eligible Files Found"]
+    FILTER --> ELIGIBLE["Eligible Files Available"]
+
+    EMPTY --> WAIT["Keep Bucket Registered For Later Scans"]
+    ELIGIBLE --> PICK["User Selects Files To Import"]
+    PICK --> IMPORT["Mark Files As Import Ready"]
+    IMPORT --> CREATE["Create Imported Video Records"]
+    CREATE --> ORCH["Start Standard Processing Pipeline"]
 ```
 
 ### Playback access flow
@@ -288,6 +355,44 @@ flowchart TD
     PLAYER --> WATCH["Track Watch Progress"]
     VIEW --> DB["Record VideoView"]
     WATCH --> DB2["Upsert WatchHistory"]
+```
+
+### Media playback authorization flow
+
+```mermaid
+flowchart TD
+    U["Viewer"] --> REQUEST["Open Video Playback"]
+    REQUEST --> LOAD["Load Video, Channel, And Visibility State"]
+    LOAD --> AUTH["Check Viewer Session State"]
+    AUTH --> VIS["Inspect Video Visibility"]
+
+    VIS --> PUBLIC["PUBLIC"]
+    VIS --> PRIVATE["PRIVATE"]
+    VIS --> ORG["ORGANIZATION"]
+
+    PUBLIC --> PUBOK["Allow Playback Without Membership Gate"]
+    PUBOK --> SIGN1["Generate Signed Playback URL"]
+
+    PRIVATE --> OWNERCHK["Is Viewer Owner Or Explicitly Allowed?"]
+    OWNERCHK --> YES1["Yes"]
+    OWNERCHK --> NO1["No"]
+    YES1 --> SIGN2["Generate Signed Playback URL"]
+    NO1 --> BLOCK1["Deny Playback"]
+
+    ORG --> MEMBERCHK["Is Viewer In Required Organization?"]
+    MEMBERCHK --> YES2["Yes"]
+    MEMBERCHK --> NO2["No"]
+    YES2 --> POLICY["Check Organization Content Policy"]
+    POLICY --> POLLOW["Policy Allows Playback"]
+    POLICY --> POLDENY["Policy Denies Playback"]
+    POLLOW --> SIGN3["Generate Signed Playback URL"]
+    POLDENY --> BLOCK2["Deny Playback"]
+    NO2 --> BLOCK3["Deny Playback"]
+
+    SIGN1 --> RESP["Return Playback Payload"]
+    SIGN2 --> RESP
+    SIGN3 --> RESP
+    RESP --> PLAYER["Frontend Player Starts Streaming"]
 ```
 
 ### Video interaction and analytics flow
@@ -324,6 +429,37 @@ flowchart TD
     DB2 --> ADMIN
     DB3 --> ADMIN
     DB5 --> ADMIN
+```
+
+### Organization invite and approval flow
+
+```mermaid
+flowchart TD
+    OWNER["Organization Owner Or Admin"] --> DASH["Organization Workspace"]
+    DASH --> INVITE["Create Member Invite"]
+    INVITE --> ROLE["Choose Role Or Access Level"]
+    ROLE --> TOKEN["Generate Invite Token Or Link"]
+    TOKEN --> SEND["Send Invite To Recipient"]
+    SEND --> NOTI1["Create Notification Record"]
+
+    RECIP["Recipient"] --> OPEN["Open Invite Link"]
+    OPEN --> AUTH["Authenticate Or Create Account"]
+    AUTH --> ACCEPT["Accept Invite"]
+    ACCEPT --> PENDING["Create Pending Membership Request"]
+    PENDING --> NOTI2["Notify Organization Reviewers"]
+
+    REVIEW["Owner Or Admin Review"] --> LOAD["Load Pending Request"]
+    LOAD --> DECIDE["Approve Or Reject"]
+
+    DECIDE --> APPROVE["Approve Membership"]
+    DECIDE --> REJECT["Reject Membership"]
+
+    APPROVE --> ASSIGN["Assign Final Role And Membership State"]
+    ASSIGN --> MEMBER["Grant Organization Access"]
+    MEMBER --> NOTI3["Notify Recipient Of Approval"]
+
+    REJECT --> DENY["Keep Access Blocked"]
+    DENY --> NOTI4["Notify Recipient Of Rejection"]
 ```
 
 ### AI suggestion lifecycle
@@ -433,20 +569,20 @@ Key routes implemented in `frontend/src/App.tsx`:
 
 Main frontend areas:
 
-- `frontend/src/pages` for product screens
-- `frontend/src/components` for reusable media and navigation UI
-- `frontend/src/layouts` for authenticated app shells
-- `frontend/src/context` for auth and layout state
-- `frontend/src/api` for backend integration
+- product pages for major user screens
+- shared components for reusable media and navigation UI
+- authenticated layouts for protected application shells
+- auth and layout state management
+- client-side integration layer for backend communication
 
 Notable frontend pages and components:
 
-- `frontend/src/pages/Home.tsx` for discovery and featured media presentation
-- `frontend/src/pages/Upload.tsx` for upload progress, AI state, and thumbnail selection
-- `frontend/src/pages/ProfilePage.tsx` for profile editing and owned-video management
-- `frontend/src/pages/AdminDashboard.tsx` for platform-level oversight
-- `frontend/src/components/SpritesheetPicker.tsx` for frame-based thumbnail selection
-- `frontend/src/context/AuthContext.tsx` for session and authentication state
+- Home experience for discovery and featured media presentation
+- Upload experience for progress tracking, AI state, and thumbnail selection
+- Profile experience for profile editing and owned-video management
+- Admin dashboard for platform-level oversight
+- Spritesheet picker for frame-based thumbnail selection
+- Auth context for session and authentication state
 
 Notable user-facing experiences:
 
@@ -768,8 +904,3 @@ Important environment areas:
 - The application uses request/response services and Socket.IO to complete the upload and processing experience.
 - Worker processes are required for AI, metadata, and thumbnail jobs to complete reliably.
 - Setup steps and environment details are intentionally not included in this README.
-
-## Additional Documentation
-
-- [SETUP_GUIDE.md](./SETUP_GUIDE.md)
-- [SKILLS_DEVELOPED.md](./SKILLS_DEVELOPED.md)
