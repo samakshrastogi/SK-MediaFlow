@@ -55,22 +55,67 @@
 
 ```mermaid
 flowchart TD
-    U["User"] --> F["Frontend App<br/>React + Vite"]
-    F --> A["Backend API<br/>Express + TypeScript"]
-    A --> D["MongoDB via Prisma"]
-    A --> S["AWS S3 + CloudFront"]
-    A --> Q["BullMQ Queues + Redis"]
+    U["User"] --> F["Frontend App<br/>React 19 + Vite"]
+
+    subgraph FE["Frontend Surface"]
+        F --> FE1["Auth Pages<br/>Login, Register, OAuth Success, Reset Password"]
+        F --> FE2["Discovery And Playback<br/>Home, Video Player, Portrait Player, Search"]
+        F --> FE3["Creator Tools<br/>Upload, S3 Import, Profile, Thumbnail Picker"]
+        F --> FE4["Workspace Areas<br/>Favorites, Playlists, Settings"]
+        F --> FE5["Governance Areas<br/>Organization, Organization Dashboard, Admin"]
+    end
+
+    F --> AX["Axios API Client"]
+    F --> SO["Socket.IO Client"]
+
+    AX --> API["Backend API<br/>Express + TypeScript"]
+    SO --> RT["Realtime Service<br/>Socket.IO Server"]
+
+    subgraph BE["Backend Modules"]
+        API --> M1["Auth Module<br/>Register, OTP, Login, Google OAuth, Reset Password"]
+        API --> M2["User Module<br/>Profile, Settings, Sessions, Avatar, Cover"]
+        API --> M3["Channel Module<br/>Creator Channel Management"]
+        API --> M4["Video Module<br/>Upload, Search, Playback, S3 Import, Spritesheets"]
+        API --> M5["Video Actions Module<br/>Views, Likes, Dislikes, Comments, Shares, Playlists"]
+        API --> M6["AI Module<br/>Generate And Apply AI Suggestions"]
+        API --> M7["Organization Module<br/>Memberships, Invites, Policies, Billing, Dashboard"]
+        API --> M8["Notification Module<br/>User Notifications"]
+        API --> M9["Admin Module<br/>Metrics, Filters, Admin Access Control"]
+    end
+
+    API --> PR["Prisma ORM"]
+    PR --> DB["MongoDB"]
+
+    M4 --> S3["AWS S3 Storage"]
+    M2 --> S3
+    M4 --> CF["CloudFront Signed Delivery"]
+    M2 --> CF
+
+    M4 --> ORCH["Post-Upload Orchestration"]
+    ORCH --> FFM["FFmpeg / ffprobe Processing"]
+    ORCH --> SPR["Spritesheet Generation"]
+    ORCH --> Q["BullMQ Queues"]
+
+    Q --> REDIS["Redis"]
     Q --> W1["Thumbnail Worker"]
     Q --> W2["Video AI Worker"]
     Q --> W3["Video Metadata Worker"]
-    W1 --> S
+
+    W1 --> S3
+    W1 --> DB
     W2 --> AI["External AI Service"]
-    W2 --> D
-    W3 --> D
-    A --> R["Socket.IO Realtime Updates"]
-    R --> F
-    F --> P1["Playback, Search, Profile, Settings"]
-    F --> P2["Upload, S3 Import, Organizations, Admin"]
+    AI --> W2
+    W2 --> DB
+    W3 --> DB
+
+    ORCH --> RT
+    W1 --> RT
+    W2 --> RT
+    W3 --> RT
+    RT --> SO
+
+    CF --> FE2
+    CF --> FE3
 ```
 
 ## Repository Layout
@@ -213,25 +258,113 @@ Upload processing flow:
 
 ```mermaid
 flowchart LR
-    F["Frontend Upload UI"] --> PS["Request Presigned URL"]
-    PS --> A["Backend API"]
-    A --> S["S3 Upload Target"]
-    F --> U["Upload Media To S3"]
-    U --> FC["Finalize Upload"]
-    FC --> A
-    A --> V["Create Video Record"]
-    V --> O["Post-Upload Orchestration"]
-    O --> SP["Generate Spritesheet"]
-    O --> Q["Enqueue Background Jobs"]
-    Q --> T["Thumbnail Worker"]
-    Q --> M["Metadata Worker"]
-    Q --> I["AI Worker"]
-    I --> X["External AI Service"]
-    T --> S
-    M --> D["MongoDB"]
-    I --> D
-    A --> RT["Socket.IO Progress Events"]
-    RT --> F
+    UI["Frontend Upload Page"] --> AUTH["Authenticated User Session"]
+    AUTH --> PRE["POST /api/video/upload/presign"]
+    PRE --> API["Video Module"]
+    API --> S3URL["Presigned S3 Upload URL"]
+    S3URL --> UI
+
+    UI --> PUT["Browser Uploads Video File To S3"]
+    PUT --> S3["Raw Video Object In S3"]
+
+    UI --> COMPLETE["POST /api/video/upload/complete"]
+    COMPLETE --> API
+    API --> REC["Create Video Record"]
+    REC --> DB["MongoDB"]
+
+    REC --> ORCH["processVideoAfterUpload(...)"]
+    ORCH --> DL["Download Uploaded File For Processing"]
+    DL --> OPT["Optimize Streaming Layout"]
+    OPT --> META0["Read Initial Media Facts<br/>Duration, Size, Dimensions"]
+    META0 --> SPR["Generate Spritesheet"]
+    SPR --> S3SPR["Store Spritesheet Assets In S3"]
+
+    ORCH --> Q1["Enqueue Thumbnail Job"]
+    ORCH --> Q2["Enqueue Metadata Job"]
+    ORCH --> Q3["Enqueue AI Job"]
+
+    Q1 --> TW["Thumbnail Worker"]
+    Q2 --> MW["Video Metadata Worker"]
+    Q3 --> AW["Video AI Worker"]
+
+    TW --> TH["Generate Thumbnail If Needed"]
+    TH --> S3TH["Store Thumbnail In S3"]
+    TH --> DB1["Update Video Thumbnail State"]
+
+    MW --> PROBE["ffprobe Metadata Extraction"]
+    PROBE --> DB2["Persist VideoMetadata Record"]
+
+    AW --> TRANS["Transcription Request"]
+    TRANS --> EXT["External AI Service"]
+    EXT --> GEN["Title, Description, Keywords, Tags"]
+    GEN --> DB3["Persist VideoAI Record"]
+
+    UI --> PICK["GET Spritesheet And Select Frame"]
+    PICK --> API
+    API --> CROP["Crop Selected Frame"]
+    CROP --> S3TH
+    CROP --> DB1
+
+    ORCH --> RT["Emit Upload Progress"]
+    TW --> RT
+    MW --> RT
+    AW --> RT
+    RT --> SOCKET["Socket.IO Updates"]
+    SOCKET --> UI
+```
+
+Organization and admin flow:
+
+```mermaid
+flowchart TD
+    U["Authenticated User"] --> ORGFE["Organization And Admin Frontend"]
+
+    ORGFE --> ORGAPI["/api/organization"]
+    ORGFE --> ADMAPI["/api/admin"]
+    ORGFE --> USERAPI["/api/user"]
+    ORGFE --> NOTI["/api/notification"]
+
+    subgraph ORG["Organization Module Flows"]
+        ORGAPI --> OC["Create Organization"]
+        ORGAPI --> OJ["Join Via Public Or Private Token"]
+        ORGAPI --> OI["Invite Members By Email"]
+        ORGAPI --> OA["Approve Or Reject Memberships"]
+        ORGAPI --> OP["Manage Upload Policies And Allowed Uploaders"]
+        ORGAPI --> OD["Load Organization Dashboard"]
+    end
+
+    subgraph ADM["Admin Module Flows"]
+        ADMAPI --> AM1["Aggregate Platform Metrics"]
+        ADMAPI --> AM2["Filter Organizations And Activity"]
+        ADMAPI --> AM3["Grant Or Remove Platform Admin Access"]
+        ADMAPI --> AM4["Record Admin Access Audit Events"]
+    end
+
+    subgraph USER["User And Notification Flows"]
+        USERAPI --> US1["Load Settings, Sessions, History, Preferences"]
+        USERAPI --> US2["Revoke Sessions, Deactivate, Delete Account"]
+        NOTI --> N1["Create And Read Notifications"]
+    end
+
+    OC --> DB["MongoDB"]
+    OJ --> DB
+    OI --> MAIL["Mail Service"]
+    MAIL --> INV["Invite Email Delivery"]
+    OI --> N1
+    OA --> N1
+    OP --> DB
+    OD --> ANA["Views, Likes, Dislikes, Shares, Watch History Aggregation"]
+    ANA --> DB
+
+    AM1 --> DB
+    AM2 --> DB
+    AM3 --> DB
+    AM3 --> AM4
+    AM4 --> DB
+
+    US1 --> DB
+    US2 --> DB
+    N1 --> DB
 ```
 
 Current media-related capabilities in the codebase:
