@@ -28,6 +28,9 @@ const ACCOUNT_LOCK_MS = 15 * 60 * 1000
 const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000
 const RESET_REQUEST_COOLDOWN_MS = 60 * 1000
 
+const getRestrictedAccountMessage = () =>
+    "This account is no longer available. Please contact support if you think this is a mistake."
+
 type AuthOtpResponse = {
     message: string
     emailDeliveryMode: MailSendResult["mode"]
@@ -87,7 +90,7 @@ const renderEmailLayout = (
   <tr>
   <td style="background:#2563eb;padding:22px;text-align:center;">
   <span style="font-size:22px;font-weight:700;color:#fff;">
-  🎬 SKFlix
+  🎬 SK-MediaFlow
   </span>
   </td>
   </tr>
@@ -114,7 +117,7 @@ const renderEmailLayout = (
   <tr>
   <td style="background:#fafafa;padding:18px;text-align:center;
   border-top:1px solid #eee;font-size:12px;color:#9ca3af;">
-  © ${new Date().getFullYear()} SKFlix. All rights reserved.
+  © ${new Date().getFullYear()} SK-MediaFlow. All rights reserved.
   </td>
   </tr>
 
@@ -320,7 +323,7 @@ const sendOTPEmail = async (
 ): Promise<MailSendResult> => {
     const body = `
   <p style="font-size:15px;color:#6b7280;">
-  Enter the verification code below to verify your SKFlix account.
+  Enter the verification code below to verify your SK-MediaFlow account.
   </p>
 
   <div style="margin:32px auto;font-size:40px;font-weight:700;
@@ -336,13 +339,13 @@ const sendOTPEmail = async (
   `
 
     return sendEmail({
-        from: `"SKFlix Team" <${EMAIL_FROM}>`,
-        replyTo: `"SKFlix Support" <${EMAIL_REPLY_TO}>`,
+        from: `"SK-MediaFlow Team" <${EMAIL_FROM}>`,
+        replyTo: `"SK-MediaFlow Support" <${EMAIL_REPLY_TO}>`,
         to: email,
-        subject: "Welcome to SKFlix 🎬 – Verify Your Email",
-        text: `Your SKFlix verification code is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+        subject: "Welcome to SK-MediaFlow 🎬 – Verify Your Email",
+        text: `Your SK-MediaFlow verification code is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
         html: renderEmailLayout("Verify your account", body, {
-            text: "Open SKFlix",
+            text: "Open SK-MediaFlow",
             link: CLIENT_URL || "http://localhost:5173",
         }),
     })
@@ -363,10 +366,10 @@ const sendResetEmail = async (
   `
 
     return sendEmail({
-        from: `"SKFlix" <${EMAIL_FROM}>`,
+        from: `"SK-MediaFlow" <${EMAIL_FROM}>`,
         to: email,
-        subject: "Reset your SKFlix password",
-        text: `Reset your SKFlix password using this link: ${resetLink}`,
+        subject: "Reset your SK-MediaFlow password",
+        text: `Reset your SK-MediaFlow password using this link: ${resetLink}`,
         html: renderEmailLayout("Reset your password", body, {
             text: "Reset Password",
             link: resetLink,
@@ -427,6 +430,10 @@ export const registerUser = async (
     const existingUser = await prisma.user.findUnique({
         where: { email: normalizedEmail },
     })
+
+    if (existingUser?.deletedAt || existingUser?.deactivatedAt) {
+        throw new AuthError(getRestrictedAccountMessage(), 403)
+    }
 
     if (existingUser?.isVerified) {
         throw new AuthError("Email already registered", 409)
@@ -495,6 +502,8 @@ export const resendOTP = async (email: string) => {
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
 
     if (!user) throw new AuthError("User not found", 404)
+    if (user.deletedAt || user.deactivatedAt)
+        throw new AuthError(getRestrictedAccountMessage(), 403)
     if (user.provider !== "LOCAL")
         throw new AuthError("This account uses a different sign-in provider.", 409)
     if (user.isVerified) throw new AuthError("Account already verified")
@@ -565,6 +574,8 @@ export const verifyOTP = async (email: string, otp: string) => {
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
 
     if (!user) throw new AuthError("User not found", 404)
+    if (user.deletedAt || user.deactivatedAt)
+        throw new AuthError(getRestrictedAccountMessage(), 403)
     if (user.isVerified) throw new AuthError("Account already verified")
 
     if (!user.otp || !user.otpExpiry) throw new AuthError("Invalid OTP")
@@ -632,6 +643,10 @@ export const loginUser = async (
     if (!user || user.provider !== "LOCAL") {
         await registerFailedLogin(normalizedEmail, ipAddress)
         throw new AuthError("Invalid credentials", 401)
+    }
+
+    if (user.deletedAt || user.deactivatedAt) {
+        throw new AuthError(getRestrictedAccountMessage(), 403)
     }
 
     if (user.lockUntil && user.lockUntil > new Date()) {

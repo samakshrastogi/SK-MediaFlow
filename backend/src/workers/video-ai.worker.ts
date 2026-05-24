@@ -11,6 +11,7 @@ import { s3 } from "../config/s3"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import { pipeline } from "stream/promises"
 import { logger } from "../utils/logger"
+import { formatDurationMs } from "../utils/time"
 
 ffmpeg.setFfmpegPath("ffmpeg")
 
@@ -108,16 +109,9 @@ const generateDescription = (text: string) => {
 const processVideoAI = async (job: Job) => {
 
     const { videoId } = job.data
-    logger.info("VIDEO_AI_WORKER", "AI job started", {
-        jobId: job.id,
-        videoId
-    })
+    const startedAt = Date.now()
+    logger.info("VIDEO_AI_WORKER", "AI worker started")
     const updateProgress = async (progress: number) => {
-        logger.info("VIDEO_AI_WORKER", "AI job progress", {
-            jobId: job.id,
-            videoId,
-            progress
-        })
         await job.updateProgress({ videoId, progress })
     }
 
@@ -204,10 +198,7 @@ ${shorten(transcript)}
         })
 
         await updateProgress(100)
-        logger.info("VIDEO_AI_WORKER", "AI job completed", {
-            jobId: job.id,
-            videoId
-        })
+        logger.info("VIDEO_AI_WORKER", `AI worker finished in ${formatDurationMs(Date.now() - startedAt)}`)
         return { videoId }
 
     } catch (err) {
@@ -216,9 +207,7 @@ ${shorten(transcript)}
             data: { status: "failed" }
         })
 
-        logger.error("VIDEO_AI_WORKER", "AI job failed", {
-            jobId: job.id,
-            videoId,
+        logger.error("VIDEO_AI_WORKER", `AI worker failed after ${formatDurationMs(Date.now() - startedAt)}`, {
             error: err instanceof Error ? err : new Error(String(err))
         })
 
@@ -240,19 +229,8 @@ const worker = new Worker(
     }
 )
 
-worker.on("completed", (job) => {
-    logger.info("VIDEO_AI_WORKER", "Worker marked AI job completed", {
-        jobId: job.id,
-        videoId: job.data?.videoId
-    })
-})
-
 worker.on("failed", (job, error) => {
-    logger.error("VIDEO_AI_WORKER", "Worker marked AI job failed", {
-        jobId: job?.id || null,
-        videoId: job?.data?.videoId || null,
-        error
-    })
+    logger.error("VIDEO_AI_WORKER", "AI worker failed", { error })
 })
 
 export default worker

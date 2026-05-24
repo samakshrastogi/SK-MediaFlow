@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from "react"
+import { motion } from "framer-motion"
 import HeroCard from "./HeroCard"
 
 /* ---------------- TYPES ---------------- */
@@ -97,7 +98,7 @@ const HeroCarousel = ({ videos }: Props) => {
     if (!randomVideos.length) return null
 
     return (
-        <div className="relative">
+        <div className="relative space-y-4">
             <HeroCard
                 key={randomVideos[safeIndex].publicId}
                 video={randomVideos[safeIndex]}
@@ -105,16 +106,28 @@ const HeroCarousel = ({ videos }: Props) => {
                 onPrev={handlePrev}
             />
 
-            <div className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/35 px-2.5 py-2 backdrop-blur-sm">
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.22, duration: 0.5 }}
+                className="absolute bottom-4 left-4 hidden items-center gap-2 rounded-full border border-white/10 bg-black/28 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-purple-100/75 backdrop-blur-md md:flex"
+            >
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(74,222,128,0.75)]" />
+                Live Feature Rotation
+            </motion.div>
+
+            <div className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/35 px-2.5 py-2 shadow-[0_18px_38px_rgba(0,0,0,0.2)] backdrop-blur-md">
                 {randomVideos.map((_, index) => (
-                    <div
+                    <motion.div
                         key={index}
                         className={`
                             h-1.5 rounded-full transition-all duration-300
                             ${index === safeIndex
-                                ? "w-5 bg-white"
+                                ? "w-7 bg-white shadow-[0_0_16px_rgba(255,255,255,0.4)]"
                                 : "w-1.5 bg-white/35"}
                         `}
+                        animate={index === safeIndex ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                        transition={{ duration: 1.4, repeat: index === safeIndex ? Infinity : 0, ease: "easeInOut" }}
                     />
                 ))}
             </div>

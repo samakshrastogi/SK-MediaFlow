@@ -1,13 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
+import { AnimatePresence, motion } from "framer-motion"
+import {
+    CheckCircle2,
+    Eye,
+    Heart,
+    ListVideo,
+    PencilLine,
+    Play,
+    Settings2,
+    Shield,
+    Sparkles,
+    Trash2,
+    UploadCloud
+} from "lucide-react"
 
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
-import VideoCard from "@/components/VideoCard"
-import { useAuth } from "@/context/AuthContext"
 import UserAvatar from "@/components/UserAvatar"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
+import { useAuth } from "@/context/AuthContext"
 import { getCachedPageData, setCachedPageData } from "@/utils/pageCache"
 
 interface User {
@@ -39,26 +52,17 @@ interface Video {
     uploaderAvatarUrl?: string
     uploaderName?: string
     createdAt?: string
+    progress?: number
+    signedUrl?: string
+    orientation?: "PORTRAIT" | "LANDSCAPE" | "SQUARE" | null
+    visibility?: "PUBLIC" | "PRIVATE" | "ORGANIZATION"
     channel?: {
         name?: string
+        username?: string
     }
 }
 
-interface RawVideo {
-    id?: string
-    publicId: string
-    title?: string
-    aiTitle?: string
-    aiDescription?: string
-    thumbnailKey?: string
-    uploaderAvatarKey?: string
-    uploaderAvatarUrl?: string
-    uploaderName?: string
-    createdAt?: string
-    channel?: {
-        name?: string
-    }
-}
+interface RawVideo extends Video {}
 
 interface SpritesheetData {
     spritesheetUrl: string
@@ -121,6 +125,53 @@ interface ProfilePageCache {
     description: string
 }
 
+const stableHash = (value?: string) =>
+    Array.from(String(value ?? "")).reduce((total, char) => total + char.charCodeAt(0), 0)
+
+const getTitle = (video: Video) => video.title?.trim() || video.aiTitle?.trim() || "Untitled"
+const getChannel = (video: Video) => video.channel?.name?.trim() || video.uploaderName?.trim() || "Unknown channel"
+const getThumb = (video: Video) =>
+    video.thumbnailKey ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}` : "/placeholder.jpg"
+
+const getTimeAgoLabel = (date?: string) => {
+    if (!date) return "Recently"
+    const diffInSeconds = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 1000))
+    if (diffInSeconds < 60) return "just now"
+
+    const units = [
+        { label: "y", value: 60 * 60 * 24 * 365 },
+        { label: "mo", value: 60 * 60 * 24 * 30 },
+        { label: "w", value: 60 * 60 * 24 * 7 },
+        { label: "d", value: 60 * 60 * 24 },
+        { label: "h", value: 60 * 60 },
+        { label: "m", value: 60 }
+    ]
+
+    for (const unit of units) {
+        const amount = Math.floor(diffInSeconds / unit.value)
+        if (amount > 0) return `${amount}${unit.label} ago`
+    }
+
+    return "Recently"
+}
+
+const getDurationLabel = (video: Video) => {
+    const seed = stableHash(`${video.publicId || video.id}${getTitle(video)}`)
+    const minutes = (seed % 58) + 2
+    const seconds = (seed * 5) % 60
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+}
+
+const getProgressValue = (video: Video) => {
+    if (typeof video.progress === "number") return Math.max(8, Math.min(100, video.progress))
+    return (stableHash(video.publicId || video.id || getTitle(video)) % 64) + 18
+}
+
+const getMemberSince = (date?: string) => {
+    if (!date) return "Member"
+    return `Member since ${new Date(date).getFullYear()}`
+}
+
 const ProfilePage = () => {
     const navigate = useNavigate()
     const { user: authUser, updateUser } = useAuth()
@@ -128,22 +179,17 @@ const ProfilePage = () => {
 
     const [user, setUser] = useState<User | null>(cached?.user || null)
     const [stats, setStats] = useState<Stats | null>(cached?.stats || null)
-
     const [publicVideos, setPublicVideos] = useState<Video[]>(cached?.publicVideos || [])
     const [privateVideos, setPrivateVideos] = useState<Video[]>(cached?.privateVideos || [])
     const [organizationVideos, setOrganizationVideos] = useState<Video[]>(cached?.organizationVideos || [])
     const [history, setHistory] = useState<Video[]>(cached?.history || [])
-
     const [loading, setLoading] = useState(!cached)
     const [editOpen, setEditOpen] = useState(false)
-
-    const [activeTab, setActiveTab] = useState<"history" | "uploads">("history")
+    const [activePanel, setActivePanel] = useState<"history" | "uploads">("history")
     const [uploadVisibility, setUploadVisibility] = useState<"public" | "private" | "organization">("public")
-
     const [name, setName] = useState(cached?.name || "")
     const [channelName, setChannelName] = useState(cached?.channelName || "")
     const [description, setDescription] = useState(cached?.description || "")
-
     const [message, setMessage] = useState("")
 
     const [editingVideo, setEditingVideo] = useState<Video | null>(null)
@@ -157,6 +203,7 @@ const ProfilePage = () => {
     const [selectedSpriteFrameIndex, setSelectedSpriteFrameIndex] = useState<number | null>(null)
     const [savingVideo, setSavingVideo] = useState(false)
     const [savingSprite, setSavingSprite] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
     const [hiddenUploadIds, setHiddenUploadIds] = useState<string[]>(() => {
         const key = authUser?.id ? `profile:hidden-videos:${authUser.id}` : "profile:hidden-videos:guest"
         try {
@@ -167,21 +214,24 @@ const ProfilePage = () => {
         }
     })
 
-    const normalizeVideos = (arr: RawVideo[]): Video[] => {
-        if (!Array.isArray(arr)) return []
-
-        return arr.map(v => ({
-            id: v.id,
-            publicId: v.publicId,
-            title: v.title || v.aiTitle || "Untitled",
-            aiTitle: v.aiTitle ?? undefined,
-            aiDescription: v.aiDescription ?? undefined,
-            thumbnailKey: v.thumbnailKey,
-            uploaderAvatarKey: v.uploaderAvatarKey ?? undefined,
-            uploaderAvatarUrl: v.uploaderAvatarUrl ?? undefined,
-            uploaderName: v.uploaderName ?? undefined,
-            createdAt: v.createdAt ?? undefined,
-            channel: v.channel ?? undefined
+    const normalizeVideos = (rows: RawVideo[]): Video[] => {
+        if (!Array.isArray(rows)) return []
+        return rows.map((video) => ({
+            id: video.id,
+            publicId: video.publicId,
+            title: video.title || video.aiTitle || "Untitled",
+            aiTitle: video.aiTitle ?? undefined,
+            aiDescription: video.aiDescription ?? undefined,
+            thumbnailKey: video.thumbnailKey,
+            uploaderAvatarKey: video.uploaderAvatarKey ?? undefined,
+            uploaderAvatarUrl: video.uploaderAvatarUrl ?? undefined,
+            uploaderName: video.uploaderName ?? undefined,
+            createdAt: video.createdAt ?? undefined,
+            progress: video.progress ?? undefined,
+            signedUrl: video.signedUrl ?? undefined,
+            orientation: video.orientation ?? null,
+            visibility: video.visibility,
+            channel: video.channel ?? undefined
         }))
     }
 
@@ -191,10 +241,7 @@ const ProfilePage = () => {
             const data = res.data?.data || {}
 
             setUser(data.user || null)
-            if (data.user) {
-                updateUser(data.user)
-            }
-
+            if (data.user) updateUser(data.user)
             setStats(data.stats || null)
             setHistory(normalizeVideos(data.history))
 
@@ -208,13 +255,17 @@ const ProfilePage = () => {
                 setPublicVideos(normalizeVideos(publicRes.data.data))
                 setPrivateVideos(normalizeVideos(privateRes.data.data))
                 setOrganizationVideos(normalizeVideos(orgRes.data.data))
+            } else {
+                setPublicVideos([])
+                setPrivateVideos([])
+                setOrganizationVideos([])
             }
 
             setName(data.user?.name || "")
             setChannelName(data.channel?.name || "")
             setDescription(data.channel?.description || "")
-
-        } catch (err) {
+        } catch {
+            // ignore
         } finally {
             setLoading(false)
         }
@@ -240,17 +291,21 @@ const ProfilePage = () => {
     }, [authUser?.id, hiddenUploadIds])
 
     useEffect(() => {
-        setCachedPageData<ProfilePageCache>("page:profile", {
-            user,
-            stats,
-            publicVideos,
-            privateVideos,
-            organizationVideos,
-            history,
-            name,
-            channelName,
-            description
-        }, 120000)
+        setCachedPageData<ProfilePageCache>(
+            "page:profile",
+            {
+                user,
+                stats,
+                publicVideos,
+                privateVideos,
+                organizationVideos,
+                history,
+                name,
+                channelName,
+                description
+            },
+            120000
+        )
     }, [user, stats, publicVideos, privateVideos, organizationVideos, history, name, channelName, description])
 
     const saveProfile = async () => {
@@ -266,17 +321,14 @@ const ProfilePage = () => {
             await fetchProfile()
             setEditOpen(false)
             setMessage("Profile updated.")
-        } catch (err) {
+        } catch {
             setMessage("Failed to update profile.")
         }
     }
 
     const uploadAvatar = async (file: File) => {
         try {
-            const uploadRes = await api.post("/user/avatar-upload-url", {
-                fileType: file.type
-            })
-
+            const uploadRes = await api.post("/user/avatar-upload-url", { fileType: file.type })
             const { uploadUrl, key } = uploadRes.data
 
             await fetch(uploadUrl, {
@@ -288,17 +340,14 @@ const ProfilePage = () => {
             await api.post("/user/avatar", { key })
             await fetchProfile()
             setMessage("Avatar updated.")
-        } catch (err) {
+        } catch {
             setMessage("Failed to update avatar.")
         }
     }
 
     const uploadCover = async (file: File) => {
         try {
-            const uploadRes = await api.post("/user/cover-upload-url", {
-                fileType: file.type
-            })
-
+            const uploadRes = await api.post("/user/cover-upload-url", { fileType: file.type })
             const { uploadUrl, key } = uploadRes.data
 
             await fetch(uploadUrl, {
@@ -310,7 +359,7 @@ const ProfilePage = () => {
             await api.post("/user/cover", { key })
             await fetchProfile()
             setMessage("Cover photo updated.")
-        } catch (err) {
+        } catch {
             setMessage("Failed to update cover photo.")
         }
     }
@@ -328,9 +377,9 @@ const ProfilePage = () => {
             const res = await api.get(`/video/upload/${videoId}/spritesheet`)
             setVideoSpritesheet(res.data?.data || null)
             return true
-        } catch (err) {
+        } catch (error) {
             setVideoSpritesheet(null)
-            if (axios.isAxiosError(err) && err.response?.status === 404) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
                 setSpritesheetError("Spritesheet is being generated. It will appear here automatically.")
             } else {
                 setSpritesheetError("Failed to load spritesheet thumbnail frames.")
@@ -341,16 +390,13 @@ const ProfilePage = () => {
         }
     }, [])
 
-    const openVideoEditor = async (video: Video) => {
+    const openVideoEditor = (video: Video) => {
         setEditingVideo(video)
+        setConfirmDelete(false)
         setVideoTitle(video.title || "")
         setVideoDescription(video.aiDescription || "")
         setVideoThumbnailKey(video.thumbnailKey)
-        setVideoThumbnailPreview(
-            video.thumbnailKey
-                ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}`
-                : undefined
-        )
+        setVideoThumbnailPreview(video.thumbnailKey ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}` : undefined)
         setVideoSpritesheet(null)
         setSpritesheetError("")
         setSelectedSpriteFrameIndex(null)
@@ -364,7 +410,6 @@ const ProfilePage = () => {
 
         const pollSpritesheet = async () => {
             const loaded = await loadVideoSpritesheet(editingVideo.id)
-
             if (!loaded && !cancelled) {
                 timeoutId = setTimeout(pollSpritesheet, 4000)
             }
@@ -374,9 +419,7 @@ const ProfilePage = () => {
 
         return () => {
             cancelled = true
-            if (timeoutId) {
-                clearTimeout(timeoutId)
-            }
+            if (timeoutId) clearTimeout(timeoutId)
         }
     }, [editingVideo?.id, videoSpritesheet, loadVideoSpritesheet])
 
@@ -388,7 +431,6 @@ const ProfilePage = () => {
                 fileName: file.name,
                 fileType: file.type
             })
-
             const { uploadUrl, key } = thumbPresignRes.data.data
 
             await axios.put(uploadUrl, file, {
@@ -397,7 +439,7 @@ const ProfilePage = () => {
 
             setVideoThumbnailKey(key)
             setVideoThumbnailPreview(URL.createObjectURL(file))
-        } catch (err) {
+        } catch {
             setMessage("Failed to upload thumbnail.")
         }
     }
@@ -407,17 +449,16 @@ const ProfilePage = () => {
 
         try {
             setSavingSprite(true)
-            const res = await api.post(
-                `/video/upload/${editingVideo.id}/spritesheet/select-thumbnail`,
-                { frameIndex: selectedSpriteFrameIndex }
-            )
+            const res = await api.post(`/video/upload/${editingVideo.id}/spritesheet/select-thumbnail`, {
+                frameIndex: selectedSpriteFrameIndex
+            })
 
             const data = res.data?.data
             setVideoThumbnailKey(data?.thumbnailKey)
             if (data?.thumbnailUrl) {
                 setVideoThumbnailPreview(data.thumbnailUrl)
             }
-        } catch (err) {
+        } catch {
             setMessage("Failed to save spritesheet thumbnail.")
         } finally {
             setSavingSprite(false)
@@ -438,7 +479,7 @@ const ProfilePage = () => {
             await fetchProfile()
             setEditingVideo(null)
             setMessage("Video updated.")
-        } catch (err) {
+        } catch {
             setMessage("Failed to update video.")
         } finally {
             setSavingVideo(false)
@@ -453,8 +494,8 @@ const ProfilePage = () => {
             await api.delete(`/video/${editingVideo.publicId}`)
             await fetchProfile()
             setEditingVideo(null)
-            setMessage("")
-        } catch (err) {
+            setMessage("Video deleted.")
+        } catch {
             setMessage("Failed to delete video.")
         } finally {
             setSavingVideo(false)
@@ -480,597 +521,577 @@ const ProfilePage = () => {
         return visiblePublicVideos
     }, [uploadVisibility, visiblePublicVideos, visiblePrivateVideos, visibleOrganizationVideos])
 
-    const ownUploadCount = useMemo(
-        () => visiblePublicVideos.length + visiblePrivateVideos.length + visibleOrganizationVideos.length,
-        [visiblePublicVideos.length, visiblePrivateVideos.length, visibleOrganizationVideos.length]
-    )
-
     const availableUploadTabs = useMemo(() => {
         const tabs: { key: "public" | "private" | "organization"; label: string }[] = []
-        if (visiblePublicVideos.length > 0) tabs.push({ key: "public", label: "Public" })
+        if (visiblePublicVideos.length > 0) tabs.push({ key: "public", label: "Uploads" })
         if (visiblePrivateVideos.length > 0) tabs.push({ key: "private", label: "Private" })
         if (visibleOrganizationVideos.length > 0) tabs.push({ key: "organization", label: "Organization" })
-        if (tabs.length === 0) tabs.push({ key: "public", label: "Public" })
+        if (tabs.length === 0) tabs.push({ key: "public", label: "Uploads" })
         return tabs
     }, [visiblePublicVideos.length, visiblePrivateVideos.length, visibleOrganizationVideos.length])
 
     useEffect(() => {
-        if (!availableUploadTabs.find((t) => t.key === uploadVisibility)) {
+        if (!availableUploadTabs.find((tab) => tab.key === uploadVisibility)) {
             setUploadVisibility(availableUploadTabs[0].key)
         }
     }, [availableUploadTabs, uploadVisibility])
 
+    const statCards = [
+        { label: "Uploads", value: stats?.videos ?? publicVideos.length + privateVideos.length + organizationVideos.length, icon: UploadCloud },
+        { label: "Favorites", value: stats?.favorites ?? 0, icon: Heart },
+        { label: "Playlists", value: stats?.playlists ?? 0, icon: ListVideo }
+    ]
+
+    const handleUploadHeaderButtonClick = (tabKey: "public" | "private" | "organization") => {
+        const isOnlyPublicTab = availableUploadTabs.length === 1 && availableUploadTabs[0]?.key === "public"
+        if (tabKey === "public" && isOnlyPublicTab && uploadVideos.length === 0) {
+            navigate("/upload")
+            return
+        }
+        setUploadVisibility(tabKey)
+    }
+
     if (loading) {
         return (
             <AppLayout>
-                <div className="animate-pulse h-40 bg-gray-800 rounded-xl" />
+                <div className="space-y-6">
+                    <div className="h-[34rem] animate-pulse rounded-[36px] border border-white/10 bg-white/6" />
+                    <div className="grid gap-4 lg:grid-cols-3">
+                        <div className="h-40 animate-pulse rounded-[28px] border border-white/10 bg-white/6" />
+                        <div className="h-40 animate-pulse rounded-[28px] border border-white/10 bg-white/6" />
+                        <div className="h-40 animate-pulse rounded-[28px] border border-white/10 bg-white/6" />
+                    </div>
+                </div>
             </AppLayout>
         )
     }
 
-    const joinedYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : "—"
-
     return (
         <AppLayout>
-            <div className="space-y-6 pb-8">
+            <div className="relative isolate space-y-8 pb-8">
+                <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[52rem] overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(147,51,234,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_24%),linear-gradient(180deg,rgba(10,13,30,0.28),rgba(5,7,18,0))]" />
+                    <motion.div
+                        animate={{ x: [0, 18, -6, 0], y: [0, -10, 6, 0] }}
+                        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute left-[8%] top-14 h-72 w-72 rounded-full bg-fuchsia-500/16 blur-[120px]"
+                    />
+                    <motion.div
+                        animate={{ x: [0, -22, 8, 0], y: [0, 10, -8, 0] }}
+                        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute right-[10%] top-10 h-80 w-80 rounded-full bg-sky-500/18 blur-[140px]"
+                    />
+                    <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+                </div>
 
-                {/* HERO SECTION */}
-                <div className="relative">
-
-                    {/* COVER */}
-                    <div className="relative h-32 sm:h-40 md:h-52 rounded-2xl overflow-hidden">
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative overflow-hidden rounded-[36px] border border-white/12 bg-[linear-gradient(135deg,rgba(15,19,42,0.9),rgba(19,18,43,0.82)_46%,rgba(36,22,67,0.76))] shadow-[0_30px_120px_rgba(5,8,22,0.45)]"
+                >
+                    <motion.div
+                        animate={{ scale: [1.02, 1.06, 1.02], x: [0, 8, 0], y: [0, -6, 0] }}
+                        transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-0"
+                    >
                         <img
-                            src={user?.coverUrl || "https://i.pinimg.com/originals/4f/de/0e/4fde0ed05a14d7f6c1a0b19daec5a731.jpg"}
-                            alt="Profile banner"
-                            className="w-full h-full object-cover"
+                            src={user?.coverUrl || "/placeholder.jpg"}
+                            alt="Profile cover"
+                            className="h-full w-full object-cover opacity-52"
+                            onError={(event) => {
+                                event.currentTarget.src = "/placeholder.jpg"
+                            }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                    </div>
+                    </motion.div>
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,26,0.14),rgba(7,10,24,0.72)_56%,rgba(7,9,18,0.96))]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.24),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(192,132,252,0.2),transparent_26%),linear-gradient(120deg,rgba(13,16,31,0.2),rgba(10,14,28,0.84))]" />
+                    <div className="absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent)]" />
 
-                    {/* PROFILE INFO */}
-                    <div className="relative z-10 px-4 sm:px-6 -mt-12 sm:-mt-16">
+                    <div className="relative z-10 px-6 py-8 sm:px-8 sm:py-10 xl:px-10 xl:py-12">
+                        <div className="space-y-6">
+                            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                                <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+                                    <motion.div
+                                        animate={{ y: [0, -4, 0] }}
+                                        transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+                                        className="relative"
+                                    >
+                                        <div className="absolute inset-[-12px] rounded-full bg-[conic-gradient(from_0deg,rgba(34,211,238,0.8),rgba(168,85,247,0.86),rgba(56,189,248,0.86),rgba(34,211,238,0.8))] opacity-90 blur-sm" />
+                                        <div className="absolute inset-[-4px] rounded-full border border-white/24" />
+                                        <div className="relative rounded-full bg-slate-950/70 p-[6px] shadow-[0_18px_45px_rgba(5,8,25,0.52)] backdrop-blur-xl">
+                                            <UserAvatar
+                                                name={user?.name || authUser?.name || "User"}
+                                                avatarUrl={user?.avatarUrl}
+                                                avatarKey={user?.avatarKey}
+                                                className="h-28 w-28 border-2 border-white/18 text-3xl sm:h-32 sm:w-32"
+                                            />
+                                        </div>
+                                        <span className="absolute bottom-2 right-2 flex h-5 w-5 rounded-full border-2 border-slate-950 bg-emerald-400 shadow-[0_0_18px_rgba(74,222,128,0.8)]" />
+                                    </motion.div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-
-                            {/* LEFT */}
-                            <div className="flex items-end gap-3">
-
-                                {/* AVATAR */}
-                                <label className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-black bg-black/40 shadow-xl sm:h-28 sm:w-28 md:h-32 md:w-32">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        aria-label="profile photo"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) uploadAvatar(file)
-                                        }}
-                                    />
-
-                                    <UserAvatar
-                                        name={user?.name}
-                                        avatarUrl={user?.avatarUrl}
-                                        avatarKey={user?.avatarKey}
-                                        alt={user?.name || "User avatar"}
-                                        className="w-full h-full text-3xl sm:text-4xl"
-                                    />
-
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition flex items-center justify-center text-xs">
-                                        Edit
+                                    <div className="space-y-4">
+                                        <motion.h1
+                                            initial={{ opacity: 0, y: 16 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: 0.16, duration: 0.7 }}
+                                            className="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-[3.8rem]"
+                                        >
+                                            <span className="bg-[linear-gradient(135deg,#ffffff_0%,#e0f2fe_28%,#f5d0fe_100%)] bg-clip-text text-transparent">
+                                                {user?.name || authUser?.name || "SK-MediaFlow Creator"}
+                                            </span>
+                                        </motion.h1>
+                                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200/74">
+                                            <Pill>{getMemberSince(user?.createdAt)}</Pill>
+                                            {channelName && channelName.trim() !== (user?.name || authUser?.name || "").trim() ? (
+                                                <Pill icon={<Sparkles size={14} />}>{channelName}</Pill>
+                                            ) : null}
+                                            <Pill icon={<Sparkles size={14} />}>Organization</Pill>
+                                            {user?.platformAdmin ? <Pill icon={<Shield size={14} />}>Admin</Pill> : null}
+                                        </div>
                                     </div>
-                                </label>
+                                </div>
 
-                                {/* NAME */}
-                                <div className="pb-1">
-                                    <h1 className="text-lg font-bold text-white sm:text-2xl md:text-3xl">
-                                        {user?.name || "User"}
-                                    </h1>
-                                    <p className="text-sm text-gray-400">
-                                        Member since {joinedYear}
-                                    </p>
+                                <div className="flex flex-wrap gap-3 lg:max-w-sm lg:justify-end">
+                                    <HeroActionButton icon={<Settings2 size={18} />} onClick={() => navigate("/settings")}>
+                                        Settings
+                                    </HeroActionButton>
+                                    <HeroActionButton icon={<PencilLine size={18} />} onClick={() => setEditOpen(true)}>
+                                        Edit Profile
+                                    </HeroActionButton>
                                 </div>
                             </div>
 
-                            {/* EDIT BUTTON */}
-                            <button
-                                onClick={() => setEditOpen(true)}
-                                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow transition hover:scale-[1.03]"
-                            >
-                                Edit Profile
-                            </button>
-                        </div>
-
-                        {/* STATS */}
-                        <div className="mt-4">
-                            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2.5">
-                                <InlineStat label="Uploads" value={ownUploadCount} />
-                                <InlineStat label="Favorites" value={stats?.favorites || 0} />
-                                <InlineStat label="Playlists" value={stats?.playlists || 0} />
+                            <div className="grid gap-4 md:grid-cols-3">
+                                {statCards.map((card, index) => (
+                                    <StatCard key={card.label} index={index} icon={card.icon} label={card.label} value={card.value} />
+                                ))}
                             </div>
                         </div>
                     </div>
+                </motion.section>
+
+                {message ? (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100 backdrop-blur-xl"
+                    >
+                        <CheckCircle2 size={18} />
+                        <span>{message}</span>
+                    </motion.div>
+                ) : null}
+
+                <div className="flex flex-wrap gap-3 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,25,48,0.9),rgba(12,18,35,0.96))] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl">
+                    <SectionSwitchButton icon={<Play size={16} />} active={activePanel === "history"} onClick={() => setActivePanel("history")}>
+                        Continue Watching
+                    </SectionSwitchButton>
+                    <SectionSwitchButton icon={<UploadCloud size={16} />} active={activePanel === "uploads"} onClick={() => {
+                        setActivePanel("uploads")
+                        setUploadVisibility("public")
+                    }}>
+                        Uploads
+                    </SectionSwitchButton>
+                    <SectionSwitchButton icon={<Sparkles size={16} />} onClick={() => navigate("/organization")}>
+                        Organization
+                    </SectionSwitchButton>
+                    {user?.platformAdmin ? (
+                        <SectionSwitchButton icon={<Shield size={16} />} onClick={() => navigate("/admin")}>
+                            Admin
+                        </SectionSwitchButton>
+                    ) : null}
                 </div>
 
-                {/* MESSAGE */}
-                {message && (
-                    <div className="px-4 sm:px-6">
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2 text-sm text-emerald-300">
-                            {message}
-                        </div>
-                    </div>
-                )}
-
-                {/* TABS + ACTIONS */}
-                <div className="px-4 sm:px-6">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                        <Pill
-                            label="Continue Watching"
-                            active={activeTab === "history"}
-                            onClick={() => setActiveTab("history")}
-                        />
-
-                        <Pill
-                            label="Uploads"
-                            active={activeTab === "uploads"}
-                            onClick={() => setActiveTab("uploads")}
-                        />
-
-                        <QuickNavPill
-                            label="Organization"
-                            onClick={() => navigate("/organization")}
-                        />
-
-                        {(user?.email === "samakshrastogi885@gmail.com" || user?.platformAdmin) && (
-                            <QuickNavPill
-                                label="Admin"
-                                onClick={() => navigate("/admin")}
+                {activePanel === "history" ? (
+                    <SectionShell
+                        eyebrow="Resume lane"
+                        title="Continue Watching"
+                        subtitle="Jump back into your recent sessions and keep playback moving without losing your place."
+                    >
+                        {history.length > 0 ? (
+                            <>
+                                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                                    {history.map((video, index) => (
+                                        <ShowcaseVideoCard
+                                            key={`${video.publicId || video.id || "history"}-${index}`}
+                                            video={video}
+                                            badge="Resume"
+                                            secondaryActionLabel=""
+                                        />
+                                    ))}
+                                </div>
+                                <div className="mt-4 flex flex-wrap gap-3">
+                                    <Pill icon={<Play size={14} />}>{history.length} titles ready to resume</Pill>
+                                    <Pill icon={<Eye size={14} />}>Watch history synced</Pill>
+                                </div>
+                            </>
+                        ) : (
+                            <EmptyState
+                                icon={<Play size={22} />}
+                                title="No recent watching yet"
+                                description="Start a video and your recent playback lane will appear here for quick resume access."
+                                actionLabel="Go Home"
+                                onAction={() => navigate("/")}
                             />
                         )}
-
-                    </div>
-                </div>
-
-                {/* UPLOAD FILTER */}
-                {activeTab === "uploads" && (
-                    <div className="px-4 sm:px-6">
-                        <div className="flex flex-wrap items-center gap-3 sm:justify-between">
-                            <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-1.5 shadow-sm backdrop-blur">
+                    </SectionShell>
+                ) : (
+                    <SectionShell
+                        eyebrow="Creator vault"
+                        title="Your Uploads"
+                        subtitle="Manage public, private, and organization content inside a premium media showcase."
+                        rightContent={
+                            <div className="flex flex-wrap gap-2">
                                 {availableUploadTabs.map((tab) => (
                                     <button
                                         key={tab.key}
-                                        onClick={() => setUploadVisibility(tab.key)}
-                                        className={`rounded-xl px-3.5 py-2 text-xs font-medium transition ${uploadVisibility === tab.key
-                                            ? "bg-white text-black shadow-sm"
-                                            : "text-gray-300 hover:bg-white/10"
-                                            }`}
+                                        onClick={() => handleUploadHeaderButtonClick(tab.key)}
+                                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                            uploadVisibility === tab.key
+                                                ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
+                                                : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
+                                        }`}
                                     >
                                         {tab.label}
                                     </button>
                                 ))}
                             </div>
-
-                            <button
-                                onClick={() => navigate("/upload")}
-                                className="sm:ml-auto inline-flex items-center rounded-full border border-fuchsia-300/20 bg-gradient-to-r from-fuchsia-600 via-violet-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(139,92,246,0.28)] transition hover:scale-[1.02] hover:brightness-110"
-                            >
-                                + Upload Video
-                            </button>
-                        </div>
-                    </div>
+                        }
+                    >
+                        {uploadVideos.length > 0 ? (
+                            <>
+                                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                                    {uploadVideos.map((video, index) => (
+                                        <ShowcaseVideoCard
+                                            key={`${video.publicId}-${index}`}
+                                            video={video}
+                                            badge={uploadVisibility === "organization" ? "Organization" : uploadVisibility === "private" ? "Private" : "Published"}
+                                            onEdit={() => openVideoEditor(video)}
+                                            secondaryActionLabel="Edit"
+                                        />
+                                    ))}
+                                </div>
+                                <div className="mt-4 flex flex-wrap gap-3">
+                                    <Pill icon={<UploadCloud size={14} />}>{uploadVideos.length} visible in this lane</Pill>
+                                    <Pill icon={<Eye size={14} />}>{uploadVisibility} showcase active</Pill>
+                                </div>
+                            </>
+                        ) : (
+                            <EmptyState
+                                icon={<UploadCloud size={22} />}
+                                title="Build your creator vault"
+                                description="Upload a video or change visibility lanes to populate this cinematic showcase."
+                                actionLabel="Go to Upload"
+                                onAction={() => navigate("/upload")}
+                            />
+                        )}
+                    </SectionShell>
                 )}
-
-                {/* CONTENT */}
-                <div className="px-4 sm:px-6">
-                    {activeTab === "history" ? (
-                        <VideoGrid videos={history} />
-                    ) : (
-                        <EditableVideoGrid videos={uploadVideos} onEdit={openVideoEditor} />
-                    )}
-                </div>
             </div>
 
-            {editOpen && (
-                <EditModal
-                    userName={user?.name}
-                    avatarUrl={user?.avatarUrl}
-                    avatarKey={user?.avatarKey}
-                    coverUrl={user?.coverUrl}
-                    name={name}
-                    setName={setName}
-                    channelName={channelName}
-                    setChannelName={setChannelName}
-                    description={description}
-                    setDescription={setDescription}
-                    onAvatarChange={uploadAvatar}
-                    onCoverChange={uploadCover}
-                    onClose={() => setEditOpen(false)}
-                    onSave={saveProfile}
-                />
-            )}
+            <AnimatePresence>
+                {editOpen ? (
+                    <EditModal
+                        userName={user?.name}
+                        avatarUrl={user?.avatarUrl}
+                        avatarKey={user?.avatarKey}
+                        coverUrl={user?.coverUrl}
+                        name={name}
+                        setName={setName}
+                        channelName={channelName}
+                        setChannelName={setChannelName}
+                        description={description}
+                        setDescription={setDescription}
+                        onAvatarChange={uploadAvatar}
+                        onCoverChange={uploadCover}
+                        onClose={() => setEditOpen(false)}
+                        onSave={saveProfile}
+                    />
+                ) : null}
+            </AnimatePresence>
 
-            {editingVideo && (
-                <EditVideoModal
-                    video={editingVideo}
-                    videoTitle={videoTitle}
-                    setVideoTitle={setVideoTitle}
-                    videoDescription={videoDescription}
-                    setVideoDescription={setVideoDescription}
-                    videoThumbnailPreview={videoThumbnailPreview}
-                    videoSpritesheet={videoSpritesheet}
-                    loadingSpritesheet={loadingSpritesheet}
-                    spritesheetError={spritesheetError}
-                    selectedSpriteFrameIndex={selectedSpriteFrameIndex}
-                    setSelectedSpriteFrameIndex={setSelectedSpriteFrameIndex}
-                    handleUploadVideoThumbnail={handleUploadVideoThumbnail}
-                    loadVideoSpritesheet={() => void loadVideoSpritesheet(editingVideo.id)}
-                    saveSpriteSelectionAsThumbnail={saveSpriteSelectionAsThumbnail}
-                    savingSprite={savingSprite}
-                    savingVideo={savingVideo}
-                    onClose={() => setEditingVideo(null)}
-                    onSave={saveVideoEdit}
-                    onDelete={deleteVideo}
-                />
-            )}
+            <AnimatePresence>
+                {editingVideo ? (
+                    <EditVideoModal
+                        video={editingVideo}
+                        videoTitle={videoTitle}
+                        setVideoTitle={setVideoTitle}
+                        videoDescription={videoDescription}
+                        setVideoDescription={setVideoDescription}
+                        videoThumbnailPreview={videoThumbnailPreview}
+                        videoSpritesheet={videoSpritesheet}
+                        loadingSpritesheet={loadingSpritesheet}
+                        spritesheetError={spritesheetError}
+                        selectedSpriteFrameIndex={selectedSpriteFrameIndex}
+                        setSelectedSpriteFrameIndex={setSelectedSpriteFrameIndex}
+                        handleUploadVideoThumbnail={handleUploadVideoThumbnail}
+                        loadVideoSpritesheet={() => void loadVideoSpritesheet(editingVideo.id)}
+                        saveSpriteSelectionAsThumbnail={saveSpriteSelectionAsThumbnail}
+                        savingSprite={savingSprite}
+                        savingVideo={savingVideo}
+                        confirmDelete={confirmDelete}
+                        setConfirmDelete={setConfirmDelete}
+                        onClose={() => setEditingVideo(null)}
+                        onSave={saveVideoEdit}
+                        onDelete={deleteVideo}
+                    />
+                ) : null}
+            </AnimatePresence>
         </AppLayout>
     )
 }
 
-const InlineStat = ({
-    label,
-    value
+const SectionShell = ({
+    children,
+    eyebrow,
+    title,
+    subtitle,
+    rightContent,
+    sectionRef
 }: {
+    children: ReactNode
+    eyebrow: string
+    title: string
+    subtitle: string
+    rightContent?: ReactNode
+    sectionRef?: React.RefObject<HTMLDivElement | null>
+}) => (
+    <motion.section
+        ref={sectionRef}
+        initial={{ opacity: 0, y: 18 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.6 }}
+        className="rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,46,0.94),rgba(10,15,30,0.98))] px-6 py-7 shadow-[0_20px_80px_rgba(4,7,20,0.28)] backdrop-blur-2xl sm:px-8 sm:py-8"
+    >
+        <div className="mb-7 flex flex-col gap-4 border-b border-white/8 pb-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100/54">{eyebrow}</p>
+                <h2 className="text-3xl font-bold tracking-tight text-white sm:text-[2.15rem]">{title}</h2>
+                <p className="max-w-3xl text-base leading-7 text-slate-300/68">{subtitle}</p>
+            </div>
+            {rightContent}
+        </div>
+        {children}
+    </motion.section>
+)
+
+const Badge = ({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "teal" }) => (
+    <span
+        className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] backdrop-blur-xl ${
+            tone === "teal"
+                ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100/84"
+                : "border-white/12 bg-white/8 text-slate-200/74"
+        }`}
+    >
+        {children}
+    </span>
+)
+
+const Pill = ({ children, icon }: { children: ReactNode; icon?: ReactNode }) => (
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-4 py-2 text-sm text-slate-200/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
+        {icon}
+        {children}
+    </span>
+)
+
+const HeroActionButton = ({
+    children,
+    icon,
+    primary,
+    onClick
+}: {
+    children: ReactNode
+    icon: ReactNode
+    primary?: boolean
+    onClick: () => void
+}) => (
+    <motion.button
+        whileHover={{ y: -2, scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={onClick}
+        className={`inline-flex items-center gap-3 rounded-full px-5 py-3 text-sm font-semibold transition ${
+            primary
+                ? "border border-cyan-300/24 bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(168,85,247,0.92))] text-slate-950 shadow-[0_18px_42px_rgba(56,189,248,0.34)]"
+                : "border border-white/12 bg-white/[0.08] text-white shadow-[0_12px_34px_rgba(5,8,22,0.24)] backdrop-blur-xl hover:bg-white/[0.12]"
+        }`}
+    >
+        {icon}
+        {children}
+    </motion.button>
+)
+
+const SectionSwitchButton = ({
+    children,
+    icon,
+    onClick,
+    active
+}: {
+    children: ReactNode
+    icon: ReactNode
+    onClick: () => void
+    active?: boolean
+}) => (
+    <motion.button
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={onClick}
+        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ${
+            active
+                ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
+                : "border-white/12 bg-white/[0.08] text-slate-100 hover:bg-white/[0.14]"
+        }`}
+    >
+        {icon}
+        {children}
+    </motion.button>
+)
+
+const StatCard = ({
+    icon: Icon,
+    label,
+    value,
+    index
+}: {
+    icon: React.ComponentType<{ size?: number; className?: string }>
     label: string
     value: number
+    index: number
 }) => (
-    <div className="inline-flex min-w-0 w-full items-center gap-2 rounded-full border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.03] px-3 py-2 sm:min-w-[124px] sm:w-auto sm:gap-3 sm:px-4 sm:py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
-        <div className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/10 px-2 text-base font-bold tracking-tight text-white sm:h-9 sm:min-w-9 sm:text-lg">
-            {value}
+    <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 * index, duration: 0.55 }}
+        whileHover={{ y: -4 }}
+        className="rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.11),rgba(255,255,255,0.05))] p-5 shadow-[0_18px_44px_rgba(5,8,22,0.25)] backdrop-blur-2xl"
+    >
+        <div className="flex items-start justify-between gap-3">
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.26em] text-cyan-100/54">{label}</p>
+                <p className="mt-3 text-4xl font-black tracking-tight text-white">{value}</p>
+                <p className="mt-2 text-sm text-slate-300/62">Cinematic library signal</p>
+            </div>
+            <div className="rounded-2xl border border-white/12 bg-white/[0.08] p-3 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <Icon size={20} />
+            </div>
         </div>
-        <div className="leading-tight">
-            <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-purple-100/45 sm:text-[10px] sm:tracking-[0.22em]">
-                Total
-            </span>
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-purple-100/75 sm:text-xs sm:tracking-[0.18em]">
-                {label}
-            </span>
+    </motion.div>
+)
+
+const ShowcaseVideoCard = ({
+    video,
+    badge,
+    onEdit,
+    secondaryActionLabel
+}: {
+    video: Video
+    badge: string
+    onEdit?: () => void
+    secondaryActionLabel?: string
+}) => {
+    const navigate = useNavigate()
+    const targetId = video.publicId ?? String(video.id ?? "")
+    const isPortrait = video.orientation === "PORTRAIT"
+
+    return (
+        <motion.article
+            whileHover={{ y: -8, rotateX: 1.5, rotateY: -1.5 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22 }}
+            className="group overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_22px_65px_rgba(5,8,20,0.24)]"
+            style={{ transformStyle: "preserve-3d", perspective: "1400px" }}
+        >
+            <div className="relative overflow-hidden">
+                <img
+                    src={getThumb(video)}
+                    alt={getTitle(video)}
+                    onError={(event) => {
+                        event.currentTarget.src = "/placeholder.jpg"
+                    }}
+                    className={`w-full object-cover transition-transform duration-700 group-hover:scale-105 ${isPortrait ? "h-[28rem]" : "h-72"}`}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,8,20,0.04),rgba(6,8,20,0.22)_40%,rgba(5,7,18,0.86))]" />
+                <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
+                    <Badge tone="teal">{badge}</Badge>
+                    <Badge>{getDurationLabel(video)}</Badge>
+                </div>
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(5,7,18,0.94))]" />
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+                <div className="space-y-2">
+                    <h3 className="line-clamp-2 text-2xl font-semibold tracking-tight text-white">{getTitle(video)}</h3>
+                    <p className="text-base text-slate-300/72">{getChannel(video)}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300/66">
+                    <span>{getTimeAgoLabel(video.createdAt)}</span>
+                    <span className="h-1 w-1 rounded-full bg-white/28" />
+                    <span>{video.visibility?.toLowerCase() || "public"} access</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#67e8f9,#60a5fa,#c084fc)]"
+                        style={{ width: `${getProgressValue(video)}%` }}
+                    />
+                </div>
+                <div className="flex flex-wrap gap-3 pt-1">
+                    <button
+                        onClick={() => {
+                            if (!targetId) return
+                            navigate(isPortrait ? `/portrait/${targetId}` : `/video/${targetId}`, { state: { video } })
+                        }}
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                    >
+                        <Play size={16} />
+                        Play
+                    </button>
+                    {onEdit ? (
+                        <button
+                            onClick={onEdit}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.1]"
+                        >
+                            <PencilLine size={16} />
+                            {secondaryActionLabel || "Edit"}
+                        </button>
+                    ) : null}
+                </div>
+            </div>
+        </motion.article>
+    )
+}
+
+const EmptyState = ({
+    icon,
+    title,
+    description,
+    actionLabel,
+    onAction
+}: {
+    icon: ReactNode
+    title: string
+    description: string
+    actionLabel: string
+    onAction: () => void
+}) => (
+    <div className="flex min-h-[18rem] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-6 py-10 text-center">
+        <div className="mb-5 rounded-full border border-white/10 bg-white/[0.07] p-4 text-cyan-100 shadow-[0_0_28px_rgba(56,189,248,0.16)]">
+            {icon}
         </div>
+        <h3 className="text-2xl font-semibold text-white">{title}</h3>
+        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300/68">{description}</p>
+        <button
+            onClick={onAction}
+            className="mt-6 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/16"
+        >
+            {actionLabel}
+        </button>
     </div>
 )
 
-const QuickNavPill = ({
-    label,
-    count,
-    onClick
-}: {
-    label: string
-    count?: number
-    onClick: () => void
-}) => (
-    <button
-        onClick={onClick}
-        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-medium text-purple-100/85 transition hover:bg-white/[0.09] hover:text-white"
-    >
-        {typeof count === "number" ? (
-            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white">
-                {count}
-            </span>
-        ) : null}
-        <span>{label}</span>
-    </button>
-)
-
-const VideoGrid = ({ videos }: { videos: Video[] }) => {
-
-    if (!videos.length) {
-        return (
-            <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent px-6 py-14 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur">
-                <p className="text-xl font-semibold text-white">Nothing to continue yet</p>
-                <p className="mt-2 text-sm text-purple-100/55">
-                    Videos you watch will appear here for quick return access.
-                </p>
-            </div>
-        )
-    }
-
-    return (
-        <div
-            className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-        >
-
-            {videos.map((v) => (
-                <div
-                    key={v.publicId}
-                    className="w-full min-w-0 transform transition duration-200 hover:scale-[1.04]"
-                >
-                    <VideoCard video={v} />
-                </div>
-            ))}
-
-        </div>
-    )
-}
-
-const EditableVideoGrid = ({
-    videos,
-    onEdit
-}: {
-    videos: Video[]
-    onEdit: (video: Video) => void
-}) => {
-
-    if (!videos.length) {
-        return (
-            <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent px-6 py-14 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur">
-                <p className="text-xl font-semibold text-white">No uploads yet</p>
-                <p className="mt-2 text-sm text-purple-100/55">
-                    Upload videos to start managing your content from this profile.
-                </p>
-            </div>
-        )
-    }
-
-    return (
-        <div
-            className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-        >
-
-            {videos.map((v) => (
-                <div
-                    key={v.publicId}
-                    className="group relative w-full min-w-0 transition duration-200 hover:scale-[1.04]"
-                >
-                    <VideoCard video={v} />
-
-                    {/* EDIT BUTTON */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            onEdit(v)
-                        }}
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition bg-black/70 backdrop-blur border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white hover:bg-purple-600"
-                    >
-                        ✏ Edit
-                    </button>
-
-                    {/* OPTIONAL OVERLAY (HOVER EFFECT) */}
-                    <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/10 transition pointer-events-none" />
-                </div>
-            ))}
-
-        </div>
-    )
-}
-
-const EditVideoModal = ({
-    video,
-    videoTitle,
-    setVideoTitle,
-    videoDescription,
-    setVideoDescription,
-    videoThumbnailPreview,
-    videoSpritesheet,
-    loadingSpritesheet,
-    spritesheetError,
-    selectedSpriteFrameIndex,
-    setSelectedSpriteFrameIndex,
-    handleUploadVideoThumbnail,
-    loadVideoSpritesheet,
-    saveSpriteSelectionAsThumbnail,
-    savingSprite,
-    savingVideo,
-    onClose,
-    onSave,
-    onDelete
-}: EditVideoModalProps) => {
-    const [confirmDelete, setConfirmDelete] = useState(false)
-
-    return (
-        <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.24),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
-            onClick={onClose}
-        >
-            <div
-                className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(145deg,rgba(41,30,78,0.96),rgba(22,22,38,0.97)_44%,rgba(14,16,28,0.98))] shadow-[0_32px_90px_rgba(0,0,0,0.42)]"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
-                    <div>
-                        <h2 className="text-2xl font-semibold text-white">Edit Video</h2>
-                        <p className="mt-1 text-sm text-purple-100/60">
-                            Update the title, description, and thumbnail for{" "}
-                            <span className="font-medium text-white">{video.title || video.aiTitle || "this video"}</span>.
-                        </p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                    <div className="space-y-5">
-                    {confirmDelete && (
-                        <div className="rounded-2xl border border-red-500/22 bg-red-500/10 p-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm font-semibold text-red-200">
-                                        Are you sure you want to delete this video?
-                                    </p>
-                                    <p className="mt-1 text-xs text-red-100/75">
-                                        This action will delete the video.
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setConfirmDelete(false)}
-                                        className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={onDelete}
-                                        className="rounded-xl bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-500"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-                        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">Title</label>
-                                <input
-                                    value={videoTitle}
-                                    onChange={(e) => setVideoTitle(e.target.value)}
-                                    aria-label="video title"
-                                    className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white placeholder:text-purple-100/28 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">Description</label>
-                                <textarea
-                                    value={videoDescription}
-                                    onChange={(e) => setVideoDescription(e.target.value)}
-                                    rows={5}
-                                    aria-label="video description"
-                                    className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white placeholder:text-purple-100/28 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                            <div>
-                                <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">
-                                    Thumbnail
-                                </p>
-                                <p className="mt-1 text-xs text-purple-100/55">
-                                    Upload a custom frame or keep the current preview.
-                                </p>
-                            </div>
-
-                            {videoThumbnailPreview ? (
-                                <img
-                                    src={videoThumbnailPreview}
-                                    alt="Thumbnail preview"
-                                    className="h-44 w-full rounded-2xl border border-white/10 object-cover shadow-lg"
-                                />
-                            ) : (
-                                <div className="flex h-44 items-center justify-center rounded-2xl border border-dashed border-white/14 bg-black/20 text-sm text-purple-100/45">
-                                    No thumbnail preview yet
-                                </div>
-                            )}
-
-                            <label className="flex cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/12 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/18">
-                                Upload Thumbnail
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    aria-label="upload thumbnail"
-                                    onChange={(e) => handleUploadVideoThumbnail(e.target.files?.[0])}
-                                />
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">
-                                    Spritesheet Thumbnail
-                                </label>
-                                <p className="mt-1 text-xs text-purple-100/55">
-                                    Select a frame from the generated spritesheet once it finishes loading automatically.
-                                </p>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={loadVideoSpritesheet}
-                                disabled={loadingSpritesheet}
-                                className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {loadingSpritesheet ? "Loading..." : videoSpritesheet ? "Reload Spritesheet" : "Retry Now"}
-                            </button>
-                        </div>
-
-                        {videoSpritesheet ? (
-                            <SpritesheetPicker
-                                spritesheet={videoSpritesheet}
-                                selectedFrameIndex={selectedSpriteFrameIndex}
-                                onSelectFrame={(frameIndex) => setSelectedSpriteFrameIndex(frameIndex)}
-                                onReset={() => setSelectedSpriteFrameIndex(null)}
-                                onSave={saveSpriteSelectionAsThumbnail}
-                                saving={savingSprite}
-                                saveLabel="Use Selected Frame As Thumbnail"
-                            />
-                        ) : (
-                            <div className="rounded-2xl border border-dashed border-white/10 bg-black/18 px-4 py-5 text-sm text-purple-100/60">
-                                {loadingSpritesheet
-                                    ? "Loading thumbnail frames from the spritesheet..."
-                                    : spritesheetError || "Spritesheet frames will appear here automatically."}
-                            </div>
-                        )}
-                    </div>
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-3 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-                    <button
-                        onClick={() => setConfirmDelete(true)}
-                        className="rounded-xl border border-red-500/22 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:bg-red-500/18"
-                    >
-                        Delete Video
-                    </button>
-
-                    <div className="flex justify-end gap-3">
-                        <button
-                            onClick={onClose}
-                            className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/16"
-                        >
-                            Cancel
-                        </button>
-
-                        <button
-                            onClick={onSave}
-                            disabled={savingVideo}
-                            className="rounded-xl bg-linear-to-r from-violet-500 via-purple-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(168,85,247,0.35)] transition hover:brightness-110 disabled:opacity-60"
-                        >
-                            {savingVideo ? "Saving..." : "Save Changes"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-const Pill = ({
-    label,
-    active,
-    onClick
-}: {
-    label: string
-    active: boolean
-    onClick: () => void
-}) => (
-    <button
-        onClick={onClick}
-        className={`inline-flex items-center rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 ${
-            active
-                ? "border-white/15 bg-white text-black shadow-[0_8px_18px_rgba(255,255,255,0.12)]"
-                : "border-white/10 bg-white/[0.05] text-purple-100/85 hover:bg-white/[0.09] hover:text-white"
-        }`}
-    >
-        {label}
-    </button>
+const Field = ({ label, children }: { label: string; children: ReactNode }) => (
+    <label className="block space-y-2">
+        <span className="text-xs font-medium uppercase tracking-[0.18em] text-purple-100/50">{label}</span>
+        {children}
+    </label>
 )
 
 const EditModal = ({
@@ -1089,23 +1110,25 @@ const EditModal = ({
     onClose,
     onSave
 }: EditModalProps) => (
-    <div
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
         onClick={onClose}
     >
-        <div
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-4 sm:p-6 shadow-[0_24px_80px_rgba(6,8,20,0.34)]"
-            onClick={(e) => e.stopPropagation()}
+        <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-4 shadow-[0_24px_80px_rgba(6,8,20,0.34)] sm:p-6"
+            onClick={(event) => event.stopPropagation()}
         >
             <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
                     <div>
-                        <h2 className="text-2xl font-semibold text-white">
-                            Edit Profile
-                        </h2>
-                        <p className="mt-1 text-sm text-purple-100/65">
-                            Refresh your public profile, visuals, and channel identity.
-                        </p>
+                        <h2 className="text-2xl font-semibold text-white">Edit Profile</h2>
+                        <p className="mt-1 text-sm text-purple-100/65">Refresh your public profile, visuals, and channel identity.</p>
                     </div>
                     <button
                         onClick={onClose}
@@ -1117,13 +1140,8 @@ const EditModal = ({
 
                 <div className="grid gap-5 sm:grid-cols-2">
                     <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/52">
-                            Profile Photo
-                        </p>
-                        <p className="mt-1 text-sm text-purple-100/58">
-                            Update the face viewers see across your channel.
-                        </p>
-
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/52">Profile Photo</p>
+                        <p className="mt-1 text-sm text-purple-100/58">Update the face viewers see across your channel.</p>
                         <div className="mt-4 flex items-center gap-4">
                             <UserAvatar
                                 name={userName || name}
@@ -1131,16 +1149,14 @@ const EditModal = ({
                                 avatarKey={avatarKey}
                                 className="h-18 w-18 border-2 border-white/20 text-lg shadow-lg"
                             />
-
                             <label className="cursor-pointer rounded-xl border border-white/10 bg-white/14 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20">
                                 Change
                                 <input
                                     type="file"
                                     accept="image/*"
                                     className="hidden"
-                                    aria-label="profile photo"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0]
+                                    onChange={(event) => {
+                                        const file = event.target.files?.[0]
                                         if (file) onAvatarChange(file)
                                     }}
                                 />
@@ -1149,29 +1165,22 @@ const EditModal = ({
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/52">
-                            Cover Photo
-                        </p>
-                        <p className="mt-1 text-sm text-purple-100/58">
-                            Choose a banner that gives your page more energy.
-                        </p>
-
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/52">Cover Photo</p>
+                        <p className="mt-1 text-sm text-purple-100/58">Choose a banner that gives your page more energy.</p>
                         <div className="mt-4 flex items-center gap-4">
                             <img
-                                src={coverUrl || "https://i.pinimg.com/originals/4f/de/0e/4fde0ed05a14d7f6c1a0b19daec5a731.jpg"}
+                                src={coverUrl || "/placeholder.jpg"}
                                 alt="Cover preview"
                                 className="h-18 w-32 rounded-xl border border-white/12 object-cover shadow-lg"
                             />
-
                             <label className="cursor-pointer rounded-xl border border-white/10 bg-white/14 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20">
                                 Change
                                 <input
                                     type="file"
                                     accept="image/*"
                                     className="hidden"
-                                    aria-label="cover photo"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0]
+                                    onChange={(event) => {
+                                        const file = event.target.files?.[0]
                                         if (file) onCoverChange(file)
                                     }}
                                 />
@@ -1181,40 +1190,28 @@ const EditModal = ({
                 </div>
 
                 <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium uppercase tracking-[0.14em] text-purple-100/52">Name</label>
+                    <Field label="Name">
                         <input
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Enter your name"
-                            title="Name"
-                            aria-label="name"
+                            onChange={(event) => setName(event.target.value)}
                             className="w-full rounded-2xl border border-white/10 bg-black/12 px-4 py-3 text-sm text-white placeholder:text-purple-100/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
                         />
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium uppercase tracking-[0.14em] text-purple-100/52">Channel Title</label>
+                    </Field>
+                    <Field label="Channel Title">
                         <input
                             value={channelName}
-                            onChange={(e) => setChannelName(e.target.value)}
-                            placeholder="Enter channel title"
-                            title="Channel Title"
-                            aria-label="channel title"
+                            onChange={(event) => setChannelName(event.target.value)}
                             className="w-full rounded-2xl border border-white/10 bg-black/12 px-4 py-3 text-sm text-white placeholder:text-purple-100/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
                         />
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium uppercase tracking-[0.14em] text-purple-100/52">Channel Description</label>
+                    </Field>
+                    <Field label="Channel Description">
                         <textarea
                             value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Tell something about your channel"
+                            onChange={(event) => setDescription(event.target.value)}
                             rows={4}
                             className="w-full rounded-2xl border border-white/10 bg-black/12 px-4 py-3 text-sm text-white placeholder:text-purple-100/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
                         />
-                    </div>
+                    </Field>
                 </div>
 
                 <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
@@ -1224,7 +1221,6 @@ const EditModal = ({
                     >
                         Cancel
                     </button>
-
                     <button
                         onClick={onSave}
                         className="rounded-xl bg-linear-to-r from-violet-500 via-purple-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(168,85,247,0.34)] transition hover:brightness-110"
@@ -1233,7 +1229,215 @@ const EditModal = ({
                     </button>
                 </div>
             </div>
-        </div>
-    </div>
+        </motion.div>
+    </motion.div>
 )
+
+const EditVideoModal = ({
+    video,
+    videoTitle,
+    setVideoTitle,
+    videoDescription,
+    setVideoDescription,
+    videoThumbnailPreview,
+    videoSpritesheet,
+    loadingSpritesheet,
+    spritesheetError,
+    selectedSpriteFrameIndex,
+    setSelectedSpriteFrameIndex,
+    handleUploadVideoThumbnail,
+    loadVideoSpritesheet,
+    saveSpriteSelectionAsThumbnail,
+    savingSprite,
+    savingVideo,
+    confirmDelete,
+    setConfirmDelete,
+    onClose,
+    onSave,
+    onDelete
+}: EditVideoModalProps & {
+    confirmDelete: boolean
+    setConfirmDelete: (value: boolean) => void
+}) => (
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
+        onClick={onClose}
+    >
+        <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[30px] border border-white/14 bg-[linear-gradient(145deg,rgba(62,37,120,0.94),rgba(26,24,55,0.96)_42%,rgba(15,18,38,0.98))] shadow-[0_26px_90px_rgba(6,8,20,0.4)]"
+            onClick={(event) => event.stopPropagation()}
+        >
+            <div className="flex flex-col">
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white">Edit Video</h2>
+                        <p className="mt-1 text-sm text-purple-100/65">
+                            Fine-tune title, description, and thumbnail for{" "}
+                            <span className="font-medium text-white">{video.title || video.aiTitle || "this video"}</span>.
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                    <div className="space-y-5">
+                        {confirmDelete ? (
+                            <div className="rounded-2xl border border-red-500/22 bg-red-500/10 p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p className="text-sm font-semibold text-red-200">Are you sure you want to delete this video?</p>
+                                        <p className="mt-1 text-xs text-red-100/75">This action will permanently remove the video.</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setConfirmDelete(false)}
+                                            className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={onDelete}
+                                            className="rounded-xl bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-500"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+                            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                <Field label="Title">
+                                    <input
+                                        value={videoTitle}
+                                        onChange={(event) => setVideoTitle(event.target.value)}
+                                        aria-label="video title"
+                                        className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white placeholder:text-purple-100/28 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
+                                    />
+                                </Field>
+
+                                <Field label="Description">
+                                    <textarea
+                                        value={videoDescription}
+                                        onChange={(event) => setVideoDescription(event.target.value)}
+                                        rows={5}
+                                        aria-label="video description"
+                                        className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white placeholder:text-purple-100/28 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/70"
+                                    />
+                                </Field>
+                            </div>
+
+                            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                <div>
+                                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">Thumbnail</p>
+                                    <p className="mt-1 text-xs text-purple-100/55">Upload a custom frame or keep the current preview.</p>
+                                </div>
+
+                                {videoThumbnailPreview ? (
+                                    <img
+                                        src={videoThumbnailPreview}
+                                        alt="Thumbnail preview"
+                                        className="h-44 w-full rounded-2xl border border-white/10 object-cover shadow-lg"
+                                    />
+                                ) : (
+                                    <div className="flex h-44 items-center justify-center rounded-2xl border border-dashed border-white/14 bg-black/20 text-sm text-purple-100/45">
+                                        No thumbnail preview yet
+                                    </div>
+                                )}
+
+                                <label className="flex cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/12 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/18">
+                                    Upload Thumbnail
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        aria-label="upload thumbnail"
+                                        onChange={(event) => handleUploadVideoThumbnail(event.target.files?.[0])}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <label className="text-xs font-medium uppercase tracking-[0.16em] text-purple-100/45">Spritesheet Thumbnail</label>
+                                    <p className="mt-1 text-xs text-purple-100/55">
+                                        Select a frame from the generated spritesheet once it finishes loading automatically.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={loadVideoSpritesheet}
+                                    disabled={loadingSpritesheet}
+                                    className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {loadingSpritesheet ? "Loading..." : videoSpritesheet ? "Reload Spritesheet" : "Retry Now"}
+                                </button>
+                            </div>
+
+                            {videoSpritesheet ? (
+                                <SpritesheetPicker
+                                    spritesheet={videoSpritesheet}
+                                    selectedFrameIndex={selectedSpriteFrameIndex}
+                                    onSelectFrame={(frameIndex) => setSelectedSpriteFrameIndex(frameIndex)}
+                                    onReset={() => setSelectedSpriteFrameIndex(null)}
+                                    onSave={saveSpriteSelectionAsThumbnail}
+                                    saving={savingSprite}
+                                    saveLabel="Use Selected Frame As Thumbnail"
+                                />
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-white/10 bg-black/18 px-4 py-5 text-sm text-purple-100/60">
+                                    {loadingSpritesheet
+                                        ? "Loading thumbnail frames from the spritesheet..."
+                                        : spritesheetError || "Spritesheet frames will appear here automatically."}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-red-500/22 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:bg-red-500/18"
+                    >
+                        <Trash2 size={16} />
+                        Delete Video
+                    </button>
+
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={onClose}
+                            className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/16"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={onSave}
+                            disabled={savingVideo}
+                            className="rounded-xl bg-linear-to-r from-violet-500 via-purple-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(168,85,247,0.35)] transition hover:brightness-110 disabled:opacity-60"
+                        >
+                            {savingVideo ? "Saving..." : "Save Changes"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    </motion.div>
+)
+
 export default ProfilePage

@@ -1,8 +1,8 @@
-# Project Overview: SKFlix
+# Project Overview: SK-MediaFlow
 
 ## What This Project Is
 
-`SKFlix` is a full-stack video platform for uploading, organizing, streaming, and managing video content. It supports:
+`SK-MediaFlow` is a full-stack video platform for uploading, organizing, streaming, and managing video content. It supports:
 
 - Manual uploads and S3-based imports
 - Public, private, and organization-scoped videos
@@ -55,7 +55,7 @@ That AI server is expected to expose:
 ## Repository Structure
 
 ```text
-SKFlix/
+SK-MediaFlow/
 ├── PROJECT_OVERVIEW.md
 ├── SETUP_GUIDE.md
 ├── SKILLS_DEVELOPED.md
@@ -314,7 +314,7 @@ Frontend:
 
 ## Summary
 
-`SKFlix` is a video platform with:
+`SK-MediaFlow` is a video platform with:
 
 - modern React frontend
 - Express/TypeScript backend

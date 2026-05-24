@@ -633,7 +633,7 @@ const Upload = () => {
 
                     <button
                         onClick={() => navigate("/s3-import")}
-                        className="bg-purple-600 hover:bg-purple-700 transition px-6 py-2 rounded-lg text-sm font-medium"
+                        className="rounded-xl bg-cyan-500 px-6 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
                     >
                         S3 Import
                     </button>
@@ -648,11 +648,11 @@ const Upload = () => {
                     border-2 border-dashed border-white/20
                     hover:border-purple-500
                     transition
-                    rounded-2xl
+                    rounded-[28px]
                     p-16
                     text-center
                     cursor-pointer
-                    bg-white/5
+                    bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))]
                     backdrop-blur-xl
                     "
                 >
@@ -690,7 +690,7 @@ const Upload = () => {
                                     type="button"
                                     onClick={() => navigate("/profile")}
                                     aria-label="Close and return to profile"
-                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-lg text-gray-300 transition hover:bg-white/10 hover:text-white"
+                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-lg text-slate-300 transition hover:bg-white/10 hover:text-white"
                                 >
                                     ×
                                 </button>
@@ -705,7 +705,7 @@ const Upload = () => {
                                                 value={channelNameInput}
                                                 onChange={(e) => setChannelNameInput(e.target.value)}
                                                 placeholder="Enter channel name"
-                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-gray-500 focus:border-fuchsia-500 focus:outline-none"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
                                             />
                                             <p className="text-xs text-gray-500">
                                                 Pick a name viewers will recognize easily.
@@ -719,7 +719,7 @@ const Upload = () => {
                                                 value={channelDescriptionInput}
                                                 onChange={(e) => setChannelDescriptionInput(e.target.value)}
                                                 placeholder="Tell viewers what your channel is about"
-                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-gray-500 focus:border-fuchsia-500 focus:outline-none"
+                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
                                             />
                                             <p className="text-xs text-gray-500">
                                                 A short summary helps organize your first uploads.
@@ -754,7 +754,7 @@ const Upload = () => {
                                                     key={suggestion}
                                                     type="button"
                                                     onClick={() => setChannelNameInput(suggestion)}
-                                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200 transition hover:bg-white/10"
+                                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200 transition hover:bg-white/10"
                                                 >
                                                     {suggestion}
                                                 </button>
@@ -776,7 +776,7 @@ const Upload = () => {
                                         type="button"
                                         onClick={createChannelFirstTime}
                                         disabled={creatingChannel}
-                                        className="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:from-fuchsia-500 hover:to-violet-400 disabled:opacity-60"
+                                        className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
                                     >
                                         {creatingChannel ? "Creating..." : "Create Channel"}
                                     </button>
@@ -795,7 +795,7 @@ const Upload = () => {
                         <button
                             onClick={startUploadQueue}
                             disabled={uploading}
-                            className="bg-purple-600 hover:bg-purple-700 transition px-6 py-3 rounded-lg text-sm font-medium"
+                            className="rounded-xl bg-cyan-500 px-6 py-3 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
                         >
                             {uploading ? "Uploading..." : "Start Uploading"}
                         </button>
@@ -807,8 +807,8 @@ const Upload = () => {
                             <button
                                 onClick={() => setGlobalVisibility("PUBLIC")}
                                 className={`px-4 py-2 rounded-lg text-sm ${globalVisibility === "PUBLIC"
-                                    ? "bg-green-600"
-                                    : "bg-gray-700"
+                                    ? "bg-cyan-500 text-slate-950"
+                                    : "bg-white/10 text-slate-300"
                                     }`}
                             >
                                 Public
@@ -817,8 +817,8 @@ const Upload = () => {
                             <button
                                 onClick={() => setGlobalVisibility("PRIVATE")}
                                 className={`px-4 py-2 rounded-lg text-sm ${globalVisibility === "PRIVATE"
-                                    ? "bg-red-600"
-                                    : "bg-gray-700"
+                                    ? "bg-cyan-500 text-slate-950"
+                                    : "bg-white/10 text-slate-300"
                                     }`}
                             >
                                 Private
@@ -827,8 +827,8 @@ const Upload = () => {
                             <button
                                 onClick={() => setGlobalVisibility("ORGANIZATION")}
                                 className={`px-4 py-2 rounded-lg text-sm ${globalVisibility === "ORGANIZATION"
-                                    ? "bg-blue-600"
-                                    : "bg-gray-700"
+                                    ? "bg-cyan-500 text-slate-950"
+                                    : "bg-white/10 text-slate-300"
                                     }`}
                             >
                                 Organization
@@ -849,7 +849,7 @@ const Upload = () => {
 
                         <div
                             key={index}
-                            className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-xl space-y-6"
+                            className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl space-y-6"
                         >
 
                             {/* VIDEO + PROGRESS */}
@@ -872,14 +872,14 @@ const Upload = () => {
 
                                 <div className="flex-1">
 
-                                    <p className="text-sm text-gray-400 mb-2">
+                                    <p className="mb-2 text-sm text-slate-400">
                                         Upload {item.uploadProgress}% • {item.speed.toFixed(2)} MB/s
                                     </p>
 
                                     <div className="w-full bg-gray-700/40 h-2 rounded-full overflow-hidden">
 
                                         <div
-                                            className="bg-green-500 h-2 transition-all"
+                                            className="h-2 bg-cyan-500 transition-all"
                                             style={{ width: `${item.uploadProgress}%` }}
                                         />
 
@@ -890,14 +890,14 @@ const Upload = () => {
                                         <div className="mt-4 grid gap-4 md:grid-cols-2">
 
                                             <div>
-                                                <p className="text-sm text-gray-400 mb-1">
+                                                <p className="mb-1 text-sm text-slate-400">
                                                     AI Worker {item.aiProgress}% {item.aiStatus === "completed" ? "• Done" : item.aiStatus === "failed" ? "• Failed" : "• Live"}
                                                 </p>
 
                                                 <div className="w-full bg-gray-700/40 h-2 rounded-full overflow-hidden">
 
                                                     <div
-                                                        className="bg-purple-500 h-2 transition-all"
+                                                        className="h-2 bg-cyan-400 transition-all"
                                                         style={{ width: `${item.aiProgress}%` }}
                                                     />
 
@@ -905,14 +905,14 @@ const Upload = () => {
                                             </div>
 
                                             <div>
-                                                <p className="text-sm text-gray-400 mb-1">
+                                                <p className="mb-1 text-sm text-slate-400">
                                                     Thumbnail Worker {item.thumbnailProgress}% {item.thumbnailStatus === "completed" ? "• Done" : item.thumbnailStatus === "failed" ? "• Failed" : "• Live"}
                                                 </p>
 
                                                 <div className="w-full bg-gray-700/40 h-2 rounded-full overflow-hidden">
 
                                                     <div
-                                                        className="bg-amber-500 h-2 transition-all"
+                                                        className="h-2 bg-amber-400 transition-all"
                                                         style={{ width: `${item.thumbnailProgress}%` }}
                                                     />
 
@@ -931,7 +931,7 @@ const Upload = () => {
 
                                 {/* THUMBNAIL */}
                                 <div className="space-y-2">
-                                    <label className="text-sm text-gray-400">
+                                    <label className="text-sm text-slate-400">
                                         Thumbnail
                                     </label>
 
@@ -944,12 +944,12 @@ const Upload = () => {
                                                     .getElementById(`thumbInput-${index}`)
                                                     ?.click()
                                             }
-                                            className="px-3 py-2 bg-gray-700 rounded-lg text-xs disabled:opacity-60"
+                                            className="rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs text-white disabled:opacity-60"
                                         >
                                             Upload Thumbnail
                                         </button>
 
-                                        <p className="text-xs text-gray-400">
+                                        <p className="text-xs text-slate-400">
                                             Leave empty to use auto-generated thumbnail
                                         </p>
                                     </div>
@@ -968,7 +968,7 @@ const Upload = () => {
 
                                 {/* TITLE */}
                                 <div className="space-y-1">
-                                    <label className="text-sm text-gray-400">
+                                    <label className="text-sm text-slate-400">
                                         Title
                                     </label>
                                     <input
@@ -979,13 +979,13 @@ const Upload = () => {
                                         disabled={item.status !== "waiting"}
                                         placeholder="Leave empty to use autogenerated title"
                                         aria-label="Video title"
-                                        className="w-full bg-[#0b1120] border border-gray-700 rounded-lg px-4 py-2 focus:border-purple-500 outline-none disabled:opacity-70"
+                                        className="w-full rounded-lg border border-white/10 bg-[#0b1120] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
                                     />
                                 </div>
 
                                 {/* DESCRIPTION */}
                                 <div className="space-y-1">
-                                    <label className="text-sm text-gray-400">
+                                    <label className="text-sm text-slate-400">
                                         Description
                                     </label>
                                     <textarea
@@ -997,13 +997,13 @@ const Upload = () => {
                                         disabled={item.status !== "waiting"}
                                         placeholder="Leave empty to use autogenerated description"
                                         aria-label="Video description"
-                                        className="w-full bg-[#0b1120] border border-gray-700 rounded-lg px-4 py-2 focus:border-purple-500 outline-none disabled:opacity-70"
+                                        className="w-full rounded-lg border border-white/10 bg-[#0b1120] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
                                     />
                                 </div>
 
                                 {item.status === "completed" && (
                                     <div className="space-y-2">
-                                        <label className="text-sm text-gray-400">
+                                        <label className="text-sm text-slate-400">
                                             Keywords
                                         </label>
 
@@ -1014,7 +1014,7 @@ const Upload = () => {
                                                 .map((tag, i) => (
                                                     <span
                                                         key={i}
-                                                        className="bg-purple-600/20 text-purple-300 text-xs px-3 py-1 rounded-full"
+                                                        className="rounded-full bg-cyan-400/12 px-3 py-1 text-xs text-cyan-100"
                                                     >
                                                         {tag.trim()}
                                                     </span>
@@ -1025,7 +1025,7 @@ const Upload = () => {
 
                                 {item.status === "completed" && (
                                     <div className="space-y-3">
-                                        <label className="text-sm text-gray-400">
+                                        <label className="text-sm text-slate-400">
                                             Pick thumbnail from spritesheet
                                         </label>
 
@@ -1045,13 +1045,13 @@ const Upload = () => {
                                             />
                                         ) : (
                                             <div className="flex items-center gap-3">
-                                                <p className="text-xs text-gray-400">
+                                                <p className="text-xs text-slate-400">
                                                     Spritesheet is not ready yet.
                                                 </p>
                                                 <button
                                                     type="button"
                                                     onClick={() => loadSpritesheetForItem(index)}
-                                                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs"
+                                                    className="rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs text-white transition hover:bg-white/16"
                                                 >
                                                     Retry load spritesheet
                                                 </button>

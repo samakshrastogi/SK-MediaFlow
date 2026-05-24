@@ -55,6 +55,7 @@ const Topbar = () => {
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [notificationOpen, setNotificationOpen] = useState(false)
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
+    const [scrolled, setScrolled] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
     const notificationRef = useRef<HTMLDivElement>(null)
 
@@ -97,6 +98,13 @@ const Topbar = () => {
         }
     }, [])
 
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 18)
+        onScroll()
+        window.addEventListener("scroll", onScroll, { passive: true })
+        return () => window.removeEventListener("scroll", onScroll)
+    }, [])
+
     const handleLogout = async () => {
         await logout()
         navigate("/login")
@@ -136,13 +144,11 @@ const Topbar = () => {
 
     return (
         <header
-            className="
-        fixed top-0 left-0 right-0 h-[64px]
-        flex items-center justify-between
-        px-4 md:px-6
-        bg-[#1b1236]/80 backdrop-blur-xl border-b border-white/10
-        z-50
-        "
+            className={`fixed left-0 right-0 top-0 z-50 flex h-[68px] items-center justify-between px-4 transition-all duration-300 md:px-6 ${
+                scrolled
+                    ? "border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,12,28,0.92),rgba(16,14,38,0.78))] shadow-[0_18px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl"
+                    : "bg-[linear-gradient(180deg,rgba(10,12,28,0.45),rgba(16,14,38,0.14))] backdrop-blur-xl"
+            }`}
         >
             {/* 🔷 LEFT */}
             <div className="flex items-center gap-3 md:gap-4">
@@ -154,12 +160,12 @@ const Topbar = () => {
                 >
                     <img
                         src="/images/logo.png"
-                        alt="SKFlix Logo"
-                        className="w-6 h-6 sm:w-7 sm:h-7 object-contain"
+                        alt="SK-MediaFlow Logo"
+                        className="h-7 w-7 object-contain drop-shadow-[0_0_12px_rgba(56,189,248,0.3)] sm:h-8 sm:w-8"
                     />
 
-                    <h1 className="text-base sm:text-lg md:text-xl font-bold">
-                        SKFlix
+                    <h1 className="bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-base font-bold text-transparent sm:text-lg md:text-xl">
+                        SK-MediaFlow
                     </h1>
                 </div>
             </div>
@@ -171,10 +177,10 @@ const Topbar = () => {
                 <div ref={notificationRef} className="relative">
                     <button
                         onClick={() => setNotificationOpen((v) => !v)}
-                        className="relative text-gray-300 cursor-pointer"
+                        className="relative cursor-pointer rounded-full border border-white/10 bg-white/6 p-2 text-gray-300 transition hover:bg-white/10 hover:text-white"
                         aria-label="Notifications"
                     >
-                        <Bell className="text-gray-300" />
+                        <Bell className={`text-gray-300 transition ${unreadCount > 0 ? "animate-pulse text-cyan-100" : ""}`} />
                         {unreadCount > 0 && (
                             <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[10px] text-white leading-4 text-center">
                                 {unreadCount > 9 ? "9+" : unreadCount}
@@ -264,7 +270,7 @@ const Topbar = () => {
                 <div ref={dropdownRef} className="relative">
                     <div
                         onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="cursor-pointer"
+                        className="cursor-pointer rounded-full border border-white/10 bg-white/6 p-0.5 shadow-[0_0_18px_rgba(96,165,250,0.12)] transition hover:bg-white/10"
                     >
                         <UserAvatar
                             name={user?.name}
@@ -297,8 +303,18 @@ const Topbar = () => {
                                 </button>
 
                                 <button
+                                    onClick={() => {
+                                        setDropdownOpen(false)
+                                        navigate("/settings")
+                                    }}
+                                    className="rounded-lg bg-white/10 p-2 text-sm transition hover:bg-white/16"
+                                >
+                                    Settings
+                                </button>
+
+                                <button
                                     onClick={handleLogout}
-                                    className="rounded-lg bg-red-600 p-2 text-sm transition hover:bg-red-700"
+                                    className="rounded-lg bg-red-600 p-2 text-sm transition hover:bg-red-700 col-span-2"
                                 >
                                     Logout
                                 </button>

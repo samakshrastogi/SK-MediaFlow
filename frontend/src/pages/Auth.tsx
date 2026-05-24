@@ -45,6 +45,40 @@ const Auth = () => {
     const redirectTo = (location.state as { from?: string } | null)?.from || "/home";
 
     useEffect(() => {
+        const state = location.state as
+            | {
+                  verificationFlow?: {
+                      email?: string
+                      otpExpiresAt?: string
+                      resendCooldownSeconds?: number
+                      resendCountRemaining?: number
+                      message?: string
+                  }
+                  verificationEmail?: string
+              }
+            | null;
+
+        if (state?.verificationFlow?.email) {
+            setMode("login");
+            enterOtpStep(
+                state.verificationFlow.email,
+                state.verificationFlow.otpExpiresAt,
+                state.verificationFlow.message,
+                state.verificationFlow.resendCooldownSeconds,
+                state.verificationFlow.resendCountRemaining
+            );
+            navigate(location.pathname, { replace: true, state: null });
+            return;
+        }
+
+        if (state?.verificationEmail) {
+            setMode("login");
+            setPendingVerificationEmail(state.verificationEmail.trim().toLowerCase());
+            navigate(location.pathname, { replace: true, state: null });
+        }
+    }, [location.pathname, location.state, navigate]);
+
+    useEffect(() => {
         if (!otpExpiresAt) {
             setOtpSecondsLeft(0);
             return;
@@ -348,7 +382,7 @@ const Auth = () => {
                     </h1>
 
                     <p className="mt-6 text-gray-400 text-lg leading-relaxed">
-                        Explore trending videos, share your content, and discover creators from around the world - only on <span className="text-white">SKFlix</span>.
+                        Explore trending videos, share your content, and discover creators from around the world - only on <span className="text-white">SK-MediaFlow</span>.
                     </p>
 
                 </div>
@@ -362,7 +396,7 @@ const Auth = () => {
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-                            SKFlix
+                            SK-MediaFlow
                         </h1>
                         <p className="text-gray-400 mt-2 text-sm">
                             {mode === "login" ? "Welcome back" : "Create your account"}

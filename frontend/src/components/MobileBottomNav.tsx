@@ -56,15 +56,9 @@ const MobileBottomNav = () => {
 
     return (
         <div
-            className="
-        fixed bottom-0 left-0 w-full z-40
-        md:hidden
-        bg-white/5 backdrop-blur-xl
-        border-t border-white/10
-        px-4 py-2
-      "
+            className="fixed bottom-3 left-0 z-40 w-full px-4 md:hidden"
         >
-            <div className="flex justify-between items-center">
+            <div className="mx-auto flex max-w-sm items-center justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))] px-2 py-2 shadow-[0_22px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
                 {items.map(({ icon: Icon, path }) => {
                     const active = location.pathname === path
 
@@ -73,14 +67,14 @@ const MobileBottomNav = () => {
                             key={path}
                             aria-label="h"
                             onClick={() => navigate(path)}
-                            className="flex flex-col items-center justify-center flex-1 py-1"
+                            className="flex flex-1 flex-col items-center justify-center py-1"
                         >
                             <div
-                                className={`p-2 rounded-lg transition-all${active
-                                        ? "bg-white/20 text-white"
-                                        : "text-gray-400"
-                                    }
-                `}
+                                className={`rounded-2xl p-2.5 transition-all duration-300 ${
+                                    active
+                                        ? "bg-white/18 text-white shadow-[0_0_20px_rgba(255,255,255,0.12)]"
+                                        : "text-gray-400 hover:-translate-y-0.5 hover:text-white"
+                                }`}
                             >
                                 <Icon size={20} />
                             </div>

@@ -1,4 +1,4 @@
-# SKFlix Setup Guide
+# SK-MediaFlow Setup Guide
 
 ## What You Need
 
@@ -21,7 +21,7 @@ This project is not fully self-contained. Upload processing and AI features depe
 ## Project Structure
 
 ```text
-SKFlix/
+SK-MediaFlow/
 ├── backend/
 └── frontend/
 ```
@@ -32,7 +32,7 @@ SKFlix/
 
 ```powershell
 git clone <repo-url>
-cd SKFlix
+cd SK-MediaFlow
 ```
 
 ### Backend dependencies

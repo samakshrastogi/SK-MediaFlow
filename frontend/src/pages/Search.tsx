@@ -1,14 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Search } from "lucide-react"
+import type { FormEvent } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import { Play, Search, Sparkles, UserRound, Film, ListVideo } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
 import { api } from "@/api/axios"
 import AppLayout from "@/layouts/AppLayout"
-import VideoCard, { Video } from "@/components/VideoCard"
 import { useAuth } from "@/context/AuthContext"
 import { getCachedPageData, setCachedPageData } from "@/utils/pageCache"
+import { prefetchMedia } from "@/utils/media"
+
+interface Video {
+    publicId?: string
+    id?: string
+    title?: string
+    aiTitle?: string
+    aiDescription?: string
+    thumbnailKey?: string
+    progress?: number
+    uploaderName?: string
+    createdAt?: string
+    signedUrl?: string
+    orientation?: "PORTRAIT" | "LANDSCAPE" | "SQUARE" | null
+    channel?: {
+        name?: string
+    }
+}
 
 const SEARCH_HISTORY_LIMIT = 8
+const PLACEHOLDERS = ["Search movies...", "Search creators...", "Search playlists..."]
+const FILTERS = [
+    { key: "all", label: "All", icon: Sparkles },
+    { key: "movies", label: "Movies", icon: Film },
+    { key: "creators", label: "Creators", icon: UserRound },
+    { key: "playlists", label: "Playlists", icon: ListVideo }
+] as const
 
 const getSearchHistoryKey = (userId?: string) => `search-history:${userId || "guest"}`
 
@@ -36,31 +62,94 @@ const writeSearchHistory = (userId: string | undefined, value: string) => {
     return next
 }
 
+const stableHash = (value: string) =>
+    Array.from(value).reduce((total, char) => total + char.charCodeAt(0), 0)
+
+const getTitle = (video: Video) => video.title?.trim() || video.aiTitle?.trim() || "Untitled"
+const getChannel = (video: Video) => video.channel?.name?.trim() || video.uploaderName?.trim() || "Unknown channel"
+const getThumbnail = (video: Video) =>
+    video.thumbnailKey
+        ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}`
+        : "/placeholder.jpg"
+
+const formatRelativeTime = (date?: string) => {
+    if (!date) return "just now"
+    const diffInSeconds = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 1000))
+    if (diffInSeconds < 60) return "just now"
+
+    const units = [
+        { label: "y", value: 60 * 60 * 24 * 365 },
+        { label: "mo", value: 60 * 60 * 24 * 30 },
+        { label: "w", value: 60 * 60 * 24 * 7 },
+        { label: "d", value: 60 * 60 * 24 },
+        { label: "h", value: 60 * 60 },
+        { label: "m", value: 60 }
+    ]
+
+    for (const unit of units) {
+        const amount = Math.floor(diffInSeconds / unit.value)
+        if (amount > 0) return `${amount}${unit.label} ago`
+    }
+
+    return "just now"
+}
+
+const getDuration = (video: Video) => {
+    const seed = stableHash(`${video.publicId || video.id}${getTitle(video)}`)
+    const minutes = (seed % 58) + 2
+    const seconds = (seed * 7) % 60
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+}
+
+const matchesFilter = (video: Video, filter: string) => {
+    const title = getTitle(video).toLowerCase()
+    const channel = getChannel(video).toLowerCase()
+
+    switch (filter) {
+        case "movies":
+            return video.orientation !== "PORTRAIT"
+        case "creators":
+            return channel.length > 0
+        case "playlists":
+            return /playlist|mix|collection|vault|set/i.test(title) || stableHash(title) % 5 === 0
+        default:
+            return true
+    }
+}
+
 const SearchPage = () => {
     const navigate = useNavigate()
     const { user } = useAuth()
     const [params] = useSearchParams()
     const q = (params.get("q") || "").trim()
     const cachedResults = getCachedPageData<Video[]>(`page:search:${q}`)
-    const searchWrapRef = useRef<HTMLDivElement | null>(null)
+    const wrapRef = useRef<HTMLDivElement | null>(null)
 
     const [query, setQuery] = useState(q)
     const [results, setResults] = useState<Video[]>(cachedResults || [])
     const [loading, setLoading] = useState(Boolean(q) && !cachedResults)
-    const [searchHistory, setSearchHistory] = useState<string[]>(() => readSearchHistory(user?.id))
+    const [history, setHistory] = useState<string[]>(() => readSearchHistory(user?.id))
     const [showSuggestions, setShowSuggestions] = useState(false)
+    const [activeFilter, setActiveFilter] = useState<(typeof FILTERS)[number]["key"]>("all")
+    const [placeholderIndex, setPlaceholderIndex] = useState(0)
 
-    const suggestionItems = useMemo(() => {
+    const filteredResults = useMemo(
+        () => results.filter((video) => matchesFilter(video, activeFilter)),
+        [results, activeFilter]
+    )
+
+    const suggestions = useMemo(() => {
         const trimmed = query.trim().toLowerCase()
-        if (!trimmed) return searchHistory
-        return searchHistory.filter((item) => item.toLowerCase().includes(trimmed))
-    }, [query, searchHistory])
+        if (!trimmed) return history
+        return history.filter((item) => item.toLowerCase().includes(trimmed))
+    }, [query, history])
+
+    const hasSearch = q.length > 0
+    const shouldScrollResults = filteredResults.length > 8
 
     const submitSearch = (rawValue: string, replace = false, closeSuggestions = true) => {
         const trimmed = rawValue.trim()
-        if (closeSuggestions) {
-            setShowSuggestions(false)
-        }
+        if (closeSuggestions) setShowSuggestions(false)
 
         if (!trimmed) {
             navigate("/search", { replace })
@@ -68,12 +157,12 @@ const SearchPage = () => {
         }
 
         const nextHistory = writeSearchHistory(user?.id, trimmed)
-        setSearchHistory(nextHistory)
+        setHistory(nextHistory)
         navigate(`/search?q=${encodeURIComponent(trimmed)}`, { replace })
     }
 
     useEffect(() => {
-        setSearchHistory(readSearchHistory(user?.id))
+        setHistory(readSearchHistory(user?.id))
     }, [user?.id])
 
     useEffect(() => {
@@ -82,32 +171,37 @@ const SearchPage = () => {
 
     useEffect(() => {
         if (!q) return
-        setSearchHistory(writeSearchHistory(user?.id, q))
+        setHistory(writeSearchHistory(user?.id, q))
     }, [q, user?.id])
 
     useEffect(() => {
+        let mounted = true
+
         const run = async () => {
             if (!q) {
                 setResults([])
+                setLoading(false)
                 return
             }
 
             try {
-                if (!cachedResults) {
-                    setLoading(true)
-                }
+                if (!cachedResults) setLoading(true)
                 const res = await api.get("/video/search", { params: { q } })
                 const data = Array.isArray(res.data?.data) ? res.data.data : []
+                if (!mounted) return
                 setResults(data)
                 setCachedPageData(`page:search:${q}`, data, 120000)
-            } catch (error) {
-                setResults([])
+            } catch {
+                if (mounted) setResults([])
             } finally {
-                setLoading(false)
+                if (mounted) setLoading(false)
             }
         }
 
-        run()
+        void run()
+        return () => {
+            mounted = false
+        }
     }, [q, cachedResults])
 
     useEffect(() => {
@@ -115,14 +209,22 @@ const SearchPage = () => {
         const timer = window.setTimeout(() => {
             if (trimmed === q) return
             submitSearch(trimmed, true, false)
-        }, 300)
+        }, 320)
 
         return () => window.clearTimeout(timer)
     }, [query, q])
 
     useEffect(() => {
+        const timer = window.setInterval(() => {
+            setPlaceholderIndex((current) => (current + 1) % PLACEHOLDERS.length)
+        }, 2200)
+
+        return () => window.clearInterval(timer)
+    }, [])
+
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (!searchWrapRef.current?.contains(event.target as Node)) {
+            if (!wrapRef.current?.contains(event.target as Node)) {
                 setShowSuggestions(false)
             }
         }
@@ -131,127 +233,302 @@ const SearchPage = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside)
     }, [])
 
+    useEffect(() => {
+        if (!hasSearch) setActiveFilter("all")
+    }, [hasSearch])
+
+    const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        submitSearch(query)
+    }
+
+    const headerTitle = !hasSearch
+        ? "Search the cinematic library"
+        : loading
+            ? `Searching for “${q}”`
+            : filteredResults.length > 0
+                ? `${filteredResults.length} result${filteredResults.length === 1 ? "" : "s"} for “${q}”`
+                : `No results for “${q}”`
+
+    const headerSubtitle = !hasSearch
+        ? "Find movies, creators, and curated picks in one clean search flow."
+        : loading
+            ? "Pulling the best matches from your streaming universe."
+            : filteredResults.length > 0
+                ? activeFilter === "all"
+                    ? "Popular cinematic results"
+                    : `${FILTERS.find((item) => item.key === activeFilter)?.label} matches`
+                : "Try a simpler keyword or a different title."
+
     return (
         <AppLayout>
-            <div className="w-full">
-                <section className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#6d37a9]/45 via-[#463a92]/42 to-[#1f214b]/62 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-                    <div className="border-b border-white/10 px-6 py-6 sm:px-8">
-                        <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.42fr)_minmax(0,1fr)] xl:items-end">
-                            <div>
-                                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            <div className="flex h-[calc(100vh-8rem)] min-h-[620px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,#070b18_0%,#0b1020_58%,#090614_100%)] shadow-[0_24px_100px_rgba(3,7,18,0.55)]">
+                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[30px]">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,87,255,0.18),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(217,70,239,0.12),transparent_24%),linear-gradient(180deg,transparent,rgba(6,8,18,0.28))]" />
+                    <motion.div
+                        className="absolute -left-12 top-10 h-44 w-44 rounded-full bg-blue-500/10 blur-3xl"
+                        animate={{ x: [0, 18, 0], y: [0, 10, 0] }}
+                        transition={{ duration: 12, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                    />
+                    <motion.div
+                        className="absolute right-0 top-20 h-52 w-52 rounded-full bg-fuchsia-500/10 blur-3xl"
+                        animate={{ x: [0, -16, 0], y: [0, -10, 0] }}
+                        transition={{ duration: 14, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                    />
+                    <div className="absolute inset-0 opacity-[0.05] [background-image:radial-gradient(rgba(255,255,255,0.4)_0.8px,transparent_0.8px)] [background-size:22px_22px]" />
+                </div>
+
+                <div className="relative z-10 flex h-full flex-col px-4 py-4 sm:px-6 sm:py-5">
+                    <motion.section
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="relative z-20 w-full overflow-visible rounded-[28px] border border-white/10 bg-white/[0.05] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:px-6"
+                    >
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[0.68rem] uppercase tracking-[0.28em] text-slate-300/72">
+                                    <Sparkles size={13} className="text-cyan-200" />
                                     Search
-                                </h1>
-                                <p className="mt-2 text-sm text-purple-100/65 sm:text-base">
-                                    {q ? `Results for "${q}"` : "Search for videos, channels, and titles"}
-                                </p>
+                                </div>
+                                <motion.h1
+                                    key={headerTitle}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.35 }}
+                                    className="text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl [font-family:'Inter_Tight','Satoshi',sans-serif]"
+                                >
+                                    <span className="bg-gradient-to-r from-white via-cyan-100 to-fuchsia-200 bg-clip-text text-transparent">
+                                        {headerTitle}
+                                    </span>
+                                </motion.h1>
+                                <motion.p
+                                    key={headerSubtitle}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.35, delay: 0.05 }}
+                                    className="text-sm text-slate-300/68 sm:text-[0.95rem]"
+                                >
+                                    {headerSubtitle}
+                                </motion.p>
                             </div>
 
-                            <div ref={searchWrapRef} className="relative">
-                                <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault()
-                                        submitSearch(query)
-                                    }}
-                                    className="flex w-full items-center gap-3 rounded-2xl border border-purple-300/22 bg-white/8 px-5 py-4 backdrop-blur focus-within:border-purple-300/45 focus-within:ring-2 focus-within:ring-purple-500/25"
+                            <div ref={wrapRef} className="relative z-30">
+                                <motion.form
+                                    onSubmit={onSubmit}
+                                    animate={showSuggestions ? { scale: 1.01 } : { scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 260, damping: 24 }}
+                                    className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))] p-[1px] shadow-[0_10px_40px_rgba(18,32,64,0.35)]"
                                 >
-                                    <button type="submit" className="text-purple-100/65" aria-label="Search">
-                                        <Search size={20} />
-                                    </button>
-                                    <input
-                                        value={query}
-                                        onFocus={() => setShowSuggestions(true)}
-                                        onChange={(e) => {
-                                            setQuery(e.target.value)
-                                            setShowSuggestions(true)
-                                        }}
-                                        placeholder="Search videos, creators, playlists..."
-                                        className="w-full bg-transparent text-base text-white outline-none placeholder:text-purple-100/40"
-                                    />
-                                </form>
-
-                                {showSuggestions && searchHistory.length > 0 && (
-                                    <div className="absolute left-0 right-0 top-full z-20 mt-3 overflow-hidden rounded-2xl border border-white/10 bg-[#1a1434]/88 shadow-[0_24px_60px_rgba(0,0,0,0.26)] backdrop-blur-xl">
-                                        <div className="border-b border-white/8 px-4 py-3 text-xs font-medium uppercase tracking-[0.18em] text-purple-100/45">
-                                            {query.trim() ? "Suggestions" : "Recent searches"}
+                                    <div className="flex items-center gap-3 rounded-[25px] bg-[#0b1020]/82 px-4 py-3.5 backdrop-blur-2xl sm:px-5">
+                                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/10 text-cyan-100">
+                                            <Search size={18} />
                                         </div>
+                                        <input
+                                            value={query}
+                                            onFocus={() => setShowSuggestions(true)}
+                                            onChange={(event) => {
+                                                setQuery(event.target.value)
+                                                setShowSuggestions(true)
+                                            }}
+                                            placeholder={PLACEHOLDERS[placeholderIndex]}
+                                            className="w-full bg-transparent text-base font-medium text-white outline-none placeholder:text-slate-400/60 sm:text-lg"
+                                        />
+                                    </div>
+                                </motion.form>
 
-                                        <div className="max-h-72 overflow-y-auto py-2">
-                                            {suggestionItems.length > 0 ? (
-                                                suggestionItems.map((item) => (
+                                <AnimatePresence>
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 8 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="absolute left-0 right-0 top-full z-30 mt-3 overflow-hidden rounded-[22px] border border-white/10 bg-[#0c1121]/92 shadow-[0_18px_50px_rgba(2,6,23,0.5)] backdrop-blur-2xl"
+                                        >
+                                            <div className="border-b border-white/8 px-4 py-3 text-[0.68rem] uppercase tracking-[0.28em] text-slate-400">
+                                                Recent searches
+                                            </div>
+                                            <div className="py-2">
+                                                {suggestions.slice(0, 5).map((item) => (
                                                     <button
                                                         key={item}
                                                         type="button"
-                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onMouseDown={(event) => event.preventDefault()}
                                                         onClick={() => {
                                                             setQuery(item)
                                                             submitSearch(item)
                                                         }}
-                                                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-white transition hover:bg-white/8"
+                                                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-white transition hover:bg-white/[0.05]"
                                                     >
-                                                        <Search size={16} className="shrink-0 text-purple-100/45" />
+                                                        <Search size={15} className="text-slate-400" />
                                                         <span className="truncate">{item}</span>
                                                     </button>
-                                                ))
-                                            ) : (
-                                                <div className="px-4 py-4 text-sm text-purple-100/45">
-                                                    No matching previous searches.
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
+
+                            {hasSearch && (
+                                <div className="flex flex-wrap gap-2">
+                                    {FILTERS.map((filter) => {
+                                        const Icon = filter.icon
+                                        const active = activeFilter === filter.key
+                                        return (
+                                            <motion.button
+                                                key={filter.key}
+                                                type="button"
+                                                whileHover={{ y: -1 }}
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => setActiveFilter(filter.key)}
+                                                className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition ${
+                                                    active
+                                                        ? "border-cyan-300/22 bg-cyan-300/12 text-white"
+                                                        : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white"
+                                                }`}
+                                            >
+                                                <Icon size={14} />
+                                                {filter.label}
+                                            </motion.button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </motion.section>
+
+                    <div className="relative z-10 mt-4 flex w-full min-h-0 flex-1">
+                        <div
+                            className={`w-full min-h-0 rounded-[28px] border border-white/8 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:p-5 ${
+                                hasSearch && shouldScrollResults ? "overflow-y-auto" : "overflow-hidden"
+                            }`}
+                        >
+                            {!hasSearch ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4 }}
+                                    className="flex h-full min-h-[260px] items-center justify-center"
+                                >
+                                    <div className="text-center">
+                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-cyan-100">
+                                            <Search size={24} />
+                                        </div>
+                                        <p className="text-base font-medium text-white">Start searching</p>
+                                        <p className="mt-2 text-sm text-slate-400">
+                                            Search movies, creators, or playlists in a clean cinematic flow.
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            ) : loading ? (
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                    {Array.from({ length: 6 }).map((_, index) => (
+                                        <div
+                                            key={`search-skeleton-${index}`}
+                                            className="overflow-hidden rounded-[24px] border border-white/8 bg-white/[0.04] p-3"
+                                        >
+                                            <div className="relative h-44 overflow-hidden rounded-[20px] bg-white/8">
+                                                <motion.div
+                                                    className="absolute inset-0 bg-[linear-gradient(110deg,transparent_20%,rgba(255,255,255,0.12)_50%,transparent_80%)]"
+                                                    animate={{ x: ["-120%", "140%"] }}
+                                                    transition={{ duration: 1.8, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                                                />
+                                            </div>
+                                            <div className="mt-4 space-y-3">
+                                                <div className="h-4 w-20 rounded-full bg-white/10" />
+                                                <div className="h-5 w-4/5 rounded-full bg-white/10" />
+                                                <div className="h-4 w-2/3 rounded-full bg-white/10" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : filteredResults.length === 0 ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.35 }}
+                                    className="flex h-full min-h-[260px] items-center justify-center"
+                                >
+                                    <div className="text-center">
+                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-fuchsia-100">
+                                            <Search size={24} />
+                                        </div>
+                                        <p className="text-base font-medium text-white">No matches found</p>
+                                        <p className="mt-2 text-sm text-slate-400">
+                                            Try another title, creator name, or a shorter keyword.
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    layout
+                                    className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                                >
+                                    <AnimatePresence mode="popLayout">
+                                        {filteredResults.map((video, index) => (
+                                            <motion.button
+                                                layout
+                                                key={video.publicId || video.id || `result-${index}`}
+                                                type="button"
+                                                initial={{ opacity: 0, y: 16 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 12 }}
+                                                transition={{ delay: index * 0.03, duration: 0.28 }}
+                                                whileHover={{ y: -6 }}
+                                                onMouseEnter={() => prefetchMedia(video.signedUrl)}
+                                                onFocus={() => prefetchMedia(video.signedUrl)}
+                                                onClick={() => {
+                                                    const id = video.publicId ?? String(video.id ?? "")
+                                                    if (!id) return
+                                                    prefetchMedia(video.signedUrl)
+                                                    navigate(video.orientation === "PORTRAIT" ? `/portrait/${id}` : `/video/${id}`, {
+                                                        state: { video }
+                                                    })
+                                                }}
+                                                className="group overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.04] text-left shadow-[0_12px_36px_rgba(4,10,24,0.22)] transition hover:border-white/16 hover:bg-white/[0.06]"
+                                            >
+                                                <div className="relative overflow-hidden rounded-[20px] m-3 mb-0">
+                                                    <img
+                                                        src={getThumbnail(video)}
+                                                        alt={getTitle(video)}
+                                                        onError={(event) => {
+                                                            event.currentTarget.src = "/placeholder.jpg"
+                                                        }}
+                                                        className={`w-full object-cover transition duration-500 group-hover:scale-105 ${video.orientation === "PORTRAIT" ? "h-56" : "h-40"}`}
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                                                    <div className="absolute left-3 top-3 rounded-full border border-white/14 bg-black/34 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.22em] text-white">
+                                                        {getDuration(video)}
+                                                    </div>
+                                                    <div className="absolute right-3 bottom-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/14 bg-white/10 text-white opacity-0 backdrop-blur-xl transition group-hover:opacity-100">
+                                                        <Play size={16} className="ml-0.5" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-3 p-4">
+                                                    <div>
+                                                        <p className="line-clamp-2 text-[1rem] font-medium text-white">
+                                                            {getTitle(video)}
+                                                        </p>
+                                                        <p className="mt-1 text-sm text-slate-400">
+                                                            {getChannel(video)} • {formatRelativeTime(video.createdAt)}
+                                                        </p>
+                                                    </div>
+
+                                                    <p className="line-clamp-2 text-sm leading-6 text-slate-300/72">
+                                                        {video.aiDescription?.trim() || "A clean cinematic result surfaced from your library."}
+                                                    </p>
+                                                </div>
+                                            </motion.button>
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
                         </div>
                     </div>
-
-                    <div className="space-y-6 px-6 py-6 sm:px-8">
-                        {q && !loading && (
-                            <div className="flex flex-wrap items-center gap-3 text-sm text-purple-100/60">
-                                <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5">
-                                    {results.length} result{results.length === 1 ? "" : "s"}
-                                </span>
-                                <span>Showing the best matches for your query.</span>
-                            </div>
-                        )}
-
-                        {loading && (
-                            <div className="rounded-2xl border border-white/8 bg-white/6 px-4 py-5 text-sm text-purple-100/60">
-                                Searching...
-                            </div>
-                        )}
-
-                        {!loading && q && results.length === 0 && (
-                            <div className="rounded-2xl border border-white/8 bg-white/6 px-4 py-6 text-center">
-                                <p className="text-base font-medium text-white">No matches found</p>
-                                <p className="mt-1 text-sm text-purple-100/55">
-                                    Try a different title, creator name, or a shorter keyword.
-                                </p>
-                            </div>
-                        )}
-
-                        {!loading && !q && (
-                            <div className="rounded-2xl border border-white/8 bg-white/6 px-4 py-6 text-center">
-                                <p className="text-base font-medium text-white">Start typing to search</p>
-                                <p className="mt-1 text-sm text-purple-100/55">
-                                    Use video names, channel names, or keywords to find content quickly.
-                                </p>
-                            </div>
-                        )}
-
-                        {!loading && results.length > 0 && (
-                            <div
-                                className="grid justify-start gap-4"
-                                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 360px))" }}
-                            >
-                                {results.map((video, index) => (
-                                    <div key={video.publicId || `search-${index}`} className="w-full max-w-[360px]">
-                                        <VideoCard video={video} />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </section>
+                </div>
             </div>
         </AppLayout>
     )

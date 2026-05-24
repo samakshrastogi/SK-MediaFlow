@@ -11,6 +11,7 @@ import { videoAIQueue } from "../../queues/video-ai.queue"
 import { thumbnailQueue, videoMetadataQueue } from "../../services/video-processing.service"
 import { pipeline } from "stream/promises"
 import { logger } from "../../utils/logger"
+import { formatDurationMs } from "../../utils/time"
 
 const execAsync = promisify(exec)
 const MAX_SPRITE_FRAMES = 120
@@ -47,11 +48,8 @@ export const processVideoAfterUpload = async (
     s3Key: string,
     channelUsername: string
 ) => {
-    logger.info("VIDEO_PROCESSING", "Post-upload processing started", {
-        videoId,
-        s3Key,
-        channelUsername
-    })
+    const startedAt = Date.now()
+    logger.info("VIDEO_PROCESSING", "Upload processing started")
     let sourceVideoPath = ""
     let tempVideoPath = ""
     let optimizedVideoPath = ""
@@ -127,36 +125,28 @@ export const processVideoAfterUpload = async (
         )
 
         await pipeline(object.Body as any, fs.createWriteStream(sourceVideoPath))
-        logger.info("VIDEO_PROCESSING", "Source video downloaded", {
-            videoId,
-            sourceVideoPath
-        })
+        logger.info("VIDEO_PROCESSING", "Upload file was prepared for processing")
 
         try {
             optimizedVideoPath = await optimizeVideoForStreaming(tempVideoPath, s3Key)
             tempVideoPath = optimizedVideoPath
-            logger.info("VIDEO_PROCESSING", "Video optimized for streaming", {
-                videoId,
-                optimizedVideoPath
-            })
+            logger.info("VIDEO_PROCESSING", "Upload video was optimized")
         } catch (streamingError) {
-            logger.warn("VIDEO_PROCESSING", "Streaming optimization failed, continuing with source video", {
-                videoId,
+            logger.warn("VIDEO_PROCESSING", "Upload video optimization was skipped", {
                 error: streamingError instanceof Error ? streamingError : new Error(String(streamingError))
             })
         }
 
         try {
             await generateSpritesheet()
+            logger.info("VIDEO_PROCESSING", "Preview images were created")
         } catch (spriteError) {
-            logger.warn("VIDEO_PROCESSING", "Spritesheet generation failed", {
-                videoId,
+            logger.warn("VIDEO_PROCESSING", "Preview images could not be created", {
                 error: spriteError instanceof Error ? spriteError : new Error(String(spriteError))
             })
         }
     } catch (error) {
-        logger.error("VIDEO_PROCESSING", "Post-upload processing failed", {
-            videoId,
+        logger.error("VIDEO_PROCESSING", `Upload processing failed after ${formatDurationMs(Date.now() - startedAt)}`, {
             error: error instanceof Error ? error : new Error(String(error))
         })
 
@@ -167,9 +157,7 @@ export const processVideoAfterUpload = async (
         if (sourceVideoPath && fs.existsSync(sourceVideoPath)) fs.unlinkSync(sourceVideoPath)
         if (optimizedVideoPath && fs.existsSync(optimizedVideoPath)) fs.unlinkSync(optimizedVideoPath)
         if (tempSpritePath && fs.existsSync(tempSpritePath)) fs.unlinkSync(tempSpritePath)
-        logger.info("VIDEO_PROCESSING", "Post-upload processing finished", {
-            videoId
-        })
+        logger.info("VIDEO_PROCESSING", `Upload processing finished in ${formatDurationMs(Date.now() - startedAt)}`)
 
     }
 
@@ -217,10 +205,9 @@ export const startVideoPostUploadPipeline = async (
                 removeOnFail: false
             }
         )
-        logger.info("VIDEO_PROCESSING", "Thumbnail job queued", {
-            videoId,
-            jobId: thumbnailJob.id
-        })
+        if (thumbnailJob.id) {
+            logger.info("VIDEO_PROCESSING", "Thumbnail worker was queued")
+        }
     }
 
     const videoAIJob = await videoAIQueue.add(
@@ -236,10 +223,9 @@ export const startVideoPostUploadPipeline = async (
             removeOnFail: false
         }
     )
-    logger.info("VIDEO_PROCESSING", "AI job queued", {
-        videoId,
-        jobId: videoAIJob.id
-    })
+    if (videoAIJob.id) {
+        logger.info("VIDEO_PROCESSING", "AI worker was queued")
+    }
 
     const metadataJob = await videoMetadataQueue.add(
         "extractVideoMetadata",
@@ -254,15 +240,13 @@ export const startVideoPostUploadPipeline = async (
             removeOnFail: false
         }
     )
-    logger.info("VIDEO_PROCESSING", "Metadata job queued", {
-        videoId,
-        jobId: metadataJob.id
-    })
+    if (metadataJob.id) {
+        logger.info("VIDEO_PROCESSING", "Metadata worker was queued")
+    }
 
     setImmediate(() => {
         void processVideoAfterUpload(videoId, s3Key, channelUsername).catch((error) => {
-            logger.error("VIDEO_PROCESSING", "Background post-upload preprocessing failed", {
-                videoId,
+            logger.error("VIDEO_PROCESSING", "Upload processing failed", {
                 error: error instanceof Error ? error : new Error(String(error))
             })
         })

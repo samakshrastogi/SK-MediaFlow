@@ -63,13 +63,24 @@ export const authenticate = async (
 
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { isVerified: true }
+            select: {
+                isVerified: true,
+                deactivatedAt: true,
+                deletedAt: true,
+            }
         })
 
         if (!user?.isVerified) {
             return res.status(403).json({
                 success: false,
                 message: "Account is not verified"
+            })
+        }
+
+        if (user.deletedAt || user.deactivatedAt) {
+            return res.status(403).json({
+                success: false,
+                message: "This account is no longer available."
             })
         }
 

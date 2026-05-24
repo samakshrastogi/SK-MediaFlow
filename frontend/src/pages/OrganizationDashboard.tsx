@@ -356,7 +356,7 @@ const OrganizationDashboard = () => {
     return (
         <AppLayout>
             <div className="w-full px-2 sm:px-4">
-                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br from-[#6c36a8]/42 via-[#453994]/38 to-[#1c1f49]/62 shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
                     <div className="space-y-4 px-5 py-5 sm:px-7">
 
                         {/* TOP ROW */}
@@ -366,7 +366,7 @@ const OrganizationDashboard = () => {
                                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-white">
                                     Organization Dashboard
                                 </h1>
-                                <p className="mt-1 text-sm text-purple-100/58">
+                                <p className="mt-1 text-sm text-slate-300/70">
                                     {orgName || "No active admin organization"}
                                 </p>
                             </div>
@@ -375,7 +375,7 @@ const OrganizationDashboard = () => {
                             <div className="flex flex-wrap gap-2">
                                 <button
                                     onClick={() => setShowAccessModal(true)}
-                                    className="rounded-xl bg-purple-600 hover:bg-purple-500 transition px-4 py-2.5 text-sm font-medium shadow"
+                                    className="rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
                                 >
                                     Invite User
                                 </button>
@@ -397,7 +397,7 @@ const OrganizationDashboard = () => {
                                 {Object.entries(totals).map(([k, v]) => (
                                     <div
                                         key={k}
-                                        className="rounded-xl border border-white/10 bg-gradient-to-br from-black/28 to-black/14 p-4 hover:scale-[1.02] transition shadow-sm"
+                                        className="rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(0,0,0,0.12))] p-4 shadow-sm"
                                     >
 
                                         <p className="text-xs capitalize text-gray-300 tracking-wide">
@@ -547,7 +547,7 @@ const OrganizationDashboard = () => {
                         {/* SAVE BUTTON */}
                         <button
                             onClick={saveSettings}
-                            className="w-full rounded-lg bg-purple-600 hover:bg-purple-500 transition px-4 py-2 text-sm font-medium shadow-md active:scale-95"
+                            className="w-full rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 shadow-md transition hover:bg-cyan-400"
                         >
                             {savedSettings ? "Saved!" : "Save Settings"}
                         </button>
@@ -575,7 +575,7 @@ const OrganizationDashboard = () => {
 
                             <button
                                 onClick={() => upgrade("YEARLY_INITIAL")}
-                                className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 transition px-4 py-3 text-sm font-medium shadow-md flex justify-between items-center"
+                                className="flex w-full items-center justify-between rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white shadow-md transition hover:bg-white/16"
                             >
                                 <span>Yearly (Initial)</span>
                                 <span className="text-xs text-white/80">₹10,000</span>
@@ -583,7 +583,7 @@ const OrganizationDashboard = () => {
 
                             <button
                                 onClick={() => upgrade("YEARLY_RENEWAL")}
-                                className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 transition px-4 py-3 text-sm font-medium shadow-md flex justify-between items-center"
+                                className="flex w-full items-center justify-between rounded-lg bg-cyan-500/14 px-4 py-3 text-sm font-medium text-cyan-100 shadow-md transition hover:bg-cyan-500/20"
                             >
                                 <span>Yearly Renewal</span>
                                 <span className="text-xs text-white/80">₹24,000</span>
@@ -732,7 +732,7 @@ const OrganizationDashboard = () => {
                         {topVideos.map((v, idx) => (
                             <div
                                 key={v.publicId}
-                                className="flex flex-col gap-2 rounded-lg bg-gradient-to-r from-black/40 to-black/20 p-3 text-sm hover:scale-[1.01] transition sm:flex-row sm:items-center sm:justify-between"
+                                className="flex flex-col gap-2 rounded-lg bg-gradient-to-r from-black/40 to-black/20 p-3 text-sm transition sm:flex-row sm:items-center sm:justify-between"
                             >
 
                                 {/* TITLE + RANK */}
@@ -921,7 +921,7 @@ const AccessControlModal = ({
                                 />
                                 <button
                                     onClick={() => onCopyLink(organizationPrivateLink, "private")}
-                                    className="rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-amber-500"
+                                    className="rounded-xl bg-amber-500/18 px-4 py-2.5 text-xs font-medium text-amber-100 transition hover:bg-amber-500/24"
                                 >
                                     {copiedType === "private" ? "Copied!" : "Copy Private Link"}
                                 </button>
@@ -948,7 +948,7 @@ const AccessControlModal = ({
                             />
                             <button
                                 onClick={onInvite}
-                                className="rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-500"
+                                className="rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
                             >
                                 Send Invite
                             </button>
@@ -968,7 +968,7 @@ const AccessControlModal = ({
                                     />
                                     <button
                                         onClick={() => onCopyLink(latestInviteLink, "invite")}
-                                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-500"
+                                        className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16"
                                     >
                                         {copiedType === "invite" ? "Copied!" : "Copy Invite"}
                                     </button>
@@ -994,7 +994,7 @@ const AccessControlModal = ({
                             />
                             <button
                                 onClick={onPromote}
-                                className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+                                className="rounded-xl bg-cyan-500/14 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
                             >
                                 Promote
                             </button>
@@ -1201,7 +1201,7 @@ const MemberInfoModal = ({
                             await onMakeAdmin(member.id)
                             onClose()
                         }}
-                        className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+                        className="rounded-xl bg-cyan-500/14 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
                     >
                         Make Admin
                     </button>

@@ -14,6 +14,7 @@ import PortraitPlayer from "@/pages/PortraitPlayer"
 import OrganizationDashboard from "@/pages/OrganizationDashboard"
 import OrganizationPage from "@/pages/OrganizationPage"
 import AdminDashboard from "@/pages/AdminDashboard"
+import SettingsPage from "@/pages/SettingsPage"
 
 import MainLayout from "@/layouts/MainLayout"
 import ProtectedRoute from "@/routes/ProtectedRoute"
@@ -66,6 +67,7 @@ function App() {
 
         <Route path="/playlists" element={<PlaylistPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/organization" element={<OrganizationPage />} />
         <Route path="/organization/dashboard" element={<OrganizationDashboard />} />

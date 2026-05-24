@@ -39,6 +39,27 @@ if (!AWS_BUCKET) {
 
 const ACTIVE_VIDEO_STATUS = "ACTIVE"
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+
+const formatDurationLabel = (durationSeconds?: number | null) => {
+    if (!durationSeconds || durationSeconds <= 0) return null
+
+    const totalSeconds = Math.round(durationSeconds)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`
+    }
+
+    if (minutes > 0) {
+        return `${minutes}m`
+    }
+
+    return `${Math.max(1, seconds)}s`
+}
+
 const signCloudFrontUrl = (key: string) => {
     const encodedKey = encodeURI(key)
 
@@ -306,6 +327,15 @@ const buildVisibilityWhere = async (userId?: string) => {
 
 export const getAllVideos = async (userId?: string) => {
     const visibilityWhere = await buildVisibilityWhere(userId)
+    const userWatchHistoryInclude = userId
+        ? {
+            watchHistory: {
+                where: { userId },
+                orderBy: { lastWatchedAt: "desc" as const },
+                take: 1
+            }
+        }
+        : {}
 
     const videos = await prisma.video.findMany({
         where: {
@@ -328,36 +358,205 @@ export const getAllVideos = async (userId?: string) => {
             aiData: true,
             metadata: {
                 select: {
-                    orientation: true
+                    orientation: true,
+                    duration: true
                 }
-            }
+            },
+            ...userWatchHistoryInclude
         },
         orderBy: {
             createdAt: "desc"
         }
     })
 
-    return videos.map((video) => ({
-        publicId: video.publicId, // ✅ IMPORTANT
-        title: video.title,
-        aiTitle: video.aiData?.aiTitle ?? null,
-        aiDescription: video.aiData?.aiDescription ?? null,
-        channel: video.channel,
-        uploaderAvatarKey: video.channel.user?.avatarKey ?? null,
-        uploaderAvatarUrl: video.channel.user?.avatarKey
-            ? signCloudFrontUrl(video.channel.user.avatarKey)
-            : null,
-        uploaderName: video.channel.user?.name ?? null,
-        createdAt: video.createdAt,
-        thumbnailKey: video.thumbnailKey,
-        orientation: video.metadata?.orientation ?? null,
-        visibility: video.visibility,
-        signedUrl: signCloudFrontUrl(video.s3Key),
-        size: video.size
-    }))
+    return hydrateVideoCards(videos, userId)
+}
+
+const hydrateVideoCards = async (videos: any[], userId?: string) => {
+    if (!videos.length) {
+        return []
+    }
+
+    const videoIds = videos.map((video) => video.id)
+    const now = Date.now()
+    const last24h = new Date(now - DAY_IN_MS)
+    const last7d = new Date(now - 7 * DAY_IN_MS)
+
+    const [viewRows, reactionRows, shareRows, commentRows, activeWatchRows, userReactionRows] = await Promise.all([
+        prisma.videoView.findMany({
+            where: { videoId: { in: videoIds } },
+            select: { videoId: true, createdAt: true }
+        }),
+        prisma.videoReaction.findMany({
+            where: { videoId: { in: videoIds } },
+            select: { videoId: true, type: true, createdAt: true }
+        }),
+        prisma.videoShare.findMany({
+            where: { videoId: { in: videoIds } },
+            select: { videoId: true, createdAt: true }
+        }),
+        prisma.videoComment.findMany({
+            where: { videoId: { in: videoIds } },
+            select: { videoId: true, createdAt: true }
+        }),
+        prisma.watchHistory.findMany({
+            where: {
+                videoId: { in: videoIds },
+                lastWatchedAt: { gte: last24h }
+            },
+            select: {
+                videoId: true
+            }
+        }),
+        userId
+            ? prisma.videoReaction.findMany({
+                where: {
+                    videoId: { in: videoIds },
+                    userId
+                },
+                select: {
+                    videoId: true,
+                    type: true
+                }
+            })
+            : Promise.resolve([])
+    ])
+
+    const metricsByVideo = new Map<string, {
+        viewsCount: number
+        viewsLast24h: number
+        viewsLast7d: number
+        likesCount: number
+        dislikesCount: number
+        likesLast7d: number
+        sharesCount: number
+        sharesLast7d: number
+        commentsCount: number
+        commentsLast7d: number
+        activeSessionsCount: number
+        userReaction: "LIKE" | "DISLIKE" | null
+    }>()
+
+    const ensureMetrics = (videoId: string) => {
+        if (!metricsByVideo.has(videoId)) {
+            metricsByVideo.set(videoId, {
+                viewsCount: 0,
+                viewsLast24h: 0,
+                viewsLast7d: 0,
+                likesCount: 0,
+                dislikesCount: 0,
+                likesLast7d: 0,
+                sharesCount: 0,
+                sharesLast7d: 0,
+                commentsCount: 0,
+                commentsLast7d: 0,
+                activeSessionsCount: 0,
+                userReaction: null
+            })
+        }
+
+        return metricsByVideo.get(videoId)!
+    }
+
+    for (const row of viewRows) {
+        const metrics = ensureMetrics(row.videoId)
+        metrics.viewsCount += 1
+        if (row.createdAt >= last7d) metrics.viewsLast7d += 1
+        if (row.createdAt >= last24h) metrics.viewsLast24h += 1
+    }
+
+    for (const row of reactionRows) {
+        const metrics = ensureMetrics(row.videoId)
+        if (row.type === "LIKE") {
+            metrics.likesCount += 1
+            if (row.createdAt >= last7d) metrics.likesLast7d += 1
+        } else if (row.type === "DISLIKE") {
+            metrics.dislikesCount += 1
+        }
+    }
+
+    for (const row of shareRows) {
+        const metrics = ensureMetrics(row.videoId)
+        metrics.sharesCount += 1
+        if (row.createdAt >= last7d) metrics.sharesLast7d += 1
+    }
+
+    for (const row of commentRows) {
+        const metrics = ensureMetrics(row.videoId)
+        metrics.commentsCount += 1
+        if (row.createdAt >= last7d) metrics.commentsLast7d += 1
+    }
+
+    for (const row of activeWatchRows) {
+        const metrics = ensureMetrics(row.videoId)
+        metrics.activeSessionsCount += 1
+    }
+
+    for (const row of userReactionRows) {
+        const metrics = ensureMetrics(row.videoId)
+        metrics.userReaction = row.type === "LIKE" || row.type === "DISLIKE" ? row.type : null
+    }
+
+    return videos.map((video) => {
+        const metrics = metricsByVideo.get(video.id)
+        const userWatch = Array.isArray(video.watchHistory) ? video.watchHistory[0] : null
+        const durationSeconds = video.metadata?.duration ?? null
+        const rawProgress = durationSeconds && userWatch?.lastPositionSeconds
+            ? Math.round((Math.min(userWatch.lastPositionSeconds, durationSeconds) / durationSeconds) * 100)
+            : null
+
+        return {
+            publicId: video.publicId,
+            title: video.title,
+            aiTitle: video.aiData?.aiTitle ?? null,
+            aiDescription: video.aiData?.aiDescription ?? null,
+            keywords: video.aiData?.keywords ?? [],
+            tags: video.aiData?.tags ?? [],
+            channel: video.channel,
+            uploaderAvatarKey: video.channel.user?.avatarKey ?? null,
+            uploaderAvatarUrl: video.channel.user?.avatarKey
+                ? signCloudFrontUrl(video.channel.user.avatarKey)
+                : null,
+            uploaderName: video.channel.user?.name ?? null,
+            createdAt: video.createdAt,
+            thumbnailKey: video.thumbnailKey,
+            orientation: video.metadata?.orientation ?? null,
+            duration: formatDurationLabel(durationSeconds),
+            durationSeconds,
+            visibility: video.visibility,
+            signedUrl: signCloudFrontUrl(video.s3Key),
+            size: video.size,
+            progress: rawProgress !== null ? Math.max(0, Math.min(100, rawProgress)) : undefined,
+            watchedSeconds: userWatch?.watchedSeconds ?? 0,
+            lastPositionSeconds: userWatch?.lastPositionSeconds ?? 0,
+            lastWatchedAt: userWatch?.lastWatchedAt ?? null,
+            viewsCount: metrics?.viewsCount ?? 0,
+            viewsLast24h: metrics?.viewsLast24h ?? 0,
+            viewsLast7d: metrics?.viewsLast7d ?? 0,
+            likesCount: metrics?.likesCount ?? 0,
+            dislikesCount: metrics?.dislikesCount ?? 0,
+            likesLast7d: metrics?.likesLast7d ?? 0,
+            sharesCount: metrics?.sharesCount ?? 0,
+            sharesLast7d: metrics?.sharesLast7d ?? 0,
+            commentsCount: metrics?.commentsCount ?? 0,
+            commentsLast7d: metrics?.commentsLast7d ?? 0,
+            activeSessionsCount: metrics?.activeSessionsCount ?? 0,
+            userReaction: metrics?.userReaction ?? null
+        }
+    })
 }
 
 export const getPortraitVideos = async (userId?: string) => {
+    const userWatchHistoryInclude = userId
+        ? {
+            watchHistory: {
+                where: { userId },
+                orderBy: { lastWatchedAt: "desc" as const },
+                take: 1
+            }
+        }
+        : {}
+
     const videos = await prisma.video.findMany({
         where: {
             status: ACTIVE_VIDEO_STATUS,
@@ -384,33 +583,18 @@ export const getPortraitVideos = async (userId?: string) => {
             aiData: true,
             metadata: {
                 select: {
-                    orientation: true
+                    orientation: true,
+                    duration: true
                 }
-            }
+            },
+            ...userWatchHistoryInclude
         },
         orderBy: {
             createdAt: "desc"
         }
     })
 
-    return videos.map((video) => ({
-        publicId: video.publicId,
-        title: video.title,
-        aiTitle: video.aiData?.aiTitle ?? null,
-        aiDescription: video.aiData?.aiDescription ?? null,
-        channel: video.channel,
-        uploaderAvatarKey: video.channel.user?.avatarKey ?? null,
-        uploaderAvatarUrl: video.channel.user?.avatarKey
-            ? signCloudFrontUrl(video.channel.user.avatarKey)
-            : null,
-        uploaderName: video.channel.user?.name ?? null,
-        createdAt: video.createdAt,
-        thumbnailKey: video.thumbnailKey,
-        orientation: video.metadata?.orientation ?? null,
-        visibility: video.visibility,
-        signedUrl: signCloudFrontUrl(video.s3Key),
-        size: video.size
-    }))
+    return hydrateVideoCards(videos, userId)
 }
 
 export const getOrganizationRowVideos = async (

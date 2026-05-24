@@ -1,6 +1,6 @@
-# SKFlix
+# SK-MediaFlow
 
-`SKFlix` is a full-stack video platform for uploading, managing, organizing, and streaming video content. It includes media processing, AI-assisted metadata generation, profile and channel management, organization-scoped content, and admin workflows.
+`SK-MediaFlow` is a full-stack video platform for uploading, managing, organizing, and streaming video content. It includes media processing, AI-assisted metadata generation, profile and channel management, organization-scoped content, and admin workflows.
 
 ## Features
 
@@ -47,7 +47,7 @@
 ## Repository Structure
 
 ```text
-SKFlix/
+SK-MediaFlow/
 ├── README.md
 ├── PROJECT_OVERVIEW.md
 ├── SETUP_GUIDE.md

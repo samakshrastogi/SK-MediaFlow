@@ -19,6 +19,15 @@ model User {
   provider AuthProvider @default(LOCAL)
   isVerified Boolean @default(false)
   platformAdmin Boolean @default(false)
+  emailNotificationsEnabled Boolean @default(true)
+  productUpdatesEnabled Boolean @default(true)
+  marketingEmailsEnabled Boolean @default(false)
+  publicProfileEnabled Boolean @default(true)
+  activityVisibilityEnabled Boolean @default(false)
+  preferredLanguage String @default("en")
+  autoplayEnabled Boolean @default(true)
+  subtitlesEnabled Boolean @default(false)
+  subtitleLanguage String @default("en")
   failedLoginAttempts Int @default(0)
   lockUntil DateTime?
   otp       String?
@@ -30,6 +39,8 @@ model User {
   resetToken    String?
   resetTokenExp DateTime?
   resetRequestedAt DateTime?
+  deactivatedAt DateTime?
+  deletedAt DateTime?
   createdAt DateTime @default(now())
   channel Channel?
   s3Credentials S3Credential[]

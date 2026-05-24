@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
 import { useAuth } from "@/context/AuthContext"
@@ -351,7 +351,7 @@ const AdminDashboard = () => {
                 )}
 
                 {metrics && (
-                    <section className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#6e37ab]/45 via-[#473795]/44 to-[#20214e]/62 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                    <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
                         <div className="border-b border-white/10 px-5 py-4 sm:px-6">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div className="space-y-1.5">
@@ -359,7 +359,7 @@ const AdminDashboard = () => {
                                         <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                                             Platform Admin Dashboard
                                         </h1>
-                                        <p className="mt-1.5 text-sm text-purple-100/65">
+                                        <p className="mt-1.5 text-sm text-slate-300/72">
                                             Platform-wide analytics, access control, and health signals in one connected workspace.
                                         </p>
                                     </div>
@@ -378,7 +378,7 @@ const AdminDashboard = () => {
                                                 setDatePreset("CUSTOM")
                                                 setIsFilterModalOpen(true)
                                             }}
-                                            className="rounded-full border border-amber-400/25 bg-amber-400/10 px-4 py-2 text-xs font-semibold text-amber-100 transition hover:border-amber-300/40 hover:bg-amber-400/15"
+                                            className="rounded-full border border-white/10 bg-white/8 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/14"
                                         >
                                             {activeFilterCount ? `Filter (${activeFilterCount})` : "Filter"}
                                         </button>
@@ -387,7 +387,7 @@ const AdminDashboard = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsGrantModalOpen(true)}
-                                                className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-400/15"
+                                                className="rounded-full border border-cyan-300/20 bg-cyan-400/12 px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/18"
                                             >
                                                 Admin Access
                                             </button>
@@ -465,9 +465,9 @@ const AdminDashboard = () => {
 
                         <div className="space-y-5 px-5 py-5 sm:px-6">
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                <MetricCard label="Users" value={metrics.cards.uniqueUsers} icon="👥" sub="Total users" />
-                                <MetricCard label="Logins" value={metrics.cards.totalLogins} icon="🔐" sub="All time logins" />
-                                <MetricCard label="Session" value={avgSessionText} icon="⏱️" sub="Avg session time" />
+                                <MetricCard label="Users" value={metrics.cards.uniqueUsers} icon="👥" sub="Platform-Wide Total Users" accent="cyan" />
+                                <MetricCard label="Logins" value={metrics.cards.totalLogins} icon="🔐" sub="Total Historical Logins" accent="violet" />
+                                <MetricCard label="Session" value={avgSessionText} icon="⏱️" sub="Average Session Duration" accent="slate" />
                                 <DualMetricCard
                                     label="Reactions"
                                     leftIcon="👍"
@@ -476,52 +476,61 @@ const AdminDashboard = () => {
                                     rightIcon="👎"
                                     rightLabel="Unlike"
                                     rightValue={metrics.cards.dislikes}
+                                    accent="pink"
                                 />
-                                <MetricCard label="Shares" value={metrics.cards.shares} icon="📤" sub="Total shares" />
+                                <MetricCard label="Shares" value={metrics.cards.shares} icon="📤" sub="Total Content Shares" accent="blue" />
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                <MetricCard label="Daily Active Users" value={metrics.userActivity.dau} icon="📅" sub="Active in last 24h" />
-                                <MetricCard label="Weekly Active Users" value={metrics.userActivity.wau} icon="🗓️" sub="Active in last 7d" />
-                                <MetricCard label="Monthly Active Users" value={metrics.userActivity.mau} icon="🧭" sub="Active in last 30d" />
-                                <MetricCard label="Watch Time" value={totalWatchTimeText} icon="▶️" sub="Across watch history" />
+                                <MetricCard label="Daily Active Users" value={metrics.userActivity.dau} icon="📅" sub="Yesterday's Active Users (24h)" accent="violet" />
+                                <MetricCard label="Weekly Active Users" value={metrics.userActivity.wau} icon="🗓️" sub="Weekly Active User Trend (7d)" accent="indigo" />
+                                <MetricCard label="Monthly Active Users" value={metrics.userActivity.mau} icon="🧭" sub="Monthly Active User Volume (30d)" accent="fuchsia" />
+                                <MetricCard label="Watch Time" value={totalWatchTimeText} icon="▶️" sub="Total Content Watch Time" accent="amber" />
                                 <MetricCard
                                     label="Completion"
                                     value={`${metrics.watchMetrics.averageCompletionRate}%`}
                                     icon="✅"
-                                    sub="Avg watch completion"
+                                    sub="Average Video Completion Rate"
+                                    accent="emerald"
                                 />
                             </div>
 
                             <div>
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <div className="mb-3 flex items-center justify-between">
                                         <h2 className="text-lg font-semibold text-white">
-                                            Daily Login Activity
+                                            Daily Login Trends (Last {metrics.dailyLogins.length || 7} Days)
                                         </h2>
                                         <span className="text-xs text-purple-100/55">
-                                            Last {metrics.dailyLogins.length} days
+                                            {metrics.dailyLogins.length
+                                                ? `${metrics.dailyLogins[0]?.day.slice(5)} - ${metrics.dailyLogins[metrics.dailyLogins.length - 1]?.day.slice(5)}`
+                                                : "No range"}
                                         </span>
                                     </div>
 
                                     {metrics.dailyLogins.length > 0 ? (
-                                        <div className="rounded-2xl border border-white/6 bg-black/14 p-4">
-                                            <div className="flex min-h-[168px] items-end justify-start gap-3 overflow-x-auto pb-1">
+                                        <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(0,0,0,0.12))] p-4">
+                                            <div className="mb-3 grid grid-cols-6 gap-3 text-[10px] text-purple-100/22">
+                                                {[...Array(6)].map((_, idx) => (
+                                                    <div key={idx} className="h-px bg-white/10" />
+                                                ))}
+                                            </div>
+                                            <div className="flex min-h-[168px] items-end justify-start gap-5 overflow-x-auto pb-1">
                                             {metrics.dailyLogins.map((row) => {
                                                 const height = chartMax
-                                                    ? Math.max(18, Math.round((row.count / chartMax) * 110))
+                                                    ? Math.max(18, Math.round((row.count / chartMax) * 118))
                                                     : 18
 
                                                 return (
                                                     <div
                                                         key={row.day}
-                                                        className="group relative flex w-12 shrink-0 flex-col items-center gap-2"
+                                                        className="group relative flex w-16 shrink-0 flex-col items-center gap-2"
                                                     >
-                                                        <div className="absolute -top-7 rounded-lg border border-white/10 bg-black/80 px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100">
+                                                        <div className="absolute -top-8 rounded-lg border border-cyan-300/20 bg-[#1b1942]/90 px-2 py-1 text-[10px] text-white opacity-0 shadow-[0_12px_24px_rgba(34,211,238,0.12)] transition group-hover:opacity-100">
                                                             {row.count}
                                                         </div>
                                                         <div
-                                                            className="w-full rounded-xl bg-gradient-to-t from-blue-600 via-sky-500 to-cyan-300 transition-all duration-300 group-hover:from-blue-500 group-hover:to-cyan-200"
+                                                            className="w-full rounded-2xl bg-gradient-to-t from-[#1d63ff] via-[#28b5e8] to-[#58e1d2] shadow-[0_14px_30px_rgba(36,166,255,0.24)] transition-all duration-300 group-hover:translate-y-[-2px] group-hover:from-[#2b73ff] group-hover:to-[#6fe7dc]"
                                                             style={{ height }}
                                                         />
                                                         <span className="text-[10px] font-medium text-purple-100/55">
@@ -533,21 +542,18 @@ const AdminDashboard = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex min-h-[168px] flex-col items-center justify-center rounded-2xl border border-white/6 bg-black/14 text-center">
-                                            <div className="text-4xl opacity-80">📊</div>
-                                            <h3 className="mt-3 text-sm font-semibold text-white">
-                                                No login activity yet
-                                            </h3>
-                                            <p className="mt-1 max-w-xs text-xs text-purple-100/50">
-                                                Once users start logging in, activity will appear here.
-                                            </p>
-                                        </div>
+                                        <EmptyState
+                                            icon="📊"
+                                            title="No login activity yet"
+                                            text="Once users start logging in, activity will appear here."
+                                            minHeight="min-h-[168px]"
+                                        />
                                     )}
-                                </div>
+                                </SectionCard>
                             </div>
 
                             <div className="grid gap-5 xl:grid-cols-2">
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <h2 className="mb-3 text-lg font-semibold text-white">
                                         Subscriptions
                                     </h2>
@@ -556,22 +562,20 @@ const AdminDashboard = () => {
                                         {(metrics.subscriptionCounts || []).map((row) => (
                                             <div
                                                 key={row.plan}
-                                                className="flex items-center justify-between rounded-2xl border border-white/6 bg-black/14 px-4 py-3 transition hover:bg-white/8"
+                                                className="flex items-center justify-between rounded-[20px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(0,0,0,0.12))] px-4 py-3 transition hover:border-white/14 hover:bg-white/10"
                                             >
-                                                <span className="text-sm text-white">{row.plan}</span>
-                                                <span className="text-sm font-semibold text-purple-100/80">{row.count}</span>
+                                                <span className="text-sm font-medium text-white">{row.plan}</span>
+                                                <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">{row.count}</span>
                                             </div>
                                         ))}
 
                                         {!metrics.subscriptionCounts.length && (
-                                            <p className="py-6 text-center text-sm text-purple-100/55">
-                                                No subscription data available
-                                            </p>
+                                            <EmptyState title="No subscription data available" text="Subscription distribution will appear here once plans start getting used." compact />
                                         )}
                                     </div>
-                                </div>
+                                </SectionCard>
 
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <div className="mb-3 flex items-center justify-between">
                                         <h2 className="text-lg font-semibold text-white">
                                             Top Organizations
@@ -589,17 +593,17 @@ const AdminDashboard = () => {
                                             return (
                                                 <div
                                                     key={org.id}
-                                                    className="rounded-2xl border border-white/6 bg-black/14 p-3.5 transition hover:bg-white/8"
+                                                    className="rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(0,0,0,0.14))] p-3.5 transition hover:border-white/14 hover:bg-white/10"
                                                 >
                                                     <div className="flex items-center justify-between text-sm">
                                                         <span className="flex items-center gap-2">
-                                                            <span className="w-5 text-xs text-purple-100/45">#{idx + 1}</span>
+                                                            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[10px] text-purple-100/70">#{idx + 1}</span>
                                                             <span className="font-medium text-white">{org.name}</span>
                                                         </span>
-                                                        <span className="text-xs text-purple-100/65">{org.views} views</span>
+                                                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-purple-100/70">{org.views} views</span>
                                                     </div>
-                                                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${progress}%` }} />
+                                                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                                                        <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500" style={{ width: `${progress}%` }} />
                                                     </div>
                                                     <div className="mt-2 flex gap-3 text-[11px] text-purple-100/55">
                                                         <span>👍 {org.likes}</span>
@@ -610,16 +614,14 @@ const AdminDashboard = () => {
                                         })}
 
                                         {!metrics.topOrganizations.length && (
-                                            <p className="py-6 text-center text-sm text-purple-100/55">
-                                                No organization data available
-                                            </p>
+                                            <EmptyState title="No organization data available" text="Organization performance rankings will show up here once activity is recorded." compact />
                                         )}
                                     </div>
-                                </div>
+                                </SectionCard>
                             </div>
 
                             <div className="grid gap-5 xl:grid-cols-2">
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <div className="mb-3 flex items-center justify-between">
                                         <h2 className="text-lg font-semibold text-white">
                                             Top Videos
@@ -633,14 +635,14 @@ const AdminDashboard = () => {
                                         {(metrics.topVideos || []).map((video, idx) => (
                                             <div
                                                 key={video.id}
-                                                className="rounded-2xl border border-white/6 bg-black/14 p-3.5 transition hover:bg-white/8"
+                                                className="rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(0,0,0,0.14))] p-3.5 transition hover:border-white/14 hover:bg-white/10"
                                             >
                                                 <div className="flex items-center justify-between gap-3 text-sm">
                                                     <span className="flex min-w-0 items-center gap-2">
-                                                        <span className="w-5 shrink-0 text-xs text-purple-100/45">#{idx + 1}</span>
+                                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[10px] text-purple-100/70">#{idx + 1}</span>
                                                         <span className="truncate font-medium text-white">{video.title}</span>
                                                     </span>
-                                                    <span className="shrink-0 text-xs text-purple-100/65">{video.views} views</span>
+                                                    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-purple-100/70">{video.views} views</span>
                                                 </div>
 
                                                 <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-purple-100/55">
@@ -653,14 +655,12 @@ const AdminDashboard = () => {
                                         ))}
 
                                         {!metrics.topVideos.length && (
-                                            <p className="py-6 text-center text-sm text-purple-100/55">
-                                                No video performance data available
-                                            </p>
+                                            <EmptyState title="No video performance data available" text="Top video rankings will appear here once views and engagement are recorded." compact />
                                         )}
                                     </div>
-                                </div>
+                                </SectionCard>
 
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <div className="mb-3 flex items-center justify-between">
                                         <h2 className="text-lg font-semibold text-white">
                                             Org Trial & Billing
@@ -674,7 +674,7 @@ const AdminDashboard = () => {
                                         {Object.entries(metrics.organizationHealth.billingStatusCounts || {}).map(([status, count]) => (
                                             <div
                                                 key={status}
-                                                className="rounded-2xl border border-white/6 bg-black/14 px-4 py-3"
+                                                className="rounded-[20px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(0,0,0,0.12))] px-4 py-3"
                                             >
                                                 <p className="text-[11px] uppercase tracking-wide text-purple-100/45">{status.split("_").join(" ")}</p>
                                                 <p className="mt-1 text-lg font-bold text-white">{count}</p>
@@ -688,7 +688,7 @@ const AdminDashboard = () => {
                                         {(metrics.organizationHealth.expiringTrials || []).map((org) => (
                                             <div
                                                 key={org.id}
-                                                className="rounded-2xl border border-white/6 bg-black/14 px-4 py-3"
+                                                className="rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(0,0,0,0.14))] px-4 py-3"
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
@@ -708,16 +708,14 @@ const AdminDashboard = () => {
                                         ))}
 
                                         {!metrics.organizationHealth.expiringTrials.length && (
-                                            <p className="py-4 text-center text-sm text-purple-100/55">
-                                                No trials expiring in the next 14 days
-                                            </p>
+                                            <EmptyState title="No trials expiring soon" text="There are no organization trials ending in the next 14 days." compact />
                                         )}
                                     </div>
-                                </div>
+                                </SectionCard>
                             </div>
 
                             <div className="grid gap-5 xl:grid-cols-2">
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <div className="mb-3 flex items-center justify-between">
                                         <h2 className="text-lg font-semibold text-white">
                                             Invite Acceptance Funnel
@@ -728,15 +726,15 @@ const AdminDashboard = () => {
                                     </div>
 
                                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                        <MetricCard label="Total" value={metrics.inviteFunnel.total} sub="All invites" />
-                                        <MetricCard label="Accepted" value={metrics.inviteFunnel.accepted} sub="Joined successfully" />
-                                        <MetricCard label="Pending" value={metrics.inviteFunnel.pending} sub="Awaiting response" />
-                                        <MetricCard label="Expired" value={metrics.inviteFunnel.expired} sub="Past expiry date" />
-                                        <MetricCard label="Cancelled" value={metrics.inviteFunnel.cancelled} sub="Cancelled invites" />
+                                        <MetricCard label="Total" value={metrics.inviteFunnel.total} sub="All invites" compact accent="slate" />
+                                        <MetricCard label="Accepted" value={metrics.inviteFunnel.accepted} sub="Joined successfully" compact accent="emerald" />
+                                        <MetricCard label="Pending" value={metrics.inviteFunnel.pending} sub="Awaiting response" compact accent="violet" />
+                                        <MetricCard label="Expired" value={metrics.inviteFunnel.expired} sub="Past expiry date" compact accent="amber" />
+                                        <MetricCard label="Cancelled" value={metrics.inviteFunnel.cancelled} sub="Cancelled invites" compact accent="rose" />
                                     </div>
-                                </div>
+                                </SectionCard>
 
-                                <div className="rounded-3xl border border-white/8 bg-white/6 p-4 sm:p-5">
+                                <SectionCard>
                                     <div className="mb-3 flex items-center justify-between">
                                         <h2 className="text-lg font-semibold text-white">
                                             Admin Access Audit
@@ -750,7 +748,7 @@ const AdminDashboard = () => {
                                         {(metrics.adminAccessAudit || []).map((entry) => (
                                             <div
                                                 key={entry.id}
-                                                className="rounded-2xl border border-white/6 bg-black/14 px-4 py-3"
+                                                className="rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(0,0,0,0.14))] px-4 py-3"
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
@@ -774,12 +772,10 @@ const AdminDashboard = () => {
                                         ))}
 
                                         {!metrics.adminAccessAudit.length && (
-                                            <p className="py-6 text-center text-sm text-purple-100/55">
-                                                No admin access changes recorded yet
-                                            </p>
+                                            <EmptyState title="No admin access changes recorded yet" text="Grant and removal activity will appear here once admin permissions are updated." compact />
                                         )}
                                     </div>
-                                </div>
+                                </SectionCard>
                             </div>
                         </div>
                     </section>
@@ -1238,29 +1234,74 @@ const AdminDashboard = () => {
     )
 }
 
+const accentMap = {
+    cyan: "border-cyan-300/25 shadow-[0_0_0_1px_rgba(103,232,249,0.08),0_18px_34px_rgba(34,211,238,0.12)]",
+    violet: "border-violet-300/20 shadow-[0_0_0_1px_rgba(196,181,253,0.07),0_18px_34px_rgba(139,92,246,0.12)]",
+    slate: "border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_18px_30px_rgba(10,10,30,0.16)]",
+    pink: "border-pink-300/20 shadow-[0_0_0_1px_rgba(244,114,182,0.08),0_18px_34px_rgba(236,72,153,0.14)]",
+    blue: "border-blue-300/20 shadow-[0_0_0_1px_rgba(96,165,250,0.08),0_18px_34px_rgba(59,130,246,0.14)]",
+    indigo: "border-indigo-300/20 shadow-[0_0_0_1px_rgba(129,140,248,0.08),0_18px_34px_rgba(99,102,241,0.14)]",
+    fuchsia: "border-fuchsia-300/20 shadow-[0_0_0_1px_rgba(232,121,249,0.08),0_18px_34px_rgba(217,70,239,0.14)]",
+    amber: "border-amber-300/20 shadow-[0_0_0_1px_rgba(252,211,77,0.08),0_18px_34px_rgba(245,158,11,0.14)]",
+    emerald: "border-emerald-300/20 shadow-[0_0_0_1px_rgba(110,231,183,0.08),0_18px_34px_rgba(16,185,129,0.14)]",
+    rose: "border-rose-300/20 shadow-[0_0_0_1px_rgba(253,164,175,0.08),0_18px_34px_rgba(244,63,94,0.14)]"
+} as const
+
+const SectionCard = ({ children }: { children: ReactNode }) => (
+    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_24px_44px_rgba(8,10,32,0.18)] backdrop-blur-xl sm:p-5">
+        {children}
+    </div>
+)
+
+const EmptyState = ({
+    icon,
+    title,
+    text,
+    compact = false,
+    minHeight = "min-h-[128px]"
+}: {
+    icon?: string
+    title: string
+    text: string
+    compact?: boolean
+    minHeight?: string
+}) => (
+    <div className={`flex ${minHeight} flex-col items-center justify-center rounded-[22px] border border-white/8 bg-black/14 px-5 text-center`}>
+        {icon ? <div className={`${compact ? "text-3xl" : "text-4xl"} opacity-80`}>{icon}</div> : null}
+        <h3 className={`${icon ? "mt-3" : ""} text-sm font-semibold text-white`}>{title}</h3>
+        <p className="mt-1 max-w-sm text-xs text-purple-100/50">
+            {text}
+        </p>
+    </div>
+)
+
 const MetricCard = ({
     label,
     value,
     icon,
-    sub
+    sub,
+    accent = "slate",
+    compact = false
 }: {
     label: string
     value: number | string
     icon?: string
     sub?: string
+    accent?: keyof typeof accentMap
+    compact?: boolean
 }) => (
-    <div className="group rounded-3xl border border-white/8 bg-white/6 p-3 shadow-sm transition hover:border-white/16 hover:bg-white/8">
+    <div className={`group rounded-[24px] border bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(0,0,0,0.12))] ${compact ? "p-3" : "p-3.5"} transition hover:border-white/20 hover:bg-white/10 ${accentMap[accent]}`}>
         <div className="flex items-center justify-between">
-            <p className="text-xs text-purple-100/55">{label}</p>
+            <p className="text-xs text-purple-100/60">{label}</p>
             {icon ? <span className="text-sm opacity-80 transition group-hover:scale-110">{icon}</span> : null}
         </div>
 
-        <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl">
+        <p className={`mt-1 font-bold tracking-tight text-white ${compact ? "text-base sm:text-lg" : "text-lg sm:text-[1.75rem]"}`}>
             {value}
         </p>
 
         {sub ? (
-            <p className="mt-0.5 text-[11px] text-purple-100/45">
+            <p className="mt-0.5 text-[11px] leading-5 text-purple-100/46">
                 {sub}
             </p>
         ) : null}
@@ -1274,7 +1315,8 @@ const DualMetricCard = ({
     leftValue,
     rightIcon,
     rightLabel,
-    rightValue
+    rightValue,
+    accent = "pink"
 }: {
     label: string
     leftIcon: string
@@ -1283,10 +1325,11 @@ const DualMetricCard = ({
     rightIcon: string
     rightLabel: string
     rightValue: number | string
+    accent?: keyof typeof accentMap
 }) => (
-    <div className="rounded-3xl border border-white/8 bg-white/6 p-3 shadow-sm">
+    <div className={`rounded-[24px] border bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(0,0,0,0.12))] p-3.5 ${accentMap[accent]}`}>
         <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs text-purple-100/55">{label}</p>
+            <p className="text-xs text-purple-100/60">{label}</p>
             <div className="flex items-center gap-2 text-sm opacity-80">
                 <span>{leftIcon}</span>
                 <span>{rightIcon}</span>
@@ -1294,14 +1337,14 @@ const DualMetricCard = ({
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl border border-white/6 bg-black/14 px-3 py-2.5">
+            <div className="rounded-[18px] border border-white/8 bg-black/16 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3">
                     <p className="text-[11px] text-purple-100/45">{leftLabel}</p>
                     <p className="text-lg font-bold text-white">{leftValue}</p>
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-white/6 bg-black/14 px-3 py-2.5">
+            <div className="rounded-[18px] border border-white/8 bg-black/16 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3">
                     <p className="text-[11px] text-purple-100/45">{rightLabel}</p>
                     <p className="text-lg font-bold text-white">{rightValue}</p>

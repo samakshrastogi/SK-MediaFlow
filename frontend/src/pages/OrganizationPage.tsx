@@ -183,14 +183,14 @@ const OrganizationPage = () => {
 
     return (
         <AppLayout>
-            <div className="w-full px-1 sm:px-2">
-                <div className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#6d37a9]/45 via-[#463a92]/42 to-[#1f214b]/62 shadow-[0_24px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+            <div className="w-full px-2 sm:px-4">
+                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
                     <div className="border-b border-white/10 px-6 py-6 sm:px-8">
                         <div>
                             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                                 Organization
                             </h1>
-                            <p className="mt-2 text-sm text-purple-100/65 sm:text-base">
+                            <p className="mt-2 text-sm text-slate-300/72 sm:text-base">
                                 Create, join, and manage your organization access from one connected workspace.
                             </p>
                         </div>
@@ -203,12 +203,12 @@ const OrganizationPage = () => {
                     </div>
 
                     <div className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
-                        <aside className="border-b border-white/10 bg-black/14 px-5 py-6 xl:border-b-0 xl:border-r xl:border-white/10 sm:px-6">
+                        <aside className="border-b border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-6 xl:border-b-0 xl:border-r xl:border-white/10 sm:px-6">
                             <div className="space-y-5 xl:sticky xl:top-24">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
                                         <h2 className="text-lg font-semibold text-white">My Organizations</h2>
-                                        <p className="mt-1 text-xs text-purple-100/55">
+                                        <p className="mt-1 text-xs text-slate-400">
                                             Switch org mode and open your workspaces.
                                         </p>
                                     </div>
@@ -223,8 +223,8 @@ const OrganizationPage = () => {
                                                 key={m.id}
                                                 className={`rounded-2xl border p-4 transition ${
                                                     isActive
-                                                        ? "border-emerald-400/20 bg-emerald-500/10"
-                                                        : "border-white/8 bg-white/6 hover:bg-white/8"
+                                                        ? "border-cyan-300/20 bg-cyan-400/10"
+                                                        : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
                                                 }`}
                                             >
                                                 <div className="space-y-3">
@@ -235,20 +235,20 @@ const OrganizationPage = () => {
                                                         <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
                                                             <span className={`rounded-full px-2 py-0.5 font-medium ${
                                                                 m.role === "ADMIN"
-                                                                    ? "bg-purple-600/20 text-purple-200"
-                                                                    : "bg-white/10 text-purple-100/70"
+                                                                    ? "bg-cyan-400/12 text-cyan-100"
+                                                                    : "bg-white/10 text-slate-300/78"
                                                             }`}>
                                                                 {m.role}
                                                             </span>
                                                             {isActive && (
-                                                                <span className="rounded-full bg-emerald-500 px-2 py-0.5 font-medium text-white">
+                                                                <span className="rounded-full bg-cyan-400/16 px-2 py-0.5 font-medium text-cyan-100">
                                                                     ACTIVE
                                                                 </span>
                                                             )}
                                                             <span className={`rounded-full px-2 py-0.5 font-medium ${
                                                                 isActive
-                                                                    ? "bg-emerald-500/16 text-emerald-100"
-                                                                    : "bg-white/10 text-purple-100/70"
+                                                                    ? "bg-cyan-400/12 text-cyan-100"
+                                                                    : "bg-white/10 text-slate-300/78"
                                                             }`}>
                                                                 Status: {isActive ? "Active" : "Disabled"}
                                                             </span>
@@ -262,8 +262,8 @@ const OrganizationPage = () => {
                                                             }
                                                             className={`rounded-xl px-3 py-2 text-xs font-medium transition ${
                                                                 isActive
-                                                                    ? "bg-white/12 text-white hover:bg-white/18"
-                                                                    : "bg-indigo-600 text-white hover:bg-indigo-500"
+                                                                    ? "border border-white/10 bg-white/8 text-white hover:bg-white/14"
+                                                                    : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
                                                             }`}
                                                         >
                                                             {isActive ? "Disable" : "Enable"}
@@ -274,7 +274,7 @@ const OrganizationPage = () => {
                                                                 await switchMode(m.organization.id)
                                                                 navigate("/home")
                                                             }}
-                                                            className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-500"
+                                                            className="rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16"
                                                         >
                                                             Open
                                                         </button>
@@ -285,7 +285,7 @@ const OrganizationPage = () => {
                                                                     await switchMode(m.organization.id)
                                                                     navigate("/organization/dashboard")
                                                                 }}
-                                                                className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-amber-500"
+                                                                className="rounded-xl bg-amber-500/18 px-3 py-2 text-xs font-medium text-amber-100 transition hover:bg-amber-500/24"
                                                             >
                                                                 Dashboard
                                                             </button>
@@ -319,18 +319,18 @@ const OrganizationPage = () => {
 
                         <main className="space-y-8 px-6 py-6 sm:px-8">
                             {orgToken && linkInfo && (
-                                <div className="rounded-3xl border border-blue-500/18 bg-blue-500/8 p-5 sm:p-6">
+                                        <div className="rounded-3xl border border-cyan-400/18 bg-cyan-400/8 p-5 sm:p-6">
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                         <div>
                                             <h2 className="text-lg font-semibold text-white">
                                                 Join Organization
                                             </h2>
-                                            <p className="mt-1 text-sm text-purple-100/60">
+                                            <p className="mt-1 text-sm text-slate-300/72">
                                                 You’ve been invited to <span className="font-semibold text-white">{linkInfo.name}</span>.
                                             </p>
                                             <p className="mt-2 text-xs">
                                                 {linkInfo.linkType === "PUBLIC" ? (
-                                                    <span className="text-emerald-300">Public Access • Instant Join</span>
+                                                    <span className="text-cyan-200">Public Access • Instant Join</span>
                                                 ) : (
                                                     <span className="text-amber-300">Private Access • Requires Approval</span>
                                                 )}
@@ -340,7 +340,7 @@ const OrganizationPage = () => {
                                         <button
                                             onClick={handleJoinByLink}
                                             disabled={linkJoining}
-                                            className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                            className="rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                             {linkJoining ? "Sending Request..." : "Join Organization"}
                                         </button>
@@ -348,10 +348,10 @@ const OrganizationPage = () => {
                                 </div>
                             )}
 
-                            <div className="rounded-3xl border border-white/8 bg-black/14">
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.04]">
                                 <div className="border-b border-white/10 px-5 py-5 sm:px-6">
                                     <h2 className="text-xl font-semibold text-white">Workspace Setup</h2>
-                                    <p className="mt-1 text-sm text-purple-100/58">
+                                    <p className="mt-1 text-sm text-slate-400">
                                         Create a new organization or request access to an existing one.
                                     </p>
                                 </div>
@@ -360,7 +360,7 @@ const OrganizationPage = () => {
                                     <section className="space-y-5 border-b border-white/10 px-5 py-5 sm:px-6 lg:border-b-0 lg:border-r">
                                         <div>
                                             <h3 className="text-lg font-semibold text-white">Create Organization</h3>
-                                            <p className="mt-1 text-xs text-purple-100/55">
+                                            <p className="mt-1 text-xs text-slate-400">
                                                 Set up a new organization to manage users and content.
                                             </p>
                                         </div>
@@ -370,14 +370,14 @@ const OrganizationPage = () => {
                                                 value={name}
                                                 onChange={(e) => setName(e.target.value)}
                                                 placeholder="Organization name"
-                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full rounded-xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                                             />
 
                                             <input
                                                 value={slug}
                                                 onChange={(e) => setSlug(e.target.value)}
                                                 placeholder="Slug (optional)"
-                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full rounded-xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                                             />
 
                                             <textarea
@@ -385,14 +385,14 @@ const OrganizationPage = () => {
                                                 onChange={(e) => setDescription(e.target.value)}
                                                 placeholder="Description (optional)"
                                                 rows={4}
-                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full rounded-xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                                             />
 
                                             <select
                                                 value={plan}
                                                 aria-label="select subscription plan"
                                                 onChange={(e) => setPlan(e.target.value)}
-                                                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full rounded-xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                                             >
                                                 <option value="TRIAL_FREE">3 month free trial</option>
                                                 <option value="SIX_MONTH">6 month subscription (Rs 18000)</option>
@@ -403,7 +403,7 @@ const OrganizationPage = () => {
 
                                         <button
                                             onClick={createOrganization}
-                                            className="w-full rounded-2xl bg-purple-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-purple-500"
+                                            className="w-full rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
                                         >
                                             Create Organization
                                         </button>
@@ -412,29 +412,29 @@ const OrganizationPage = () => {
                                     <section className="space-y-5 px-5 py-5 sm:px-6">
                                         <div>
                                             <h3 className="text-lg font-semibold text-white">Join Organization</h3>
-                                            <p className="mt-1 text-xs text-purple-100/55">
+                                            <p className="mt-1 text-xs text-slate-400">
                                                 Enter an organization slug, ID, or public/private join link.
                                             </p>
                                         </div>
 
-                                        <div className="rounded-2xl border border-blue-500/10 bg-blue-500/6 p-4">
+                                        <div className="rounded-2xl border border-cyan-400/14 bg-cyan-400/8 p-4">
                                             <div className="space-y-3">
                                                 <input
                                                     value={joinInput}
                                                     onChange={(e) => setJoinInput(e.target.value)}
                                                     placeholder="Organization slug, ID, or join link"
-                                                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full rounded-xl border border-white/10 bg-black/18 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                                                 />
 
                                                 <button
                                                     onClick={requestJoin}
-                                                    className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-500"
+                                                    className="w-full rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/16"
                                                 >
                                                     Request Join
                                                 </button>
                                             </div>
 
-                                            <p className="mt-3 text-xs text-purple-100/55">
+                                            <p className="mt-3 text-xs text-slate-400">
                                                 Public links join instantly. Private links stay pending until an admin approves them.
                                             </p>
                                         </div>

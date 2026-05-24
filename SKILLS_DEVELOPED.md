@@ -1,4 +1,4 @@
-# Skills Developed Through SKFlix
+# Skills Developed Through SK-MediaFlow
 
 This project develops practical skills across full-stack product engineering, media systems, cloud integration, and AI workflow orchestration.
 
@@ -76,7 +76,7 @@ This project develops practical skills across full-stack product engineering, me
 
 ## Summary
 
-`SKFlix` builds experience in:
+`SK-MediaFlow` builds experience in:
 
 - frontend product UI
 - backend API systems

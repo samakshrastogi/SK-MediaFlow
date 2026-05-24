@@ -56,8 +56,8 @@ export const sendEmail = async ({
     to,
     subject,
     html,
-    from = `"SKFlix" <${EMAIL_FROM}>`,
-    replyTo = `"SKFlix Support" <${EMAIL_REPLY_TO}>`,
+    from = `"SK-MediaFlow" <${EMAIL_FROM}>`,
+    replyTo = `"SK-MediaFlow Support" <${EMAIL_REPLY_TO}>`,
     text,
 }: SendEmailOptions): Promise<MailSendResult> => {
     const smtpTransporter = getTransporter()
@@ -94,11 +94,11 @@ export const sendOrganizationInviteEmail = async (
     return sendEmail({
         to,
         subject: `Invitation to join ${organizationName}`,
-        text: `You were invited to join ${organizationName} on SKFlix: ${inviteLink}`,
+        text: `You were invited to join ${organizationName} on SK-MediaFlow: ${inviteLink}`,
         html: `
             <div style="font-family:Arial,sans-serif;line-height:1.5">
                 <h2>Organization Invite</h2>
-                <p>You were invited to join <strong>${organizationName}</strong> on SKFlix.</p>
+                <p>You were invited to join <strong>${organizationName}</strong> on SK-MediaFlow.</p>
                 <p><a href="${inviteLink}" target="_blank" rel="noopener noreferrer">Click here to join organization</a></p>
                 <p>If the button does not work, copy this link:</p>
                 <p>${inviteLink}</p>

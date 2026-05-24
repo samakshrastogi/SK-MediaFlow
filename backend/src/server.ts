@@ -6,7 +6,6 @@ import "./config/env";
 import app from "./app";
 import { redisConnection } from "./config/redis";
 import { setSocketServer } from "./services/realtime.service";
-import { logger } from "./utils/logger";
 
 const PORT = process.env.PORT;
 
@@ -24,9 +23,7 @@ export const io = new Server(server, {
 /* ---------------- SOCKET ---------------- */
 
 io.on("connection", (socket) => {
-  logger.info("SOCKET", "Client connected", { socketId: socket.id });
   socket.on("disconnect", () => {
-    logger.info("SOCKET", "Client disconnected", { socketId: socket.id });
   });
 });
 
@@ -58,7 +55,6 @@ queueEvents.on("progress", ({ data }) => {
 
   if (!videoId) return;
 
-  logger.info("QUEUE", "AI job progress", { videoId, progress });
   io.emit("ai-progress", { videoId, progress });
 
 });
@@ -79,7 +75,6 @@ queueEvents.on("completed", ({ returnvalue }) => {
 
   if (!videoId) return;
 
-  logger.info("QUEUE", "AI job completed", { videoId });
   io.emit("ai-completed", { videoId });
 
 });
@@ -94,19 +89,13 @@ queueEvents.on("failed", async ({ jobId }) => {
 
     if (!videoId) return;
 
-    logger.error("QUEUE", "AI job failed", { jobId, videoId, failedReason: job?.failedReason || null });
     io.emit("ai-failed", { videoId });
   } catch {
-    logger.error("QUEUE", "Failed to inspect AI queue failure", { jobId });
   }
 });
 
 /* ---------------- START SERVER ---------------- */
 
 server.listen(PORT, () => {
-  logger.info("SERVER", "Server started", { port: PORT });
-});
-
-server.on("error", (error) => {
-  logger.error("SERVER", "Server error", { error });
+  console.log(`[${new Date().toISOString()}] Backend server is ready`);
 });

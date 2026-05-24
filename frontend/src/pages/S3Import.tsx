@@ -242,21 +242,28 @@ const S3Import = () => {
             <div className="w-full px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 pb-8 sm:pb-10 space-y-6 sm:space-y-8">
 
                 {/* Header */}
-                <div className="flex justify-between items-center">
-                    <h1 className="text-2xl font-semibold text-white">
-                        S3 Import Manager
-                    </h1>
+                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h1 className="text-2xl font-semibold tracking-tight text-white">
+                                S3 Import Manager
+                            </h1>
+                            <p className="mt-1 text-sm text-slate-300/70">
+                                Connect buckets, scan media, and import videos into the platform with the same workspace flow.
+                            </p>
+                        </div>
 
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="bg-purple-600 hover:bg-purple-700 transition px-5 py-2 rounded-lg text-sm"
-                    >
-                        + Add Bucket
-                    </button>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="rounded-xl bg-cyan-500 px-5 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
+                        >
+                            + Add Bucket
+                        </button>
+                    </div>
                 </div>
 
                 {uiMessage && (
-                    <div className="bg-white/10 border border-white/15 rounded-xl px-4 py-3 text-sm text-gray-100">
+                    <div className="rounded-2xl border border-emerald-400/18 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
                         {uiMessage}
                     </div>
                 )}
@@ -264,15 +271,15 @@ const S3Import = () => {
 
                 {/* Bucket Selector */}
 
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
+                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-6 space-y-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
 
                     <select
                         className="
                         w-full px-4 py-3 rounded-xl
-                        bg-black/40
+                        bg-black/20
                         border border-white/20
                         text-white
-                        focus:border-purple-500
+                        focus:border-cyan-400
                         outline-none
                         "
                         aria-label="Select S3 bucket"
@@ -296,7 +303,7 @@ const S3Import = () => {
                     <button
                         onClick={handleScan}
                         disabled={scanning}
-                        className="bg-green-600 hover:bg-green-700 transition px-5 py-2 rounded-lg text-sm"
+                        className="rounded-xl bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/16"
                     >
                         {scanning ? "Scanning..." : "Scan Bucket"}
                     </button>
@@ -308,7 +315,7 @@ const S3Import = () => {
 
                 {videoFiles.length > 0 && (
 
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-6">
+                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-6 space-y-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
 
                         <div className="flex justify-between items-center">
 
@@ -316,13 +323,13 @@ const S3Import = () => {
                                 Videos ({videoFiles.length})
                             </h2>
                             <div className="flex items-center gap-4">
-                                <span className="text-sm text-gray-300">Visibility:</span>
+                                <span className="text-sm text-slate-300">Visibility:</span>
 
                                 <button
                                     onClick={() => setVisibility("PUBLIC")}
                                     className={`px-4 py-1 rounded-lg text-sm ${visibility === "PUBLIC"
-                                        ? "bg-green-600 text-white"
-                                        : "bg-gray-700 text-gray-300"
+                                        ? "bg-cyan-500 text-slate-950"
+                                        : "bg-white/10 text-slate-300"
                                         }`}
                                 >
                                     Public
@@ -331,8 +338,8 @@ const S3Import = () => {
                                 <button
                                     onClick={() => setVisibility("PRIVATE")}
                                     className={`px-4 py-1 rounded-lg text-sm ${visibility === "PRIVATE"
-                                        ? "bg-purple-600 text-white"
-                                        : "bg-gray-700 text-gray-300"
+                                        ? "bg-cyan-500 text-slate-950"
+                                        : "bg-white/10 text-slate-300"
                                         }`}
                                 >
                                     Private
@@ -398,7 +405,7 @@ const S3Import = () => {
                                                 aria-label="Display Name"
                                             />
 
-                                            <span className="text-sm text-gray-300">
+                                            <span className="text-sm text-slate-300">
                                                 {fileKey.split("/").pop()}
                                             </span>
 
@@ -415,7 +422,7 @@ const S3Import = () => {
                         <button
                             onClick={handleImport}
                             disabled={importing || selectedFiles.length === 0}
-                            className="bg-purple-600 hover:bg-purple-700 transition px-6 py-2 rounded-lg"
+                            className="rounded-xl bg-cyan-500 px-6 py-2.5 font-medium text-slate-950 transition hover:bg-cyan-400"
                         >
                             {importing
                                 ? "Importing..."
@@ -428,11 +435,11 @@ const S3Import = () => {
                 {/* Add Bucket Modal */}
                 {showAddModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-                        <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1120] p-5 sm:p-8 shadow-2xl">
+                        <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.96),rgba(10,15,28,0.98))] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.36)] sm:p-8">
                             {/* Close Button */}
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg"
+                                className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
                             >
                                 ✕
                             </button>
@@ -445,7 +452,7 @@ const S3Import = () => {
 
                                 <input
                                     placeholder="Display Name"
-                                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                     value={bucketForm.name}
                                     onChange={(e) =>
                                         setBucketForm({ ...bucketForm, name: e.target.value })
@@ -454,7 +461,7 @@ const S3Import = () => {
 
                                 <input
                                     placeholder="Access Key"
-                                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                     value={bucketForm.accessKey}
                                     onChange={(e) =>
                                         setBucketForm({ ...bucketForm, accessKey: e.target.value })
@@ -464,7 +471,7 @@ const S3Import = () => {
                                 <input
                                     placeholder="Secret Key"
                                     type="password"
-                                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                     value={bucketForm.secretKey}
                                     onChange={(e) =>
                                         setBucketForm({ ...bucketForm, secretKey: e.target.value })
@@ -473,7 +480,7 @@ const S3Import = () => {
 
                                 <input
                                     placeholder="Bucket Name"
-                                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                     value={bucketForm.bucketName}
                                     onChange={(e) =>
                                         setBucketForm({ ...bucketForm, bucketName: e.target.value })
@@ -482,7 +489,7 @@ const S3Import = () => {
 
                                 <input
                                     placeholder="Region (optional)"
-                                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                     value={bucketForm.region}
                                     onChange={(e) =>
                                         setBucketForm({ ...bucketForm, region: e.target.value })
@@ -491,7 +498,7 @@ const S3Import = () => {
 
                                 <input
                                     placeholder="Custom Endpoint (optional)"
-                                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-cyan-400"
                                     value={bucketForm.endpoint}
                                     onChange={(e) =>
                                         setBucketForm({ ...bucketForm, endpoint: e.target.value })
@@ -501,14 +508,14 @@ const S3Import = () => {
                                 <div className="flex justify-end gap-3 pt-4">
                                     <button
                                         onClick={() => setShowAddModal(false)}
-                                        className="px-5 py-2 rounded-xl border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
+                                        className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-slate-300 transition hover:bg-white/10"
                                     >
                                         Cancel
                                     </button>
 
                                     <button
                                         onClick={handleAddBucket}
-                                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:opacity-90 transition"
+                                        className="rounded-xl bg-cyan-500 px-5 py-2.5 font-medium text-slate-950 transition hover:bg-cyan-400"
                                     >
                                         Add Bucket
                                     </button>
@@ -520,13 +527,13 @@ const S3Import = () => {
                 )}
                 {showImportModal && (
                     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-                        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1120] p-4 sm:p-6 shadow-2xl space-y-4">
+                        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.96),rgba(10,15,28,0.98))] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.36)] space-y-4 sm:p-6">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-white">Import Progress</h3>
                                 {!importing && (
                                     <button
                                         onClick={() => setShowImportModal(false)}
-                                        className="text-gray-400 hover:text-white"
+                                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
                                     >
                                         ✕
                                     </button>
@@ -536,7 +543,7 @@ const S3Import = () => {
                             <div className="space-y-2">
                                 <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
                                     <div
-                                        className="h-full bg-purple-600 transition-all"
+                                        className="h-full bg-cyan-500 transition-all"
                                         style={{
                                             width: `${importStats.total
                                                 ? Math.round((importStats.processed / importStats.total) * 100)
@@ -545,18 +552,18 @@ const S3Import = () => {
                                     />
                                 </div>
 
-                                <div className="text-sm text-gray-300">
+                                <div className="text-sm text-slate-300">
                                     {importStats.total
                                         ? `${Math.round((importStats.processed / importStats.total) * 100)}%`
                                         : "0%"}
                                 </div>
                             </div>
 
-                            <div className="text-sm text-gray-300">
+                            <div className="text-sm text-slate-300">
                                 Imported videos: {importStats.imported} / {importStats.total}
                             </div>
 
-                            <div className="text-sm text-gray-400">
+                            <div className="text-sm text-slate-400">
                                 Processed files: {importStats.processed} / {importStats.total}
                                 {importStats.failed > 0 ? ` • Failed: ${importStats.failed}` : ""}
                             </div>
@@ -566,7 +573,7 @@ const S3Import = () => {
                                     <button
                                         onClick={() => setShowImportModal(false)}
                                         aria-label="Close import progress"
-                                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-slate-300 transition hover:bg-white/14 hover:text-white"
                                     >
                                         <X size={18} />
                                     </button>
