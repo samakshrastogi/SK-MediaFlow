@@ -65,7 +65,7 @@ flowchart TD
         F --> FE5["Governance Areas<br/>Organization, Organization Dashboard, Admin"]
     end
 
-    F --> AX["Axios API Client"]
+    F --> AX["Axios Client"]
     F --> SO["Socket.IO Client"]
 
     AX --> API["Backend API<br/>Express + TypeScript"]
@@ -127,36 +127,36 @@ flowchart TD
     U["Visitor"] --> A1["Frontend Auth Pages"]
 
     A1 --> R1["Register"]
-    R1 --> API1["POST /api/auth/register"]
+    R1 --> API1["Create Account Request"]
     API1 --> DB["User Record Created In MongoDB"]
     API1 --> OTP["OTP Generated And Sent"]
-    OTP --> V1["POST /api/auth/verify-otp"]
+    OTP --> V1["Verify OTP"]
     V1 --> DB
     DB --> READY["Verified Account Ready For Login"]
 
     A1 --> L1["Login"]
-    L1 --> API2["POST /api/auth/login"]
+    L1 --> API2["Login Request"]
     API2 --> AUTH["Validate Password / Provider State"]
     AUTH --> LOGINREC["Create UserLogin Session Record"]
     LOGINREC --> JWT["Issue JWT Token"]
     JWT --> FE["Token Stored In Frontend Auth Context"]
 
     A1 --> G1["Google Sign-In"]
-    G1 --> GAPI["GET /api/auth/google"]
+    G1 --> GAPI["Start Google OAuth"]
     GAPI --> GOOGLE["Google OAuth Consent"]
-    GOOGLE --> GCALL["/api/auth/google/callback"]
+    GOOGLE --> GCALL["OAuth Callback"]
     GCALL --> PROFILE["Find Or Create User + Channel Context"]
     PROFILE --> GLOGIN["Create UserLogin Session Record"]
     GLOGIN --> GJWT["Issue JWT And Redirect To /oauth-success"]
     GJWT --> FE
 
     A1 --> FP["Forgot Password"]
-    FP --> FPAPI["POST /api/auth/forgot-password"]
+    FP --> FPAPI["Request Password Reset"]
     FPAPI --> MAIL["Reset Link Delivery"]
-    MAIL --> RESET["POST /api/auth/reset-password"]
+    MAIL --> RESET["Submit New Password"]
     RESET --> DB
 
-    FE --> END["POST /api/auth/session-end"]
+    FE --> END["End Session"]
     END --> DB
 ```
 
@@ -165,43 +165,43 @@ flowchart TD
 ```mermaid
 flowchart TD
     U["Authenticated User"] --> SET["Settings Page"]
-    SET --> LOAD["GET /api/user/settings"]
+    SET --> LOAD["Load Current Settings"]
     LOAD --> DB["User + UserLogin + Preferences Data"]
     DB --> SET
 
-    SET --> PREF["PATCH /api/user/settings/preferences"]
+    SET --> PREF["Save Preferences"]
     PREF --> SAVE1["Save Notification, Privacy, Preference Flags"]
     SAVE1 --> DB
 
-    SET --> EMAIL["PATCH /api/user/settings/email"]
+    SET --> EMAIL["Update Email"]
     EMAIL --> CHECKPW1["Validate Current Password If Required"]
     CHECKPW1 --> UPDATEEMAIL["Update Email, Reset Verification State"]
     UPDATEEMAIL --> REVOKE1["Revoke Sessions"]
     REVOKE1 --> OTP["Send Verification OTP"]
     OTP --> DB
 
-    SET --> PASS["PATCH /api/user/settings/password"]
+    SET --> PASS["Update Password"]
     PASS --> CHECKPW2["Validate Current Password"]
     CHECKPW2 --> HASH["Hash New Password"]
     HASH --> SAVE2["Persist New Password"]
     SAVE2 --> REVOKE2["Revoke Other Sessions"]
     REVOKE2 --> DB
 
-    SET --> SESS1["POST /api/user/settings/sessions/revoke-others"]
+    SET --> SESS1["Revoke Other Sessions"]
     SESS1 --> DB
 
-    SET --> SESS2["DELETE /api/user/sessions/:sessionId"]
+    SET --> SESS2["Remove Individual Session"]
     SESS2 --> DB
 
-    SET --> HIST["DELETE /api/user/settings/history/watch"]
+    SET --> HIST["Clear Watch History"]
     HIST --> CLEAR["Clear WatchHistory"]
     CLEAR --> DB
 
-    SET --> DEACT["POST /api/user/settings/account/deactivate"]
+    SET --> DEACT["Deactivate Account"]
     DEACT --> DEACTSAVE["Mark deactivatedAt + Revoke Sessions"]
     DEACTSAVE --> DB
 
-    SET --> DEL["POST /api/user/settings/account/delete"]
+    SET --> DEL["Delete Account"]
     DEL --> CONF["Require DELETE Confirmation"]
     CONF --> ANON["Anonymize User Fields + Mark deletedAt"]
     ANON --> DB
@@ -212,7 +212,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     U["Authenticated Creator"] --> PROF["Profile Page"]
-    PROF --> ME["GET /api/user/me"]
+    PROF --> ME["Load Profile Workspace"]
     ME --> DB["Load User, Channel, Stats, Uploaded Videos, History, Favorites, Playlists"]
     DB --> PROF
 
@@ -222,16 +222,16 @@ flowchart LR
     AV2 --> AV3["Save Avatar Key In User Record"]
     AV3 --> CF["CloudFront Signed URL Returned"]
 
-    PROF --> CV1["POST /api/user/cover-upload-url"]
+    PROF --> CV1["Request Cover Upload URL"]
     CV1 --> S3C["Presigned Cover Upload Target"]
     S3C --> CV2["Upload Cover To S3"]
-    CV2 --> CV3["POST /api/user/cover"]
+    CV2 --> CV3["Save Cover Selection"]
     CV3 --> DB2["Save coverKey"]
     DB2 --> CF
 
     PROF --> VIDEOS["Owned Video Management"]
-    VIDEOS --> EDIT["PATCH /api/video/:publicId"]
-    VIDEOS --> DEL["DELETE /api/video/:publicId"]
+    VIDEOS --> EDIT["Edit Video Details"]
+    VIDEOS --> DEL["Delete Video"]
     EDIT --> DB3["Update Metadata, Visibility, Ownership Fields"]
     DEL --> DB4["Soft Delete / Status Update"]
 ```
@@ -241,20 +241,20 @@ flowchart LR
 ```mermaid
 flowchart TD
     U["Authenticated User"] --> IMP["S3 Import Page"]
-    IMP --> CREDS["POST /api/video/s3/buckets"]
+    IMP --> CREDS["Register External Bucket"]
     CREDS --> DB["Store User S3 Credential Record"]
 
-    IMP --> LIST["GET /api/video/s3/buckets"]
+    IMP --> LIST["Load Registered Buckets"]
     LIST --> DB
     DB --> IMP
 
-    IMP --> SCAN["GET /api/video/s3/buckets/:id/scan"]
+    IMP --> SCAN["Scan Bucket Contents"]
     SCAN --> S3["External Bucket Listing"]
     S3 --> FILES["Return Candidate Media Files"]
     FILES --> IMP
 
     IMP --> PICK["Select Videos To Import"]
-    PICK --> IMPORT["POST /api/video/s3/import or POST /api/video/import"]
+    PICK --> IMPORT["Start Import"]
     IMPORT --> VIDEO["Create Video Records With uploadSource = S3_IMPORT"]
     VIDEO --> DB2["Persist Imported Video Entries"]
     VIDEO --> ORCH["Start Standard Post-Upload Orchestration"]
@@ -266,7 +266,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     U["Viewer"] --> PAGE["Video Player Or Portrait Player"]
-    PAGE --> FETCH["GET /api/video/:publicId"]
+    PAGE --> FETCH["Load Playback Data"]
     FETCH --> AUTH["Authenticate User"]
     AUTH --> LOOKUP["Load Video + Channel + AI + Metadata"]
     LOOKUP --> VIS["Evaluate Visibility Rules"]
@@ -284,8 +284,8 @@ flowchart TD
     SIGN --> RESP["Return Playback Payload"]
     RESP --> PLAYER["Frontend Player Loads Media"]
 
-    PLAYER --> VIEW["POST /api/video-actions/view"]
-    PLAYER --> WATCH["POST /api/video-actions/watch-progress"]
+    PLAYER --> VIEW["Record View"]
+    PLAYER --> WATCH["Track Watch Progress"]
     VIEW --> DB["Record VideoView"]
     WATCH --> DB2["Upsert WatchHistory"]
 ```
@@ -296,29 +296,29 @@ flowchart TD
 flowchart TD
     U["Authenticated Viewer"] --> PLAYER["Frontend Playback And Action UI"]
 
-    PLAYER --> REACT["POST /api/video-actions/react"]
+    PLAYER --> REACT["Save Reaction"]
     REACT --> DB1["Create Or Update VideoReaction"]
 
-    PLAYER --> COMMENT["POST /api/video-actions/comment"]
+    PLAYER --> COMMENT["Create Comment"]
     COMMENT --> DB2["Create VideoComment"]
 
-    PLAYER --> SHARE["POST /api/video-actions/share"]
+    PLAYER --> SHARE["Record Share"]
     SHARE --> DB3["Create VideoShare"]
 
-    PLAYER --> PLAYLIST["POST /api/video-actions/playlist"]
+    PLAYER --> PLAYLIST["Update Playlist"]
     PLAYLIST --> DB4["Create Playlist Or Add VideoAction Link"]
 
-    PLAYER --> SUB["POST /api/video-actions/subscribe"]
+    PLAYER --> SUB["Toggle Subscription"]
     SUB --> DB5["Toggle Channel Subscription"]
 
-    PLAYER --> READ1["GET /api/video-actions/video/:publicId"]
+    PLAYER --> READ1["Load Interaction Summary"]
     READ1 --> AGG1["Aggregate Counts, Reactions, Comments, Playlist State"]
     AGG1 --> PLAYER
 
-    PLAYER --> READ2["GET /api/video-actions/favorites"]
-    PLAYER --> READ3["GET /api/video-actions/playlists"]
-    PLAYER --> READ4["GET /api/video-actions/playlists-with-videos"]
-    PLAYER --> READ5["GET /api/video-actions/activity"]
+    PLAYER --> READ2["Load Favorites"]
+    PLAYER --> READ3["Load Playlists"]
+    PLAYER --> READ4["Load Playlists With Videos"]
+    PLAYER --> READ5["Load Activity Feed"]
 
     DB1 --> ADMIN["Admin / Organization Analytics"]
     DB2 --> ADMIN
@@ -338,11 +338,11 @@ flowchart TD
     SAVE --> DB["MongoDB"]
 
     U["Creator Or Editor"] --> PROFILE["Profile / Video Edit UI"]
-    PROFILE --> READ["GET /api/video/ai-insights or GET /api/ai/video/:videoId"]
+    PROFILE --> READ["Load AI Insights"]
     READ --> DB
     DB --> SUGGEST["Show Transcript And AI Suggestions"]
 
-    SUGGEST --> APPLY["POST /api/ai/video/:videoId/apply"]
+    SUGGEST --> APPLY["Apply Suggested Metadata"]
     APPLY --> MERGE["Copy AI Fields To Main Video Record"]
     MERGE --> DB2["Update Video Title / Description / Tags"]
 ```
@@ -357,15 +357,15 @@ flowchart TD
     CREATE --> DB["MongoDB Notification Collection"]
 
     U["Authenticated User"] --> NPAGE["Notification UI"]
-    NPAGE --> LOAD["GET /api/notification"]
+    NPAGE --> LOAD["Load Notifications"]
     LOAD --> DB
     DB --> LIST["Return Notifications + unreadCount"]
     LIST --> NPAGE
 
-    NPAGE --> READ1["POST /api/notification/:id/read"]
+    NPAGE --> READ1["Mark Notification Read"]
     READ1 --> DB
 
-    NPAGE --> READALL["POST /api/notification/read-all"]
+    NPAGE --> READALL["Mark All Notifications Read"]
     READALL --> DB
 ```
 
@@ -381,6 +381,30 @@ SK-MediaFlow/
 ├── backend/
 └── frontend/
 ```
+
+## Codebase Overview
+
+The repository is split into two main applications:
+
+- `backend/` for authentication, media orchestration, persistence, worker execution, queue handling, and real-time progress events
+- `frontend/` for playback, uploads, discovery, profile management, organization tools, and admin workflows
+
+Important backend entry files:
+
+- `backend/src/app.ts`
+  Express app setup, middleware registration, route mounting, and worker imports
+
+- `backend/src/server.ts`
+  HTTP server creation, Socket.IO setup, and progress event wiring
+
+- `backend/prisma/schema.prisma`
+  Prisma schema for the MongoDB data model
+
+Important frontend entry files:
+
+- `frontend/src/main.tsx`
+- `frontend/src/App.tsx`
+- `frontend/src/layouts/AppLayout.tsx`
 
 ## Frontend Surface
 
@@ -415,6 +439,15 @@ Main frontend areas:
 - `frontend/src/context` for auth and layout state
 - `frontend/src/api` for backend integration
 
+Notable frontend pages and components:
+
+- `frontend/src/pages/Home.tsx` for discovery and featured media presentation
+- `frontend/src/pages/Upload.tsx` for upload progress, AI state, and thumbnail selection
+- `frontend/src/pages/ProfilePage.tsx` for profile editing and owned-video management
+- `frontend/src/pages/AdminDashboard.tsx` for platform-level oversight
+- `frontend/src/components/SpritesheetPicker.tsx` for frame-based thumbnail selection
+- `frontend/src/context/AuthContext.tsx` for session and authentication state
+
 Notable user-facing experiences:
 
 - cinematic home feed with hero and row-based discovery
@@ -427,19 +460,7 @@ Notable user-facing experiences:
 
 ## Backend Surface
 
-The backend is an Express API with modular domain areas and background workers.
-
-Mounted API prefixes in `backend/src/app.ts`:
-
-- `/api/auth`
-- `/api/user`
-- `/api/video`
-- `/api/channel`
-- `/api/ai`
-- `/api/video-actions`
-- `/api/organization`
-- `/api/notification`
-- `/api/admin`
+The backend is an Express service layer with modular domain areas and background workers.
 
 Primary backend domains:
 
@@ -470,6 +491,24 @@ Primary backend domains:
 - `backend/src/modules/ai`
   AI metadata generation and application flows for videos
 
+Key backend services and workers:
+
+- `backend/src/modules/video/video-processing.service.ts`
+  Main post-upload orchestration for optimization, spritesheets, and queue dispatch
+
+- `backend/src/services/video-metadata.service.ts`
+  Technical metadata extraction including duration, dimensions, codecs, and orientation
+
+- `backend/src/services/thumbnail.service.ts`
+  Thumbnail generation when a usable thumbnail does not already exist
+
+- `backend/src/services/realtime.service.ts`
+  Progress and completion event emission for the frontend
+
+- `backend/src/workers/thumbnail.worker.ts`
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/workers/video-metadata.worker.ts`
+
 ## Data Model Highlights
 
 The Prisma schema in `backend/prisma/schema.prisma` models:
@@ -499,7 +538,7 @@ Current upload and processing flow:
 
 1. The client requests a presigned upload target.
 2. The media file is uploaded to S3.
-3. The client finalizes the upload with the API.
+3. The client finalizes the upload flow.
 4. The backend creates the video record and starts post-upload orchestration.
 5. Processing generates optimized media outputs and a spritesheet.
 6. Background jobs enrich AI data, thumbnails, and technical metadata.
@@ -510,7 +549,7 @@ Upload processing flow:
 ```mermaid
 flowchart LR
     UI["Frontend Upload Page"] --> AUTH["Authenticated User Session"]
-    AUTH --> PRE["POST /api/video/upload/presign"]
+    AUTH --> PRE["Request Presigned Upload Target"]
     PRE --> API["Video Module"]
     API --> S3URL["Presigned S3 Upload URL"]
     S3URL --> UI
@@ -518,7 +557,7 @@ flowchart LR
     UI --> PUT["Browser Uploads Video File To S3"]
     PUT --> S3["Raw Video Object In S3"]
 
-    UI --> COMPLETE["POST /api/video/upload/complete"]
+    UI --> COMPLETE["Finalize Upload"]
     COMPLETE --> API
     API --> REC["Create Video Record"]
     REC --> DB["MongoDB"]
@@ -550,7 +589,7 @@ flowchart LR
     EXT --> GEN["Title, Description, Keywords, Tags"]
     GEN --> DB3["Persist VideoAI Record"]
 
-    UI --> PICK["GET Spritesheet And Select Frame"]
+    UI --> PICK["Load Spritesheet And Select Frame"]
     PICK --> API
     API --> CROP["Crop Selected Frame"]
     CROP --> S3TH
@@ -570,10 +609,10 @@ Organization and admin flow:
 flowchart TD
     U["Authenticated User"] --> ORGFE["Organization And Admin Frontend"]
 
-    ORGFE --> ORGAPI["/api/organization"]
-    ORGFE --> ADMAPI["/api/admin"]
-    ORGFE --> USERAPI["/api/user"]
-    ORGFE --> NOTI["/api/notification"]
+    ORGFE --> ORGAPI["Organization Services"]
+    ORGFE --> ADMAPI["Admin Services"]
+    ORGFE --> USERAPI["User Services"]
+    ORGFE --> NOTI["Notification Services"]
 
     subgraph ORG["Organization Module Flows"]
         ORGAPI --> OC["Create Organization"]
@@ -640,17 +679,97 @@ Registered worker areas:
 
 These workers back the asynchronous parts of the media pipeline and keep expensive processing out of the request path.
 
+Queue names used by the processing pipeline:
+
+- `thumbnailQueue`
+- `videoAIQueue`
+- `videoMetadataQueue`
+
+## AI Runtime
+
+Whisper-style transcription and Ollama-style generation are not embedded directly in the main backend process. The repository delegates both steps to an external AI service configured through `AI_SERVER_URL`.
+
+At a high level:
+
+- transcription is handled as a Whisper-like step
+- metadata generation is handled as an Ollama or general LLM-style step
+- the video AI worker coordinates both steps and stores the output in `videoAI`
+
+The worker-driven AI flow:
+
+1. A video upload or import creates a pending `videoAI` record.
+2. A job is added to `videoAIQueue`.
+3. `backend/src/workers/video-ai.worker.ts` downloads the source video from S3.
+4. The worker extracts audio with FFmpeg into MP3 form.
+5. The worker sends audio to the external transcription service.
+6. The worker sends the transcript to the external generation service.
+7. The worker normalizes the response and stores transcript, title, description, keywords, and tags.
+8. Real-time events notify the frontend about progress, completion, or failure.
+
+Relevant AI files:
+
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/modules/ai/ai.service.ts`
+- `backend/src/utils/extract-audio.ts`
+- `frontend/src/pages/Upload.tsx`
+
+Typical `videoAI` fields populated by the worker:
+
+- `transcript`
+- `aiTitle`
+- `aiDescription`
+- `keywords`
+- `tags`
+- `status`
+
+AI progress events used by the frontend:
+
+- `ai-progress`
+- `ai-completed`
+- `ai-failed`
+
+Common AI failure points:
+
+- audio extraction fails before transcription begins
+- the external AI service is unreachable
+- generation returns malformed or incomplete structured output
+- Redis or workers are unavailable, so `videoAIQueue` jobs are not consumed
+- Socket.IO wiring prevents progress updates from reaching the upload UI
+
+## Runtime Requirements
+
+Running the full product requires more than installing dependencies.
+
+Required services and infrastructure:
+
+- MongoDB
+- Redis
+- AWS S3
+- CloudFront signing setup
+- FFmpeg and ffprobe available on the machine
+- an external AI service reachable through `AI_SERVER_URL`
+
+Important environment areas:
+
+- database connection settings
+- JWT secret and auth configuration
+- AWS and CloudFront configuration
+- Google OAuth configuration
+- Redis connection settings
+- AI service location
+- email delivery settings
+- client application URLs
+
 ## Operational Notes
 
 - Prisma is configured for MongoDB.
 - Media storage and generated assets are designed around S3 plus CloudFront delivery.
 - AI enrichment is not self-contained in this repository; it depends on an external service integration.
-- The application uses both HTTP APIs and Socket.IO to complete the upload and processing experience.
+- The application uses request/response services and Socket.IO to complete the upload and processing experience.
+- Worker processes are required for AI, metadata, and thumbnail jobs to complete reliably.
 - Setup steps and environment details are intentionally not included in this README.
 
 ## Additional Documentation
 
-- [PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)
 - [SETUP_GUIDE.md](./SETUP_GUIDE.md)
-- [WHISPER_OLLAMA_USAGE.md](./WHISPER_OLLAMA_USAGE.md)
 - [SKILLS_DEVELOPED.md](./SKILLS_DEVELOPED.md)
