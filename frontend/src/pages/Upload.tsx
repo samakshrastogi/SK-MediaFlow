@@ -671,14 +671,14 @@ const Upload = () => {
                 />
 
                 {!channel && (
-                    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.16),_transparent_28%),rgba(5,3,14,0.82)] px-3 sm:px-4 backdrop-blur-sm">
-                        <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(20,18,39,0.98),rgba(11,10,28,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
-                            <div className="flex items-start justify-between border-b border-white/8 px-6 py-5">
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.16),_transparent_28%),rgba(5,3,14,0.82)] px-3 py-4 backdrop-blur-sm sm:px-4">
+                        <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(20,18,39,0.98),rgba(11,10,28,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.45)] sm:rounded-[30px]">
+                            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/8 px-5 py-4 sm:px-6 sm:py-5">
                                 <div className="max-w-lg">
                                     <div className="mb-3 inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
                                         Channel Setup
                                     </div>
-                                    <h2 className="text-3xl font-semibold tracking-tight text-white">
+                                    <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                                         Create Your Channel
                                     </h2>
                                     <p className="mt-2 text-sm leading-6 text-gray-400">
@@ -696,7 +696,7 @@ const Upload = () => {
                                 </button>
                             </div>
 
-                            <div className="max-h-[calc(90vh-92px)] space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
                                 <div className="grid gap-5 md:grid-cols-[1.2fr_0.8fr]">
                                     <div className="space-y-5">
                                         <div className="space-y-2">
@@ -763,6 +763,8 @@ const Upload = () => {
                                     </div>
                                 )}
 
+                            </div>
+                            <div className="shrink-0 border-t border-white/8 bg-[#0c0b1e]/95 px-5 py-4 backdrop-blur-xl sm:px-6">
                                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                                     <button
                                         type="button"
