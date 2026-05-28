@@ -393,7 +393,9 @@ const VideoPlayer = () => {
         if (!el) return
 
         const updateOverflow = () => {
-            setDescriptionOverflowing(el.scrollWidth > el.clientWidth + 1)
+            setDescriptionOverflowing(
+                el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1
+            )
         }
 
         updateOverflow()
@@ -405,22 +407,22 @@ const VideoPlayer = () => {
     return (
         <AppLayout>
             {!video ? (
-                <div className="grid w-full items-start gap-6 xl:gap-8 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px] animate-pulse">
-                    <div className="space-y-5">
-                        <div className={`${contentWidthClass} aspect-video rounded-2xl border border-white/10 bg-black/50`} />
-                        <div className={`${contentWidthClass} rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4`}>
+                <div className="grid min-w-0 w-full items-start gap-4 sm:gap-6 xl:gap-8 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px] animate-pulse">
+                    <div className="min-w-0 space-y-4 sm:space-y-5">
+                        <div className={`${contentWidthClass} aspect-video rounded-[1.25rem] border border-white/10 bg-black/50 sm:rounded-2xl`} />
+                        <div className={`${contentWidthClass} rounded-[1.25rem] border border-white/10 bg-white/5 p-4 space-y-4 sm:rounded-2xl sm:p-5`}>
                             <div className="h-8 w-2/3 rounded bg-white/10" />
                             <div className="h-4 w-full rounded bg-white/10" />
                             <div className="h-4 w-5/6 rounded bg-white/10" />
                         </div>
-                        <div className={`${contentWidthClass} rounded-2xl border border-white/10 bg-white/5 p-5 space-y-3`}>
+                        <div className={`${contentWidthClass} rounded-[1.25rem] border border-white/10 bg-white/5 p-4 space-y-3 sm:rounded-2xl sm:p-5`}>
                             <div className="h-6 w-32 rounded bg-white/10" />
                             <div className="h-16 rounded-xl bg-white/10" />
                             <div className="h-16 rounded-xl bg-white/10" />
                         </div>
                     </div>
-                    <aside className="space-y-4 lg:w-[300px] xl:w-[340px]">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 space-y-3">
+                    <aside className="min-w-0 space-y-4 lg:w-[300px] xl:w-[340px]">
+                        <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-3.5 space-y-3 sm:rounded-2xl">
                             <div className="h-6 w-28 rounded bg-white/10" />
                             <div className="h-24 rounded-xl bg-white/10" />
                             <div className="h-24 rounded-xl bg-white/10" />
@@ -428,10 +430,10 @@ const VideoPlayer = () => {
                     </aside>
                 </div>
             ) : (
-            <div className="grid w-full items-start gap-6 xl:gap-8 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
-                <div className="space-y-5">
+            <div className="grid min-w-0 w-full items-start gap-4 sm:gap-6 xl:gap-8 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="min-w-0 space-y-4 sm:space-y-5">
                     <div
-                        className={`${contentWidthClass} overflow-hidden rounded-2xl border border-white/10 bg-black shadow-xl`}
+                        className={`${contentWidthClass} overflow-hidden rounded-[1.25rem] border border-white/10 bg-black shadow-xl sm:rounded-2xl`}
                     >
                         <video
                             ref={videoRef}
@@ -442,19 +444,19 @@ const VideoPlayer = () => {
                             preload="auto"
                             controlsList="nodownload"
                             onEnded={handleEnded}
-                            className="block max-h-[78vh] w-full bg-black"
+                            className="block aspect-video max-h-[78vh] w-full bg-black object-contain"
                         />
                     </div>
 
-                    <div className={`${contentWidthClass} bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4`}>
-                        <h1 className="text-xl md:text-2xl font-semibold leading-tight">
+                    <div className={`${contentWidthClass} min-w-0 rounded-[1.25rem] border border-white/10 bg-white/5 p-4 space-y-4 sm:rounded-2xl sm:p-5`}>
+                        <h1 className="break-words text-lg font-semibold leading-tight sm:text-xl md:text-2xl">
                             {video.aiTitle || video.title}
                         </h1>
 
                         <div className="space-y-1 text-sm text-gray-300">
                             <p
                                 ref={descriptionRef}
-                                className={`${descriptionExpanded ? "whitespace-pre-wrap" : "truncate"} leading-6`}
+                                className={`${descriptionExpanded ? "whitespace-pre-wrap" : "line-clamp-2"} break-words text-sm leading-6 sm:text-[15px]`}
                             >
                                 {description}
                             </p>
@@ -468,39 +470,40 @@ const VideoPlayer = () => {
                             )}
                         </div>
 
-                        <div className="flex flex-col gap-4 pt-1 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <UserAvatar
-                                    name={video.uploaderName || video.channel.name}
-                                    avatarUrl={video.uploaderAvatarUrl}
-                                    avatarKey={video.uploaderAvatarKey}
-                                    alt={video.channel.name}
-                                />
+                        <div className="min-w-0 flex flex-col gap-4 pt-1 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex min-w-0 items-center justify-between gap-3 lg:flex-1 lg:justify-start">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <UserAvatar
+                                        name={video.uploaderName || video.channel.name}
+                                        avatarUrl={video.uploaderAvatarUrl}
+                                        avatarKey={video.uploaderAvatarKey}
+                                        alt={video.channel.name}
+                                    />
 
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-semibold">{video.channel.name}</p>
-                                        <button
-                                            onClick={toggleSubscribe}
-                                            className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
-                                                subscribed
-                                                    ? "bg-white text-black border-white"
-                                                    : "bg-purple-600 border-purple-500 text-white"
-                                            }`}
-                                        >
-                                            {subscribed ? "Subscribed" : "Subscribe"} {subscribers > 0 ? subscribers : ""}
-                                        </button>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold sm:text-[15px]">{video.channel.name}</p>
+                                        <p className="text-xs text-gray-400 sm:text-sm">
+                                            {timeAgo(video.createdAt)} • {views.toLocaleString()} views
+                                        </p>
                                     </div>
-                                    <p className="text-xs text-gray-400">
-                                        {timeAgo(video.createdAt)} • {views.toLocaleString()} views
-                                    </p>
                                 </div>
+
+                                <button
+                                    onClick={toggleSubscribe}
+                                    className={`inline-flex shrink-0 items-center justify-center rounded-full border px-4 py-2 text-xs font-medium transition sm:py-1.5 ${
+                                        subscribed
+                                            ? "border-white bg-white text-black"
+                                            : "border-purple-500 bg-purple-600 text-white"
+                                    }`}
+                                >
+                                    {subscribed ? "Subscribed" : "Subscribe"} {subscribers > 0 ? subscribers : ""}
+                                </button>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                            <div className="grid min-w-0 grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end">
                                 <button
                                     onClick={likeVideo}
-                                    className={`px-4 py-2 rounded-xl text-sm border transition ${
+                                    className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition sm:w-auto sm:gap-2 sm:px-4 sm:text-sm ${
                                         liked
                                             ? "bg-green-600 border-green-500 text-white"
                                             : "bg-white/10 border-white/10 hover:bg-white/15"
@@ -511,7 +514,7 @@ const VideoPlayer = () => {
 
                                 <button
                                     onClick={dislikeVideo}
-                                    className={`px-4 py-2 rounded-xl text-sm border transition ${
+                                    className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition sm:w-auto sm:gap-2 sm:px-4 sm:text-sm ${
                                         disliked
                                             ? "bg-red-600 border-red-500 text-white"
                                             : "bg-white/10 border-white/10 hover:bg-white/15"
@@ -522,21 +525,24 @@ const VideoPlayer = () => {
 
                                 <button
                                     onClick={() => setShowSharePopup(true)}
-                                    className="px-4 py-2 rounded-xl text-sm border bg-white/10 border-white/10 hover:bg-white/15 transition"
+                                    className="inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/10 px-2 py-2 text-xs transition hover:bg-white/15 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
                                 >
-                                    ↗ Share {shares > 0 ? shares : ""}
+                                    <span>↗</span>
+                                    <span className="min-w-0 truncate">Share</span>
+                                    {shares > 0 ? <span>{shares}</span> : null}
                                 </button>
 
-                                <div ref={playlistMenuRef} className="relative">
+                                <div ref={playlistMenuRef} className="relative min-w-0 sm:w-auto">
                                     <button
                                         onClick={() => setShowPlaylist(!showPlaylist)}
-                                        className="px-4 py-2 rounded-xl text-sm bg-purple-600 hover:bg-purple-700 transition"
+                                        className="inline-flex min-w-0 w-full items-center justify-center gap-1 rounded-xl bg-purple-600 px-2 py-2 text-xs transition hover:bg-purple-700 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
                                     >
-                                        Save to Playlist
+                                        <span className="min-w-0 truncate text-center sm:hidden">Save</span>
+                                        <span className="hidden sm:inline">Save to Playlist</span>
                                     </button>
 
                                     {showPlaylist && (
-                                        <div className="absolute right-0 top-full z-30 mt-3 w-[320px] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl lg:left-full lg:right-auto lg:top-1/2 lg:mt-0 lg:ml-3 lg:-translate-y-1/2">
+                                        <div className="absolute inset-x-0 top-full z-30 mt-3 overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:left-auto sm:right-0 sm:w-[320px] lg:left-full lg:right-auto lg:top-1/2 lg:mt-0 lg:ml-3 lg:-translate-y-1/2">
                                             <div className="border-b border-white/10 px-5 py-4">
                                                 <p className="text-[15px] font-semibold">Save video to...</p>
                                             </div>
@@ -592,8 +598,8 @@ const VideoPlayer = () => {
                         </div>
                     </div>
 
-                    <div className={`${contentWidthClass} bg-white/5 border border-white/10 rounded-2xl p-5`}>
-                        <h2 className="text-lg font-semibold mb-4">Comments</h2>
+                    <div className={`${contentWidthClass} rounded-[1.25rem] border border-white/10 bg-white/5 p-4 pb-6 sm:rounded-2xl sm:p-5 sm:pb-5`}>
+                        <h2 className="mb-4 text-lg font-semibold">Comments</h2>
 
                         <div
                             ref={commentsRef}
@@ -609,7 +615,7 @@ const VideoPlayer = () => {
                                         className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                                     >
                                         <div
-                                            className={`max-w-[82%] px-3 py-2.5 rounded-xl text-sm shadow-sm ${
+                                            className={`max-w-[92%] rounded-xl px-3 py-2.5 text-sm shadow-sm sm:max-w-[82%] ${
                                                 isMine ? "bg-purple-600 text-white" : "bg-black/40"
                                             }`}
                                         >
@@ -625,7 +631,7 @@ const VideoPlayer = () => {
                             })}
                         </div>
 
-                        <div className="flex gap-2 mt-4">
+                        <div className="mt-4 flex items-center gap-2">
                             <input
                                 value={commentInput}
                                 onChange={(e) => setCommentInput(e.target.value)}
@@ -636,12 +642,12 @@ const VideoPlayer = () => {
                                     }
                                 }}
                                 placeholder="Write a comment..."
-                                className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-purple-500"
+                                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm outline-none focus:border-purple-500"
                             />
 
                             <button
                                 onClick={submitComment}
-                                className="bg-purple-600 hover:bg-purple-700 px-4 rounded-xl text-sm"
+                                className="shrink-0 rounded-xl bg-purple-600 px-3 py-2.5 text-sm transition hover:bg-purple-700 sm:px-4"
                             >
                                 Comment
                             </button>
@@ -649,7 +655,7 @@ const VideoPlayer = () => {
                     </div>
                 </div>
 
-                <aside className="h-fit space-y-4 lg:w-[300px] xl:sticky xl:top-24 xl:w-[340px] 2xl:w-[380px]">
+                <aside className="min-w-0 h-fit space-y-4 lg:w-[300px] xl:sticky xl:top-24 xl:w-[340px] 2xl:w-[380px]">
                     <RightRailSection
                         title="Up Next"
                         videos={upNext}
@@ -725,10 +731,10 @@ const RightRailSection = ({
     onOpen: (video: RelatedVideo) => void
 }) => {
     return (
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5">
-            <h2 className="text-base font-semibold mb-3">{title}</h2>
+        <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-3.5 sm:rounded-2xl">
+            <h2 className="mb-3 text-base font-semibold">{title}</h2>
 
-            <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+            <div className="max-h-[420px] space-y-2.5 overflow-y-auto pr-1 lg:max-h-[360px]">
                 {videos.map((item) => {
                     const thumb = item.thumbnailKey
                         ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${item.thumbnailKey}`
@@ -744,22 +750,22 @@ const RightRailSection = ({
                                 prefetchMedia(item.signedUrl)
                                 onOpen(item)
                             }}
-                            className="w-full text-left flex gap-3 rounded-xl p-2.5 hover:bg-black/35 transition"
+                            className="flex w-full min-w-0 gap-3 rounded-xl p-2.5 text-left transition hover:bg-black/35"
                         >
                             <img
                                 src={thumb}
                                 alt={item.aiTitle || item.title || "Video thumbnail"}
-                                className="w-[136px] h-[76px] rounded-lg object-cover shrink-0 border border-white/10"
+                                className="h-[76px] w-[136px] shrink-0 rounded-lg border border-white/10 object-cover"
                                 onError={(e) => {
                                     ;(e.currentTarget as HTMLImageElement).src = "/placeholder-thumbnail.png"
                                 }}
                             />
 
-                            <div className="min-w-0 pt-0.5">
+                            <div className="min-w-0 flex-1 pt-0.5">
                                 <p className="text-sm font-medium leading-5 line-clamp-2">
                                     {item.aiTitle || item.title || "Untitled"}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-1 truncate">{name}</p>
+                                <p className="mt-1 truncate text-xs text-gray-400">{name}</p>
                             </div>
                         </button>
                     )
