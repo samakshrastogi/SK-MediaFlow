@@ -141,7 +141,18 @@ const VideoPlayer = () => {
                 return
             }
 
-            setVideo(videoData)
+            setVideo((current) => {
+                const currentSignedUrl =
+                    current && current.publicId === publicId ? current.signedUrl : undefined
+                if (currentSignedUrl) {
+                    return {
+                        ...videoData,
+                        signedUrl: currentSignedUrl
+                    }
+                }
+
+                return videoData
+            })
 
             void api.get("/video").then((relatedRes) => {
                 const allVideos = (relatedRes.data?.data || []) as RelatedVideo[]
@@ -440,7 +451,7 @@ const VideoPlayer = () => {
                             src={video.signedUrl}
                             poster={posterUrl}
                             controls
-                            autoPlay
+                            playsInline
                             preload="auto"
                             controlsList="nodownload"
                             onEnded={handleEnded}
