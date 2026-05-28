@@ -242,87 +242,29 @@ const SearchPage = () => {
         submitSearch(query)
     }
 
-    const headerTitle = !hasSearch
-        ? "Search the cinematic library"
-        : loading
-            ? `Searching for “${q}”`
-            : filteredResults.length > 0
-                ? `${filteredResults.length} result${filteredResults.length === 1 ? "" : "s"} for “${q}”`
-                : `No results for “${q}”`
-
-    const headerSubtitle = !hasSearch
-        ? "Find movies, creators, and curated picks in one clean search flow."
-        : loading
-            ? "Pulling the best matches from your streaming universe."
-            : filteredResults.length > 0
-                ? activeFilter === "all"
-                    ? "Popular cinematic results"
-                    : `${FILTERS.find((item) => item.key === activeFilter)?.label} matches`
-                : "Try a simpler keyword or a different title."
-
     return (
         <AppLayout>
-            <div className="flex h-[calc(100vh-8rem)] min-h-[620px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,#070b18_0%,#0b1020_58%,#090614_100%)] shadow-[0_24px_100px_rgba(3,7,18,0.55)]">
-                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[30px]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,87,255,0.18),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(217,70,239,0.12),transparent_24%),linear-gradient(180deg,transparent,rgba(6,8,18,0.28))]" />
-                    <motion.div
-                        className="absolute -left-12 top-10 h-44 w-44 rounded-full bg-blue-500/10 blur-3xl"
-                        animate={{ x: [0, 18, 0], y: [0, 10, 0] }}
-                        transition={{ duration: 12, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-                    />
-                    <motion.div
-                        className="absolute right-0 top-20 h-52 w-52 rounded-full bg-fuchsia-500/10 blur-3xl"
-                        animate={{ x: [0, -16, 0], y: [0, -10, 0] }}
-                        transition={{ duration: 14, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-                    />
-                    <div className="absolute inset-0 opacity-[0.05] [background-image:radial-gradient(rgba(255,255,255,0.4)_0.8px,transparent_0.8px)] [background-size:22px_22px]" />
-                </div>
-
-                <div className="relative z-10 flex h-full flex-col px-4 py-4 sm:px-6 sm:py-5">
+            <div className="relative flex min-h-[calc(100dvh-5rem)] flex-col md:min-h-[calc(100dvh-7.5rem)]">
+                <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 sm:py-5">
                     <motion.section
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
-                        className="relative z-20 w-full overflow-visible rounded-[28px] border border-white/10 bg-white/[0.05] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:px-6"
+                        className={`relative z-20 mx-auto w-full overflow-visible pt-5 sm:pt-8 ${
+                            hasSearch ? "max-w-3xl" : "max-w-md sm:max-w-xl"
+                        }`}
                     >
                         <div className="space-y-5">
-                            <div className="space-y-2">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[0.68rem] uppercase tracking-[0.28em] text-slate-300/72">
-                                    <Sparkles size={13} className="text-cyan-200" />
-                                    Search
-                                </div>
-                                <motion.h1
-                                    key={headerTitle}
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.35 }}
-                                    className="text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl [font-family:'Inter_Tight','Satoshi',sans-serif]"
-                                >
-                                    <span className="bg-gradient-to-r from-white via-cyan-100 to-fuchsia-200 bg-clip-text text-transparent">
-                                        {headerTitle}
-                                    </span>
-                                </motion.h1>
-                                <motion.p
-                                    key={headerSubtitle}
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.35, delay: 0.05 }}
-                                    className="text-sm text-slate-300/68 sm:text-[0.95rem]"
-                                >
-                                    {headerSubtitle}
-                                </motion.p>
-                            </div>
-
                             <div ref={wrapRef} className="relative z-30">
                                 <motion.form
                                     onSubmit={onSubmit}
                                     animate={showSuggestions ? { scale: 1.01 } : { scale: 1 }}
                                     transition={{ type: "spring", stiffness: 260, damping: 24 }}
-                                    className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))] p-[1px] shadow-[0_10px_40px_rgba(18,32,64,0.35)]"
+                                    className="rounded-[30px] border border-cyan-200/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04))] p-[1px] shadow-[0_18px_54px_rgba(3,7,18,0.36)]"
                                 >
-                                    <div className="flex items-center gap-3 rounded-[25px] bg-[#0b1020]/82 px-4 py-3.5 backdrop-blur-2xl sm:px-5">
-                                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/10 text-cyan-100">
-                                            <Search size={18} />
+                                    <div className="flex min-h-[68px] items-center gap-3 rounded-[29px] bg-[#080d1d]/88 px-4 py-3.5 backdrop-blur-2xl sm:px-5">
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/22 bg-cyan-300/12 text-cyan-100 shadow-[0_10px_28px_rgba(34,211,238,0.08)]">
+                                            <Search size={20} />
                                         </div>
                                         <input
                                             value={query}
@@ -332,7 +274,7 @@ const SearchPage = () => {
                                                 setShowSuggestions(true)
                                             }}
                                             placeholder={PLACEHOLDERS[placeholderIndex]}
-                                            className="w-full bg-transparent text-base font-medium text-white outline-none placeholder:text-slate-400/60 sm:text-lg"
+                                            className="w-full bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-400/70 sm:text-lg"
                                         />
                                     </div>
                                 </motion.form>
@@ -399,9 +341,9 @@ const SearchPage = () => {
                         </div>
                     </motion.section>
 
-                    <div className="relative z-10 mt-4 flex w-full min-h-0 flex-1">
+                    <div className={`relative z-10 flex w-full min-h-0 flex-1 ${hasSearch ? "mt-4" : "mt-8"}`}>
                         <div
-                            className={`w-full min-h-0 rounded-[28px] border border-white/8 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:p-5 ${
+                            className={`w-full min-h-0 p-1 sm:p-2 ${
                                 hasSearch && shouldScrollResults ? "overflow-y-auto" : "overflow-hidden"
                             }`}
                         >
@@ -410,14 +352,14 @@ const SearchPage = () => {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.4 }}
-                                    className="flex h-full min-h-[260px] items-center justify-center"
+                                    className="flex h-full min-h-[360px] items-center justify-center pb-20 sm:min-h-[420px]"
                                 >
-                                    <div className="text-center">
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-cyan-100">
-                                            <Search size={24} />
+                                    <div className="mx-auto max-w-sm text-center">
+                                        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_48px_rgba(3,7,18,0.18)]">
+                                            <Search size={28} />
                                         </div>
-                                        <p className="text-base font-medium text-white">Start searching</p>
-                                        <p className="mt-2 text-sm text-slate-400">
+                                        <p className="text-lg font-semibold text-white">Start searching</p>
+                                        <p className="mt-3 text-sm leading-6 text-slate-300/78">
                                             Search movies, creators, or playlists in a clean cinematic flow.
                                         </p>
                                     </div>

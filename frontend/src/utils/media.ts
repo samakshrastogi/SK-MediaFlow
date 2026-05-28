@@ -2,6 +2,12 @@ const prefetchedMediaUrls = new Set<string>()
 
 export const prefetchMedia = (url?: string | null) => {
     if (!url || prefetchedMediaUrls.has(url) || typeof document === "undefined") return
+    if (
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(hover: none), (pointer: coarse)").matches
+    ) {
+        return
+    }
 
     const link = document.createElement("link")
     link.rel = "prefetch"

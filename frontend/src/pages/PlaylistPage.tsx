@@ -8,13 +8,15 @@ import { api } from "@/api/axios"
 import { getCachedPageData, setCachedPageData } from "@/utils/pageCache"
 
 interface Video {
-    id: string
+    id?: string
     publicId?: string
     title?: string
     aiTitle?: string
     aiDescription?: string
     thumbnailKey?: string
     uploaderName?: string
+    createdAt?: string
+    orientation?: "PORTRAIT" | "LANDSCAPE" | "SQUARE" | null
     channel?: {
         name?: string
     }
@@ -49,6 +51,7 @@ const PlaylistPage = () => {
 
     const [playlists, setPlaylists] = useState<Playlist[]>(cachedPlaylists || [])
     const [loading, setLoading] = useState(!cachedPlaylists)
+    const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchPlaylists = async () => {
@@ -66,52 +69,51 @@ const PlaylistPage = () => {
         void fetchPlaylists()
     }, [])
 
-    const shouldScroll = playlists.length > 6
-
-    const totalVideos = useMemo(
-        () => playlists.reduce((count, playlist) => count + playlist.videos.length, 0),
-        [playlists]
+    const selectedPlaylist = useMemo(
+        () => playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? null,
+        [playlists, selectedPlaylistId]
     )
+
+    const shouldScroll = playlists.length > 6 || Boolean(selectedPlaylist)
+
+    useEffect(() => {
+        if (!selectedPlaylistId) return
+        if (!playlists.some((playlist) => playlist.id === selectedPlaylistId)) {
+            setSelectedPlaylistId(null)
+        }
+    }, [playlists, selectedPlaylistId])
+
+    const openVideo = (video: Video) => {
+        const id = video.publicId ?? String(video.id ?? "")
+        if (!id) return
+
+        navigate(video.orientation === "PORTRAIT" ? `/portrait/${id}` : `/video/${id}`, {
+            state: { video }
+        })
+    }
 
     return (
         <AppLayout>
-            <div className="flex h-[calc(100vh-8rem)] min-h-[620px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,#070b18_0%,#0b1020_58%,#090614_100%)] shadow-[0_24px_100px_rgba(3,7,18,0.55)]">
-                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[30px]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,87,255,0.16),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(168,85,247,0.12),transparent_24%),linear-gradient(180deg,transparent,rgba(6,8,18,0.22))]" />
-                    <div className="absolute inset-0 opacity-[0.05] [background-image:radial-gradient(rgba(255,255,255,0.35)_0.8px,transparent_0.8px)] [background-size:22px_22px]" />
-                </div>
-
-                <div className="relative z-10 flex h-full flex-col px-4 py-4 sm:px-6 sm:py-5">
+            <div className="relative flex min-h-[calc(100dvh-5rem)] flex-col md:min-h-[calc(100dvh-7.5rem)]">
+                <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 sm:py-5">
                     <motion.section
                         initial={{ opacity: 0, y: 14 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4 }}
-                        className="w-full rounded-[28px] border border-white/10 bg-white/[0.05] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:px-6"
+                        className="w-full px-1 py-2 sm:px-2"
                     >
-                        <div className="space-y-2">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[0.68rem] uppercase tracking-[0.28em] text-slate-300/72">
-                                <ListVideo size={13} className="text-cyan-200" />
-                                Library
-                            </div>
+                        <div>
                             <h1 className="text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl [font-family:'Inter_Tight','Satoshi',sans-serif]">
                                 <span className="bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-transparent">
                                     My Playlists
                                 </span>
                             </h1>
-                            <p className="text-sm text-slate-300/68 sm:text-[0.95rem]">
-                                Organize saved videos in a clean cinematic collection.
-                            </p>
-                            {!loading && playlists.length > 0 && (
-                                <p className="text-xs text-slate-400">
-                                    {playlists.length} playlists • {totalVideos} videos
-                                </p>
-                            )}
                         </div>
                     </motion.section>
 
                     <div className="mt-4 flex w-full min-h-0 flex-1">
                         <div
-                            className={`w-full min-h-0 rounded-[28px] border border-white/8 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:p-5 ${
+                            className={`w-full min-h-0 p-1 sm:p-2 ${
                                 shouldScroll ? "overflow-y-auto" : "overflow-hidden"
                             }`}
                         >
@@ -156,6 +158,89 @@ const PlaylistPage = () => {
                                     </div>
                                 </motion.div>
                             ) : (
+                                <div className="space-y-5">
+                                    {selectedPlaylist ? (
+                                        <motion.section
+                                            initial={{ opacity: 0, y: 12 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.28 }}
+                                            className="overflow-hidden rounded-[24px] border border-cyan-200/16 bg-[linear-gradient(135deg,rgba(34,211,238,0.1),rgba(124,58,237,0.08),rgba(255,255,255,0.035))] shadow-[0_18px_50px_rgba(4,10,24,0.26)]"
+                                        >
+                                            <div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                                <div>
+                                                    <p className="text-xs uppercase tracking-[0.24em] text-cyan-100/62">
+                                                        Selected Playlist
+                                                    </p>
+                                                    <h2 className="mt-1 text-xl font-semibold text-white">
+                                                        {selectedPlaylist.name}
+                                                    </h2>
+                                                    <p className="mt-1 text-sm text-slate-400">
+                                                        Select a video below to start playback.
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-slate-300">
+                                                        {selectedPlaylist.videos.length} videos
+                                                    </span>
+                                                    {selectedPlaylist.videos[0] ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openVideo(selectedPlaylist.videos[0])}
+                                                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100"
+                                                        >
+                                                            <Play size={15} />
+                                                            Play first
+                                                        </button>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+
+                                            {selectedPlaylist.videos.length === 0 ? (
+                                                <div className="px-4 py-8 text-center text-sm text-slate-400">
+                                                    This playlist has no videos yet.
+                                                </div>
+                                            ) : (
+                                                <div className="grid gap-3 p-4 md:grid-cols-2">
+                                                    {selectedPlaylist.videos.map((video) => (
+                                                        <button
+                                                            key={video.publicId ?? video.id}
+                                                            type="button"
+                                                            onClick={() => openVideo(video)}
+                                                            className="group flex min-w-0 gap-3 rounded-[18px] border border-white/8 bg-black/18 p-2.5 text-left transition hover:border-cyan-200/24 hover:bg-white/[0.07]"
+                                                        >
+                                                            <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-[14px] bg-white/[0.05] sm:h-24 sm:w-40">
+                                                                <img
+                                                                    src={getThumbnail(video)}
+                                                                    alt={getTitle(video)}
+                                                                    onError={(event) => {
+                                                                        event.currentTarget.src = "/placeholder-thumbnail.png"
+                                                                    }}
+                                                                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                                                />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/48 via-transparent to-transparent" />
+                                                                <span className="absolute bottom-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg">
+                                                                    <Play size={13} className="ml-0.5 fill-current" />
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="min-w-0 flex-1 py-1">
+                                                                <p className="line-clamp-2 text-sm font-semibold leading-5 text-white sm:text-base">
+                                                                    {getTitle(video)}
+                                                                </p>
+                                                                <p className="mt-1 truncate text-xs text-slate-400">
+                                                                    {video.channel?.name || video.uploaderName || "Unknown channel"}
+                                                                </p>
+                                                                <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100/54">
+                                                                    {video.orientation === "PORTRAIT" ? "Portrait" : "Video"}
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </motion.section>
+                                    ) : null}
+
                                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                     {playlists.map((playlist, index) => (
                                         <motion.div
@@ -164,7 +249,20 @@ const PlaylistPage = () => {
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.03, duration: 0.28 }}
                                             whileHover={{ y: -4 }}
-                                            className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.04] shadow-[0_12px_36px_rgba(4,10,24,0.22)] transition hover:border-white/16 hover:bg-white/[0.06]"
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setSelectedPlaylistId(playlist.id)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter" || event.key === " ") {
+                                                    event.preventDefault()
+                                                    setSelectedPlaylistId(playlist.id)
+                                                }
+                                            }}
+                                            className={`cursor-pointer overflow-hidden rounded-[24px] border bg-white/[0.04] shadow-[0_12px_36px_rgba(4,10,24,0.22)] transition hover:border-white/16 hover:bg-white/[0.06] ${
+                                                selectedPlaylistId === playlist.id
+                                                    ? "border-cyan-200/40 ring-1 ring-cyan-200/20"
+                                                    : "border-white/10"
+                                            }`}
                                         >
                                             <div className="relative overflow-hidden rounded-[20px] m-3 mb-0 grid h-40 grid-cols-2 gap-2">
                                                 {[0, 1, 2, 3].map((slot) => {
@@ -210,15 +308,14 @@ const PlaylistPage = () => {
                                                     {playlist.videos[0] && (
                                                         <button
                                                             type="button"
-                                                            onClick={() => {
-                                                                const first = playlist.videos[0]
-                                                                const id = first.publicId ?? String(first.id)
-                                                                navigate(`/video/${id}`)
+                                                            onClick={(event) => {
+                                                                event.stopPropagation()
+                                                                setSelectedPlaylistId(playlist.id)
                                                             }}
                                                             className="inline-flex items-center gap-1.5 text-white/85 transition hover:text-white"
                                                         >
                                                             <Play size={13} />
-                                                            Play
+                                                            View
                                                         </button>
                                                     )}
                                                 </div>
@@ -232,6 +329,7 @@ const PlaylistPage = () => {
                                             </div>
                                         </motion.div>
                                     ))}
+                                </div>
                                 </div>
                             )}
                         </div>

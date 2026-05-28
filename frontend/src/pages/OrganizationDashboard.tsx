@@ -355,9 +355,9 @@ const OrganizationDashboard = () => {
 
     return (
         <AppLayout>
-            <div className="w-full px-2 sm:px-4">
-                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
-                    <div className="space-y-4 px-5 py-5 sm:px-7">
+            <div className="w-full space-y-6 px-2 sm:px-4">
+                <div className="space-y-6">
+                    <div className="space-y-4 px-1 py-2 sm:px-2">
 
                         {/* TOP ROW */}
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -390,7 +390,7 @@ const OrganizationDashboard = () => {
                         )}
                     </div>
 
-                    <div className="space-y-6 border-t border-white/10 px-5 py-6 sm:px-7">
+                    <div className="space-y-6 px-1 py-2 sm:px-2">
                         {totals && (
                             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
 

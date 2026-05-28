@@ -242,7 +242,7 @@ const S3Import = () => {
             <div className="w-full px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 pb-8 sm:pb-10 space-y-6 sm:space-y-8">
 
                 {/* Header */}
-                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+                <div className="px-1 py-2 sm:px-2">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h1 className="text-2xl font-semibold tracking-tight text-white">
@@ -271,7 +271,7 @@ const S3Import = () => {
 
                 {/* Bucket Selector */}
 
-                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-6 space-y-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+                <div className="space-y-4 px-1 py-2 sm:px-2">
 
                     <select
                         className="
@@ -315,7 +315,7 @@ const S3Import = () => {
 
                 {videoFiles.length > 0 && (
 
-                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-6 space-y-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+                    <div className="space-y-6 px-1 py-2 sm:px-2">
 
                         <div className="flex justify-between items-center">
 

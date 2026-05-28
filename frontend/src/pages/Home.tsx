@@ -625,8 +625,6 @@ const Home = () => {
             {trendingNow.length > 0 && (
               <VideoRow
                 title="Trending Now"
-                subtitle="High-energy stories surfacing across the platform right now."
-                eyebrow="Live momentum"
                 accent="fuchsia"
                 videos={trendingNow}
               />

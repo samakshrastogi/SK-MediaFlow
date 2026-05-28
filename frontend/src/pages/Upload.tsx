@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
 import { io } from "socket.io-client"
@@ -7,6 +7,7 @@ import { api } from "@/api/axios"
 import { SOCKET_URL } from "@/config/env"
 import AppLayout from "@/layouts/AppLayout"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
+import { Cloud, Database, FileVideo, UploadCloud } from "lucide-react"
 
 interface Channel {
     id: string
@@ -101,6 +102,7 @@ const syncProcessingState = (item: UploadItem): UploadItem => {
 const Upload = () => {
 
     const navigate = useNavigate()
+    const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     const [channel, setChannel] = useState<Channel | null>(null)
     const [loadingChannel, setLoadingChannel] = useState(true)
@@ -615,53 +617,64 @@ const Upload = () => {
 
         <AppLayout>
 
-            <div className="w-full px-3 sm:px-4 lg:px-6 py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10">
+            <div className="w-full min-w-0 px-1 py-4 sm:px-4 sm:py-8 lg:px-6 lg:py-10 space-y-6 sm:space-y-10">
 
                 {/* HEADER */}
 
-                <div className="flex justify-between items-center">
+                <div className="px-1 py-2 sm:px-2">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+                                <UploadCloud size={13} />
+                                Upload Studio
+                            </div>
+                            <h1 className="break-words text-3xl font-black leading-tight text-white sm:text-4xl">
+                                {channel?.name}
+                            </h1>
 
-                    <div>
-                        <h1 className="text-3xl font-bold">
-                            {channel?.name}
-                        </h1>
+                            <p className="mt-1 text-sm text-gray-400">
+                                @{channel?.username}
+                            </p>
+                        </div>
 
-                        <p className="text-gray-400 text-sm">
-                            @{channel?.username}
-                        </p>
+                        <button
+                            onClick={() => navigate("/s3-import")}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 sm:w-auto sm:px-5"
+                        >
+                            <Database size={16} />
+                            S3 Import
+                        </button>
                     </div>
-
-                    <button
-                        onClick={() => navigate("/s3-import")}
-                        className="rounded-xl bg-cyan-500 px-6 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
-                    >
-                        S3 Import
-                    </button>
-
                 </div>
 
                 {/* DROPZONE */}
 
                 <div
-                    onClick={() => document.getElementById("fileInput")?.click()}
-                    className="
-                    border-2 border-dashed border-white/20
-                    hover:border-purple-500
-                    transition
-                    rounded-[28px]
-                    p-16
-                    text-center
-                    cursor-pointer
-                    bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))]
-                    backdrop-blur-xl
-                    "
+                    onClick={() => fileInputRef.current?.click()}
+                    className="group relative cursor-pointer overflow-hidden rounded-[30px] border border-dashed border-cyan-200/28 bg-white/[0.035] p-6 text-center transition hover:border-cyan-300/50 hover:bg-white/[0.055] sm:p-12"
                 >
-                    <p className="text-gray-300">
-                        Drag & drop videos here or click to upload
-                    </p>
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_32%),linear-gradient(135deg,rgba(168,85,247,0.08),transparent_45%)] opacity-80" />
+                    <div className="relative mx-auto flex max-w-xl flex-col items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition group-hover:scale-105 group-hover:bg-cyan-400/12">
+                            <FileVideo size={28} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-semibold text-white sm:text-2xl">
+                                Drop videos here
+                            </h2>
+                            <p className="mt-2 text-sm leading-6 text-gray-400">
+                                Tap to browse, or drag video files into this area to build your upload queue.
+                            </p>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-medium text-slate-200/80">
+                            <Cloud size={14} />
+                            MP4, MOV, and common video files
+                        </div>
+                    </div>
                 </div>
 
                 <input
+                    ref={fileInputRef}
                     id="fileInput"
                     type="file"
                     accept="video/*"
@@ -781,24 +794,24 @@ const Upload = () => {
 
                 {queue.length > 0 && (
 
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="rounded-[24px] border border-white/10 bg-white/[0.05] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4">
 
                         <button
                             onClick={startUploadQueue}
                             disabled={uploading}
-                            className="rounded-xl bg-cyan-500 px-6 py-3 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
+                            className="w-full rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 sm:w-auto"
                         >
                             {uploading ? "Uploading..." : "Start Uploading"}
                         </button>
 
                         {/* VISIBILITY TOGGLE */}
 
-                        <div className="flex gap-4">
+                        <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-0 sm:flex sm:gap-3">
 
                             <button
                                 onClick={() => setGlobalVisibility("PUBLIC")}
-                                className={`px-4 py-2 rounded-lg text-sm ${globalVisibility === "PUBLIC"
-                                    ? "bg-cyan-500 text-slate-950"
+                                className={`rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "PUBLIC"
+                                    ? "bg-cyan-400 text-slate-950"
                                     : "bg-white/10 text-slate-300"
                                     }`}
                             >
@@ -807,8 +820,8 @@ const Upload = () => {
 
                             <button
                                 onClick={() => setGlobalVisibility("PRIVATE")}
-                                className={`px-4 py-2 rounded-lg text-sm ${globalVisibility === "PRIVATE"
-                                    ? "bg-cyan-500 text-slate-950"
+                                className={`rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "PRIVATE"
+                                    ? "bg-cyan-400 text-slate-950"
                                     : "bg-white/10 text-slate-300"
                                     }`}
                             >
@@ -817,8 +830,8 @@ const Upload = () => {
 
                             <button
                                 onClick={() => setGlobalVisibility("ORGANIZATION")}
-                                className={`px-4 py-2 rounded-lg text-sm ${globalVisibility === "ORGANIZATION"
-                                    ? "bg-cyan-500 text-slate-950"
+                                className={`rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "ORGANIZATION"
+                                    ? "bg-cyan-400 text-slate-950"
                                     : "bg-white/10 text-slate-300"
                                     }`}
                             >
@@ -834,34 +847,34 @@ const Upload = () => {
 
                 {/* QUEUE */}
 
-                <div className="space-y-10">
+                <div className="space-y-6 sm:space-y-10">
 
                     {queue.map((item, index) => (
 
                         <div
                             key={index}
-                            className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl space-y-6"
+                            className="space-y-5 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:space-y-6 sm:rounded-[28px] sm:p-8"
                         >
 
                             {/* VIDEO + PROGRESS */}
                             
 
-                            <div className="flex gap-6 items-start">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
 
                                 {item.thumbnailPreview ? (
                                     <img
                                         src={item.thumbnailPreview}
                                         alt="Thumbnail preview"
-                                        className="w-56 h-32 object-cover rounded-xl"
+                                        className="h-44 w-full rounded-xl object-cover sm:h-32 sm:w-56"
                                     />
                                 ) : (
                                     <video
                                         src={item.preview}
-                                        className="w-56 h-32 object-cover rounded-xl"
+                                        className="h-44 w-full rounded-xl object-cover sm:h-32 sm:w-56"
                                     />
                                 )}
 
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
 
                                     <p className="mb-2 text-sm text-slate-400">
                                         Upload {item.uploadProgress}% • {item.speed.toFixed(2)} MB/s
@@ -926,7 +939,7 @@ const Upload = () => {
                                         Thumbnail
                                     </label>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                                         <button
                                             type="button"
                                             disabled={item.status !== "waiting"}

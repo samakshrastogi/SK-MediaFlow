@@ -183,9 +183,9 @@ const OrganizationPage = () => {
 
     return (
         <AppLayout>
-            <div className="w-full px-2 sm:px-4">
-                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
-                    <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+            <div className="w-full space-y-6 px-2 sm:px-4">
+                <div className="space-y-6">
+                    <div className="px-1 py-2 sm:px-2">
                         <div>
                             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                                 Organization
@@ -202,8 +202,8 @@ const OrganizationPage = () => {
                         )}
                     </div>
 
-                    <div className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
-                        <aside className="border-b border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-6 xl:border-b-0 xl:border-r xl:border-white/10 sm:px-6">
+                    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        <aside className="px-1 py-2 sm:px-2">
                             <div className="space-y-5 xl:sticky xl:top-24">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>

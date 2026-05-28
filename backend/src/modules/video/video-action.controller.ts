@@ -540,6 +540,11 @@ export const handleGetUserPlaylistsWithVideos = async (req: AuthRequest, res: Re
                         video: {
                             include: {
                                 aiData: true,
+                                metadata: {
+                                    select: {
+                                        orientation: true
+                                    }
+                                },
                                 channel: {
                                     select: {
                                         name: true,
@@ -587,7 +592,8 @@ export const handleGetUserPlaylistsWithVideos = async (req: AuthRequest, res: Re
                         uploaderName: v.channel?.user?.name ?? null,
                         channel: { name: v.channel?.name || "Unknown channel" },
                         size: Number(v.size),
-                        createdAt: v.createdAt
+                        createdAt: v.createdAt,
+                        orientation: v.metadata?.orientation ?? null
                     }
                 })
         }))

@@ -111,6 +111,7 @@ const VideoPlayer = () => {
     const [playlists, setPlaylists] = useState<Playlist[]>([])
     const [showPlaylist, setShowPlaylist] = useState(false)
     const [newPlaylistName, setNewPlaylistName] = useState("")
+    const [playlistMessage, setPlaylistMessage] = useState("")
     const [showSharePopup, setShowSharePopup] = useState(false)
     const [descriptionExpanded, setDescriptionExpanded] = useState(false)
     const [descriptionOverflowing, setDescriptionOverflowing] = useState(false)
@@ -125,7 +126,6 @@ const VideoPlayer = () => {
         const nextVideo = toVideoDetail(navigationVideo)
         if (!nextVideo) return
 
-        prefetchMedia(nextVideo.signedUrl)
         setVideo((current) => current?.publicId === publicId ? current : nextVideo)
     }, [navigationVideo, publicId])
 
@@ -205,6 +205,7 @@ const VideoPlayer = () => {
             playlistId
         })
         setShowPlaylist(false)
+        setPlaylistMessage("Video added to playlist.")
     }
 
     const createPlaylist = async () => {
@@ -362,12 +363,6 @@ const VideoPlayer = () => {
     }, [publicId])
 
     useEffect(() => {
-        if (video?.signedUrl) {
-            prefetchMedia(video.signedUrl)
-        }
-    }, [video?.signedUrl])
-
-    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (
                 showPlaylist &&
@@ -391,6 +386,16 @@ const VideoPlayer = () => {
     useEffect(() => {
         setDescriptionExpanded(false)
     }, [video?.publicId])
+
+    useEffect(() => {
+        if (!playlistMessage) return
+
+        const timer = window.setTimeout(() => {
+            setPlaylistMessage("")
+        }, 2200)
+
+        return () => window.clearTimeout(timer)
+    }, [playlistMessage])
 
     const description = video?.aiDescription?.trim() || "No description available."
     const upNext = related.slice(0, 8)
@@ -680,6 +685,11 @@ const VideoPlayer = () => {
                 </aside>
             </div>
             )}
+            {playlistMessage ? (
+                <div className="pointer-events-none fixed left-1/2 top-24 z-[90] w-[calc(100vw-2rem)] max-w-xs -translate-x-1/2 rounded-2xl border border-emerald-300/25 bg-emerald-500/16 px-4 py-3 text-center text-sm font-semibold text-emerald-50 shadow-[0_18px_42px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                    {playlistMessage}
+                </div>
+            ) : null}
             <SharePopup
                 open={showSharePopup}
                 onClose={() => setShowSharePopup(false)}

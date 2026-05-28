@@ -189,7 +189,7 @@ const Topbar = () => {
                     </button>
 
                     {notificationOpen && (
-                        <div className="absolute right-0 mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/85 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                        <div className="fixed left-3 right-3 top-[76px] z-[70] max-h-[min(28rem,calc(100dvh-6rem))] overflow-hidden rounded-3xl border border-white/10 bg-[#0f1424]/95 shadow-[0_24px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[360px]">
                             <div className="border-b border-white/8 px-4 py-3">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -198,22 +198,25 @@ const Topbar = () => {
                                             Latest alerts and activity updates
                                         </p>
                                     </div>
-                                {notifications.length > 0 && unreadCount > 0 && (
-                                    <button
-                                        onClick={markAllRead}
-                                        className="rounded-full border border-white/8 bg-white/6 px-3 py-1 text-[11px] text-purple-100/75 transition hover:bg-white/10"
-                                    >
-                                        Mark all read
-                                    </button>
-                                )}
+                                    {notifications.length > 0 && unreadCount > 0 && (
+                                        <button
+                                            onClick={markAllRead}
+                                            className="shrink-0 rounded-full border border-white/8 bg-white/6 px-3 py-1 text-[11px] text-purple-100/75 transition hover:bg-white/10"
+                                        >
+                                            Mark all read
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="max-h-96 overflow-y-auto p-3">
+                            <div className="max-h-[calc(min(28rem,calc(100dvh-6rem))-4.75rem)] overflow-y-auto p-3">
                                 {notifications.length === 0 ? (
-                                    <div className="rounded-2xl border border-white/8 bg-white/5 px-4 py-6 text-center">
-                                        <p className="text-sm font-medium text-white">No notifications yet</p>
-                                        <p className="mt-1 text-xs text-purple-100/45">
+                                    <div className="rounded-2xl border border-white/8 bg-white/[0.06] px-4 py-8 text-center">
+                                        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/8 text-purple-100">
+                                            <Bell size={18} />
+                                        </div>
+                                        <p className="text-sm font-semibold text-white">No notifications yet</p>
+                                        <p className="mt-1 text-xs text-purple-100/50">
                                             New updates will appear here.
                                         </p>
                                     </div>

@@ -351,8 +351,8 @@ const AdminDashboard = () => {
                 )}
 
                 {metrics && (
-                    <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,24,44,0.94),rgba(10,15,30,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
-                        <div className="border-b border-white/10 px-5 py-4 sm:px-6">
+                    <section className="space-y-6">
+                        <div className="px-1 py-2 sm:px-2">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div className="space-y-1.5">
                                     <div>

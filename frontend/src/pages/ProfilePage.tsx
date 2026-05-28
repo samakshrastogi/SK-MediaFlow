@@ -547,11 +547,11 @@ const ProfilePage = () => {
     ]
 
     const handleUploadHeaderButtonClick = (tabKey: "public" | "private" | "organization") => {
-        const isOnlyPublicTab = availableUploadTabs.length === 1 && availableUploadTabs[0]?.key === "public"
-        if (tabKey === "public" && isOnlyPublicTab && uploadVideos.length === 0) {
+        if (tabKey === "public" && visiblePublicVideos.length === 0) {
             navigate("/upload")
             return
         }
+
         setUploadVisibility(tabKey)
     }
 
@@ -573,26 +573,11 @@ const ProfilePage = () => {
     return (
         <AppLayout>
             <div className="relative isolate min-w-0 space-y-5 pb-8 sm:space-y-8">
-                <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38rem] overflow-hidden sm:h-[52rem]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(147,51,234,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_24%),linear-gradient(180deg,rgba(10,13,30,0.28),rgba(5,7,18,0))]" />
-                    <motion.div
-                        animate={{ x: [0, 18, -6, 0], y: [0, -10, 6, 0] }}
-                        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute left-[8%] top-14 h-72 w-72 rounded-full bg-fuchsia-500/16 blur-[120px]"
-                    />
-                    <motion.div
-                        animate={{ x: [0, -22, 8, 0], y: [0, 10, -8, 0] }}
-                        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute right-[10%] top-10 h-80 w-80 rounded-full bg-sky-500/18 blur-[140px]"
-                    />
-                    <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-                </div>
-
                 <motion.section
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative overflow-hidden rounded-[26px] border border-white/12 bg-[linear-gradient(135deg,rgba(15,19,42,0.9),rgba(19,18,43,0.82)_46%,rgba(36,22,67,0.76))] shadow-[0_30px_120px_rgba(5,8,22,0.45)] sm:rounded-[36px]"
+                    className="relative overflow-hidden"
                 >
                     <motion.div
                         animate={{ scale: [1.02, 1.06, 1.02], x: [0, 8, 0], y: [0, -6, 0] }}
@@ -608,9 +593,8 @@ const ProfilePage = () => {
                             }}
                         />
                     </motion.div>
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,26,0.14),rgba(7,10,24,0.72)_56%,rgba(7,9,18,0.96))]" />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.24),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(192,132,252,0.2),transparent_26%),linear-gradient(120deg,rgba(13,16,31,0.2),rgba(10,14,28,0.84))]" />
-                    <div className="absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent)]" />
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,26,0.06),rgba(7,10,24,0.46)_58%,rgba(7,9,18,0.72))]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.16),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(192,132,252,0.14),transparent_26%)]" />
 
                     <div className="relative z-10 px-4 py-5 sm:px-8 sm:py-10 xl:px-10 xl:py-12">
                         <div className="space-y-5 sm:space-y-6">
@@ -686,7 +670,7 @@ const ProfilePage = () => {
                     </motion.div>
                 ) : null}
 
-                <div className="flex gap-2 overflow-x-auto rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,25,48,0.9),rgba(12,18,35,0.96))] p-2 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-wrap sm:gap-3 sm:overflow-visible sm:rounded-[28px] sm:p-3 [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-2 overflow-x-auto px-1 py-2 [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-wrap sm:gap-3 sm:overflow-visible sm:px-2 [&::-webkit-scrollbar]:hidden">
                     <SectionSwitchButton icon={<Play size={16} />} active={activePanel === "history"} onClick={() => setActivePanel("history")}>
                         Continue Watching
                     </SectionSwitchButton>
@@ -708,9 +692,7 @@ const ProfilePage = () => {
 
                 {activePanel === "history" ? (
                     <SectionShell
-                        eyebrow="Resume lane"
                         title="Continue Watching"
-                        subtitle="Jump back into your recent sessions and keep playback moving without losing your place."
                     >
                         {history.length > 0 ? (
                             <>
@@ -723,10 +705,6 @@ const ProfilePage = () => {
                                             secondaryActionLabel=""
                                         />
                                     ))}
-                                </div>
-                                <div className="mt-4 flex flex-wrap gap-3">
-                                    <Pill icon={<Play size={14} />}>{history.length} titles ready to resume</Pill>
-                                    <Pill icon={<Eye size={14} />}>Watch history synced</Pill>
                                 </div>
                             </>
                         ) : (
@@ -745,20 +723,31 @@ const ProfilePage = () => {
                         title="Your Uploads"
                         subtitle="Manage public, private, and organization content inside a premium media showcase."
                         rightContent={
-                            <div className="flex flex-wrap gap-2">
-                                {availableUploadTabs.map((tab) => (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => handleUploadHeaderButtonClick(tab.key)}
-                                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                                            uploadVisibility === tab.key
-                                                ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
-                                                : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
-                                        }`}
-                                    >
-                                        {tab.label}
-                                    </button>
-                                ))}
+                            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                                {availableUploadTabs.some((tab) => tab.key !== "public") ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableUploadTabs.map((tab) => (
+                                            <button
+                                                key={tab.key}
+                                                onClick={() => handleUploadHeaderButtonClick(tab.key)}
+                                                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                                    uploadVisibility === tab.key
+                                                        ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
+                                                        : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
+                                                }`}
+                                            >
+                                                {tab.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                                <button
+                                    onClick={() => navigate("/upload")}
+                                    className="inline-flex items-center justify-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                                >
+                                    <UploadCloud size={15} />
+                                    Upload Video
+                                </button>
                             </div>
                         }
                     >
@@ -854,9 +843,9 @@ const SectionShell = ({
     sectionRef
 }: {
     children: ReactNode
-    eyebrow: string
+    eyebrow?: string
     title: string
-    subtitle: string
+    subtitle?: string
     rightContent?: ReactNode
     sectionRef?: React.RefObject<HTMLDivElement | null>
 }) => (
@@ -866,13 +855,17 @@ const SectionShell = ({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.6 }}
-        className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,46,0.94),rgba(10,15,30,0.98))] px-4 py-5 shadow-[0_20px_80px_rgba(4,7,20,0.28)] backdrop-blur-2xl sm:rounded-[34px] sm:px-8 sm:py-8"
+        className="px-1 py-3 sm:px-2 sm:py-5"
     >
-        <div className="mb-5 flex flex-col gap-4 border-b border-white/8 pb-5 sm:mb-7 sm:pb-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="mb-5 flex flex-col gap-4 pb-3 sm:mb-7 sm:pb-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/54 sm:text-xs sm:tracking-[0.28em]">{eyebrow}</p>
+                {eyebrow ? (
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/54 sm:text-xs sm:tracking-[0.28em]">{eyebrow}</p>
+                ) : null}
                 <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[2.15rem]">{title}</h2>
-                <p className="max-w-3xl text-sm leading-6 text-slate-300/68 sm:text-base sm:leading-7">{subtitle}</p>
+                {subtitle ? (
+                    <p className="max-w-3xl text-sm leading-6 text-slate-300/68 sm:text-base sm:leading-7">{subtitle}</p>
+                ) : null}
             </div>
             {rightContent}
         </div>
@@ -996,12 +989,17 @@ const ShowcaseVideoCard = ({
     const navigate = useNavigate()
     const targetId = video.publicId ?? String(video.id ?? "")
     const isPortrait = video.orientation === "PORTRAIT"
+    const openVideo = () => {
+        if (!targetId) return
+        navigate(isPortrait ? `/portrait/${targetId}` : `/video/${targetId}`, { state: { video } })
+    }
 
     return (
         <motion.article
             whileHover={{ y: -8, rotateX: 1.5, rotateY: -1.5 }}
             transition={{ type: "spring", stiffness: 220, damping: 22 }}
-            className="group overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_22px_65px_rgba(5,8,20,0.24)] sm:rounded-[30px]"
+            onClick={openVideo}
+            className="group cursor-pointer overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_22px_65px_rgba(5,8,20,0.24)] sm:rounded-[30px]"
             style={{ transformStyle: "preserve-3d", perspective: "1400px" }}
         >
             <div className="relative overflow-hidden">
@@ -1023,7 +1021,22 @@ const ShowcaseVideoCard = ({
 
             <div className="space-y-3 px-4 py-4 sm:space-y-4 sm:px-5 sm:py-5">
                 <div className="space-y-2">
-                    <h3 className="line-clamp-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">{getTitle(video)}</h3>
+                    <div className="flex items-start gap-3">
+                        <h3 className="line-clamp-2 min-w-0 flex-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">{getTitle(video)}</h3>
+                        {onEdit ? (
+                            <button
+                                onClick={(event) => {
+                                    event.stopPropagation()
+                                    onEdit()
+                                }}
+                                aria-label={secondaryActionLabel || "Edit video"}
+                                title={secondaryActionLabel || "Edit video"}
+                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white transition hover:bg-white/[0.1]"
+                            >
+                                <PencilLine size={16} />
+                            </button>
+                        ) : null}
+                    </div>
                     <p className="truncate text-sm text-slate-300/72 sm:text-base">{getChannel(video)}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300/66">
@@ -1036,27 +1049,6 @@ const ShowcaseVideoCard = ({
                         className="h-full rounded-full bg-[linear-gradient(90deg,#67e8f9,#60a5fa,#c084fc)]"
                         style={{ width: `${getProgressValue(video)}%` }}
                     />
-                </div>
-                <div className="flex flex-wrap gap-3 pt-1">
-                    <button
-                        onClick={() => {
-                            if (!targetId) return
-                            navigate(isPortrait ? `/portrait/${targetId}` : `/video/${targetId}`, { state: { video } })
-                        }}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
-                    >
-                        <Play size={16} />
-                        Play
-                    </button>
-                    {onEdit ? (
-                        <button
-                            onClick={onEdit}
-                            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.1]"
-                        >
-                            <PencilLine size={16} />
-                            {secondaryActionLabel || "Edit"}
-                        </button>
-                    ) : null}
                 </div>
             </div>
         </motion.article>

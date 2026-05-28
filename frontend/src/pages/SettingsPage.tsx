@@ -526,13 +526,11 @@ const SettingsPage = () => {
             `}</style>
 
             <motion.div
-                className="relative overflow-hidden rounded-[30px] border border-white/8 bg-[#070b15] pb-5 shadow-[0_30px_90px_rgba(0,0,0,0.4)]"
+                className="relative pb-5"
                 variants={pageTransition}
                 initial="hidden"
                 animate="visible"
             >
-                <CinematicBackdrop />
-
                 <div className="relative z-10 space-y-4 px-3 pt-3 sm:px-5 sm:pt-5">
                     <motion.section variants={cardTransition}>
                         <HeroPanel
@@ -1040,40 +1038,6 @@ const SettingsPage = () => {
         </AppLayout>
     )
 }
-
-const CinematicBackdrop = () => (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-            className="absolute -left-[12%] top-[-18%] h-[38rem] w-[38rem] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.22),transparent_58%)] blur-3xl"
-            style={{ animation: "skfxOrb 16s ease-in-out infinite" }}
-        />
-        <div
-            className="absolute right-[-10%] top-[8%] h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.24),transparent_60%)] blur-3xl"
-            style={{ animation: "skfxOrb 19s ease-in-out infinite reverse" }}
-        />
-        <div
-            className="absolute bottom-[-18%] left-[22%] h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_58%)] blur-3xl"
-            style={{ animation: "skfxOrb 17s ease-in-out infinite" }}
-        />
-        <div
-            className="absolute inset-[-12%] opacity-80"
-            style={{
-                background:
-                    "radial-gradient(circle at 18% 22%, rgba(59,130,246,0.18), transparent 24%), radial-gradient(circle at 78% 14%, rgba(168,85,247,0.16), transparent 22%), radial-gradient(circle at 50% 72%, rgba(14,165,233,0.1), transparent 24%)",
-                animation: "skfxMesh 18s ease-in-out infinite",
-            }}
-        />
-        <div
-            className="absolute inset-0 opacity-[0.08]"
-            style={{
-                backgroundImage:
-                    "radial-gradient(rgba(255,255,255,0.8) 0.6px, transparent 0.8px)",
-                backgroundSize: "20px 20px",
-            }}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,7,14,0.12),rgba(4,7,14,0.48))]" />
-    </div>
-)
 
 const HeroPanel = ({
     userEmail,

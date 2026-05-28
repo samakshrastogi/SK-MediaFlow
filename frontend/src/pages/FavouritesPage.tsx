@@ -81,43 +81,26 @@ const FavouritesPage = () => {
 
     return (
         <AppLayout>
-            <div className="flex h-[calc(100vh-8rem)] min-h-[620px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,#070b18_0%,#0b1020_58%,#090614_100%)] shadow-[0_24px_100px_rgba(3,7,18,0.55)]">
-                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[30px]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,87,255,0.16),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(168,85,247,0.12),transparent_24%),linear-gradient(180deg,transparent,rgba(6,8,18,0.22))]" />
-                    <div className="absolute inset-0 opacity-[0.05] [background-image:radial-gradient(rgba(255,255,255,0.35)_0.8px,transparent_0.8px)] [background-size:22px_22px]" />
-                </div>
-
-                <div className="relative z-10 flex h-full flex-col px-4 py-4 sm:px-6 sm:py-5">
+            <div className="relative flex min-h-[calc(100dvh-5rem)] flex-col md:min-h-[calc(100dvh-7.5rem)]">
+                <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 sm:py-5">
                     <motion.section
                         initial={{ opacity: 0, y: 14 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4 }}
-                        className="w-full rounded-[28px] border border-white/10 bg-white/[0.05] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:px-6"
+                        className="w-full px-1 py-2 sm:px-2"
                     >
                         <div className="space-y-2">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[0.68rem] uppercase tracking-[0.28em] text-slate-300/72">
-                                <Heart size={13} className="text-fuchsia-200" />
-                                Saved
-                            </div>
                             <h1 className="text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl [font-family:'Inter_Tight','Satoshi',sans-serif]">
                                 <span className="bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-transparent">
                                     Favourite Videos
                                 </span>
                             </h1>
-                            <p className="text-sm text-slate-300/68 sm:text-[0.95rem]">
-                                Videos you love, saved in one clean premium library.
-                            </p>
-                            {!loading && videos.length > 0 && (
-                                <p className="text-xs text-slate-400">
-                                    {videos.length} saved videos
-                                </p>
-                            )}
                         </div>
                     </motion.section>
 
                     <div className="mt-4 flex w-full min-h-0 flex-1">
                         <div
-                            className={`w-full min-h-0 rounded-[28px] border border-white/8 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:p-5 ${
+                            className={`w-full min-h-0 p-1 sm:p-2 ${
                                 shouldScroll ? "overflow-y-auto" : "overflow-hidden"
                             }`}
                         >
