@@ -697,43 +697,32 @@ const Upload = () => {
                             </div>
 
                             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
-                                <div className="grid gap-5 md:grid-cols-[1.2fr_0.8fr]">
-                                    <div className="space-y-5">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-200">Channel Name *</label>
-                                            <input
-                                                value={channelNameInput}
-                                                onChange={(e) => setChannelNameInput(e.target.value)}
-                                                placeholder="Enter channel name"
-                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                                            />
-                                            <p className="text-xs text-gray-500">
-                                                Pick a name viewers will recognize easily.
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-200">Channel Description</label>
-                                            <textarea
-                                                rows={4}
-                                                value={channelDescriptionInput}
-                                                onChange={(e) => setChannelDescriptionInput(e.target.value)}
-                                                placeholder="Tell viewers what your channel is about"
-                                                className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                                            />
-                                            <p className="text-xs text-gray-500">
-                                                A short summary helps organize your first uploads.
-                                            </p>
-                                        </div>
+                                <div className="space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-200">Channel Name *</label>
+                                        <input
+                                            value={channelNameInput}
+                                            onChange={(e) => setChannelNameInput(e.target.value)}
+                                            placeholder="Enter channel name"
+                                            className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                                        />
+                                        <p className="text-xs text-gray-500">
+                                            Pick a name viewers will recognize easily.
+                                        </p>
                                     </div>
 
-                                    <div className="rounded-3xl border border-white/8 bg-white/[0.04] p-4">
-                                        <h3 className="text-sm font-semibold text-white">Before you continue</h3>
-                                        <div className="mt-3 space-y-3 text-sm text-gray-400">
-                                            <p>1. Create one channel identity for your uploads.</p>
-                                            <p>2. Add a simple description so your profile looks complete.</p>
-                                            <p>3. After channel setup, you can upload videos or import from S3.</p>
-                                        </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-200">Channel Description</label>
+                                        <textarea
+                                            rows={4}
+                                            value={channelDescriptionInput}
+                                            onChange={(e) => setChannelDescriptionInput(e.target.value)}
+                                            placeholder="Tell viewers what your channel is about"
+                                            className="w-full rounded-2xl border border-white/10 bg-[#0b1120] px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                                        />
+                                        <p className="text-xs text-gray-500">
+                                            A short summary helps organize your first uploads.
+                                        </p>
                                     </div>
                                 </div>
 
