@@ -577,7 +577,7 @@ const ProfilePage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative overflow-hidden"
+                    className="relative overflow-hidden rounded-[28px] sm:rounded-[36px]"
                 >
                     <motion.div
                         animate={{ scale: [1.02, 1.06, 1.02], x: [0, 8, 0], y: [0, -6, 0] }}
@@ -650,14 +650,15 @@ const ProfilePage = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                                {statCards.map((card, index) => (
-                                    <StatCard key={card.label} index={index} icon={card.icon} label={card.label} value={card.value} />
-                                ))}
-                            </div>
                         </div>
                     </div>
                 </motion.section>
+
+                <div className="flex flex-nowrap items-center justify-center gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2 sm:px-2 [&::-webkit-scrollbar]:hidden">
+                    {statCards.map((card, index) => (
+                        <StatCard key={card.label} index={index} label={card.label} value={card.value} />
+                    ))}
+                </div>
 
                 {message ? (
                     <motion.div
@@ -945,12 +946,10 @@ const SectionSwitchButton = ({
 )
 
 const StatCard = ({
-    icon: Icon,
     label,
     value,
     index
 }: {
-    icon: React.ComponentType<{ size?: number; className?: string }>
     label: string
     value: number
     index: number
@@ -959,18 +958,13 @@ const StatCard = ({
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 * index, duration: 0.55 }}
-        whileHover={{ y: -4 }}
-        className="rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035))] p-3 shadow-[0_18px_44px_rgba(5,8,22,0.25)] backdrop-blur-2xl sm:rounded-[28px] sm:p-5"
+        whileHover={{ y: -2 }}
+        className="group shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1.5 backdrop-blur-xl transition hover:border-cyan-200/22 hover:bg-white/[0.085] sm:px-3 sm:py-2"
     >
-        <div className="flex h-full flex-col justify-between gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 space-y-2">
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100/54 sm:text-xs sm:tracking-[0.26em]">{label}</p>
-                <p className="text-4xl font-black leading-none tracking-tight text-white">{value}</p>
-                <p className="mt-1 hidden text-sm text-slate-300/62 sm:block">Cinematic library signal</p>
-            </div>
-            <div className="self-start rounded-xl border border-white/12 bg-white/[0.08] p-2.5 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-2xl sm:p-3">
-                <Icon size={19} />
-            </div>
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+            <p className="whitespace-nowrap text-[0.56rem] font-semibold uppercase tracking-[0.12em] text-cyan-100/62 sm:text-[0.62rem] sm:tracking-[0.16em]">{label}</p>
+            <span className="h-1 w-1 shrink-0 rounded-full bg-cyan-200/60" />
+            <p className="text-base font-black leading-none tracking-tight text-white sm:text-lg">{value}</p>
         </div>
     </motion.div>
 )
@@ -1041,8 +1035,6 @@ const ShowcaseVideoCard = ({
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300/66">
                     <span>{getTimeAgoLabel(video.createdAt)}</span>
-                    <span className="h-1 w-1 rounded-full bg-white/28" />
-                    <span>{video.visibility?.toLowerCase() || "public"} access</span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
                     <div

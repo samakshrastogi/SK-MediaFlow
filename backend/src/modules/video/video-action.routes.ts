@@ -12,6 +12,8 @@ import {
     handleGetVideoActions,
     handleGetPlaylists,
     handleCreatePlaylist,
+    handleDeletePlaylist,
+    handleRemoveVideoFromPlaylist,
     handleGetFavouriteVideos,
     handleGetUserPlaylistsWithVideos,
     handleGetUserActivity
@@ -34,6 +36,10 @@ router.get("/video/:publicId", authenticate, handleGetVideoActions)
 router.get("/playlists", authenticate, handleGetPlaylists)
 
 router.post("/playlists", authenticate, handleCreatePlaylist)
+
+router.delete("/playlists/:playlistId", authenticate, handleDeletePlaylist)
+
+router.delete("/playlists/:playlistId/videos/:publicId", authenticate, handleRemoveVideoFromPlaylist)
 
 router.get("/favorites", authenticate, handleGetFavouriteVideos)
 

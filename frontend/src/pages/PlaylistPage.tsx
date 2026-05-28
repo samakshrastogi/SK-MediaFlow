@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
-import { Clock3, ListVideo, Play, Sparkles } from "lucide-react"
+import { ArrowLeft, ChevronDown, Clock3, ListVideo, Sparkles, Trash2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import AppLayout from "@/layouts/AppLayout"
@@ -45,6 +45,8 @@ const getUpdatedLabel = (playlist: Playlist) => {
 
 const getProgress = (playlist: Playlist) => 18 + (stableHash(`${playlist.name}${playlist.id}`) % 62)
 
+const getVideoKey = (video: Video) => video.publicId ?? video.id ?? ""
+
 const PlaylistPage = () => {
     const navigate = useNavigate()
     const cachedPlaylists = getCachedPageData<Playlist[]>("page:playlists")
@@ -52,6 +54,11 @@ const PlaylistPage = () => {
     const [playlists, setPlaylists] = useState<Playlist[]>(cachedPlaylists || [])
     const [loading, setLoading] = useState(!cachedPlaylists)
     const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
+    const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null)
+    const [deleteMenuOpen, setDeleteMenuOpen] = useState(false)
+    const [selectingVideos, setSelectingVideos] = useState(false)
+    const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(() => new Set())
+    const [message, setMessage] = useState("")
 
     useEffect(() => {
         const fetchPlaylists = async () => {
@@ -83,6 +90,12 @@ const PlaylistPage = () => {
         }
     }, [playlists, selectedPlaylistId])
 
+    useEffect(() => {
+        setDeleteMenuOpen(false)
+        setSelectingVideos(false)
+        setSelectedVideoIds(new Set())
+    }, [selectedPlaylistId])
+
     const openVideo = (video: Video) => {
         const id = video.publicId ?? String(video.id ?? "")
         if (!id) return
@@ -91,6 +104,87 @@ const PlaylistPage = () => {
             state: { video }
         })
     }
+
+    const updatePlaylists = (updater: (current: Playlist[]) => Playlist[]) => {
+        setPlaylists((current) => {
+            const next = updater(current)
+            setCachedPageData("page:playlists", next, 120000)
+            return next
+        })
+    }
+
+    const deletePlaylist = async () => {
+        if (!playlistToDelete) return
+
+        try {
+            await api.delete(`/video-actions/playlists/${playlistToDelete.id}`)
+            updatePlaylists((current) => current.filter((playlist) => playlist.id !== playlistToDelete.id))
+            if (selectedPlaylistId === playlistToDelete.id) {
+                setSelectedPlaylistId(null)
+            }
+            setMessage("Playlist deleted.")
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Failed to delete playlist.")
+        } finally {
+            setPlaylistToDelete(null)
+        }
+    }
+
+    const toggleSelectedVideo = (video: Video) => {
+        const id = getVideoKey(video)
+        if (!id) return
+
+        setSelectedVideoIds((current) => {
+            const next = new Set(current)
+            if (next.has(id)) {
+                next.delete(id)
+            } else {
+                next.add(id)
+            }
+            return next
+        })
+    }
+
+    const removeSelectedVideos = async () => {
+        if (!selectedPlaylist || selectedVideoIds.size === 0) return
+
+        const videosToRemove = selectedPlaylist.videos.filter((video) => selectedVideoIds.has(getVideoKey(video)))
+        if (videosToRemove.length === 0) return
+
+        try {
+            await Promise.all(
+                videosToRemove.map((video) =>
+                    api.delete(`/video-actions/playlists/${selectedPlaylist.id}/videos/${getVideoKey(video)}`)
+                )
+            )
+            const removedIds = new Set(videosToRemove.map(getVideoKey))
+            updatePlaylists((current) =>
+                current.map((playlist) =>
+                    playlist.id === selectedPlaylist.id
+                        ? {
+                            ...playlist,
+                            videos: playlist.videos.filter((video) => !removedIds.has(getVideoKey(video)))
+                        }
+                        : playlist
+                )
+            )
+            setSelectedVideoIds(new Set())
+            setSelectingVideos(false)
+            setMessage(videosToRemove.length === 1 ? "Video removed from playlist." : "Videos removed from playlist.")
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Failed to remove selected videos.")
+        }
+    }
+
+    useEffect(() => {
+        if (!message) return
+
+        const timer = window.setTimeout(() => {
+            setMessage("")
+        }, 2200)
+
+        return () => window.clearTimeout(timer)
+    }, [message])
 
     return (
         <AppLayout>
@@ -157,56 +251,130 @@ const PlaylistPage = () => {
                                         </button>
                                     </div>
                                 </motion.div>
-                            ) : (
-                                <div className="space-y-5">
-                                    {selectedPlaylist ? (
-                                        <motion.section
-                                            initial={{ opacity: 0, y: 12 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.28 }}
-                                            className="overflow-hidden rounded-[24px] border border-cyan-200/16 bg-[linear-gradient(135deg,rgba(34,211,238,0.1),rgba(124,58,237,0.08),rgba(255,255,255,0.035))] shadow-[0_18px_50px_rgba(4,10,24,0.26)]"
-                                        >
-                                            <div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                                <div>
-                                                    <p className="text-xs uppercase tracking-[0.24em] text-cyan-100/62">
-                                                        Selected Playlist
-                                                    </p>
-                                                    <h2 className="mt-1 text-xl font-semibold text-white">
-                                                        {selectedPlaylist.name}
-                                                    </h2>
-                                                    <p className="mt-1 text-sm text-slate-400">
-                                                        Select a video below to start playback.
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-slate-300">
-                                                        {selectedPlaylist.videos.length} videos
-                                                    </span>
-                                                    {selectedPlaylist.videos[0] ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openVideo(selectedPlaylist.videos[0])}
-                                                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100"
-                                                        >
-                                                            <Play size={15} />
-                                                            Play first
-                                                        </button>
-                                                    ) : null}
-                                                </div>
-                                            </div>
+                            ) : selectedPlaylist ? (
+                                <motion.section
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.28 }}
+                                    className="overflow-hidden rounded-[24px] border border-cyan-200/16 bg-[linear-gradient(135deg,rgba(34,211,238,0.1),rgba(124,58,237,0.08),rgba(255,255,255,0.035))] shadow-[0_18px_50px_rgba(4,10,24,0.26)]"
+                                >
+                                    <div className="space-y-4 border-b border-white/8 px-4 py-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedPlaylistId(null)}
+                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-200 transition hover:bg-white/[0.09]"
+                                                aria-label="Back to playlists"
+                                                title="Back"
+                                            >
+                                                <ArrowLeft size={18} />
+                                            </button>
 
-                                            {selectedPlaylist.videos.length === 0 ? (
-                                                <div className="px-4 py-8 text-center text-sm text-slate-400">
-                                                    This playlist has no videos yet.
+                                            <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteMenuOpen((open) => !open)}
+                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-300/20 bg-rose-500/12 text-rose-100 transition hover:bg-rose-500/18"
+                                                aria-label="Open delete menu"
+                                                title="Delete"
+                                            >
+                                                {deleteMenuOpen ? <ChevronDown size={18} className="rotate-180 transition" /> : <Trash2 size={18} />}
+                                            </button>
+
+                                            {deleteMenuOpen ? (
+                                                <div className="absolute right-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-white/12 bg-[#15112d] p-1.5 shadow-[0_18px_44px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDeleteMenuOpen(false)
+                                                            setPlaylistToDelete(selectedPlaylist)
+                                                        }}
+                                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-rose-100 transition hover:bg-rose-500/14"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                        Delete playlist
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDeleteMenuOpen(false)
+                                                            setSelectingVideos(true)
+                                                            setSelectedVideoIds(new Set())
+                                                        }}
+                                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/[0.08]"
+                                                    >
+                                                        <ListVideo size={15} />
+                                                        Select videos
+                                                    </button>
                                                 </div>
-                                            ) : (
-                                                <div className="grid gap-3 p-4 md:grid-cols-2">
-                                                    {selectedPlaylist.videos.map((video) => (
+                                            ) : null}
+                                            </div>
+                                        </div>
+
+                                        <div className="min-w-0">
+                                            <h2 className="truncate text-xl font-semibold text-white">
+                                                {selectedPlaylist.name}
+                                            </h2>
+                                            <p className="mt-1 text-sm text-slate-400">
+                                                {selectedPlaylist.videos.length} videos
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {selectedPlaylist.videos.length === 0 ? (
+                                        <div className="px-4 py-8 text-center text-sm text-slate-400">
+                                            This playlist has no videos yet.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4 p-4">
+                                            {selectingVideos ? (
+                                                <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/16 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <p className="text-sm text-slate-300">
+                                                        Select videos to remove from this playlist.
+                                                    </p>
+                                                    <div className="flex gap-2">
                                                         <button
-                                                            key={video.publicId ?? video.id}
                                                             type="button"
+                                                            onClick={() => {
+                                                                setSelectingVideos(false)
+                                                                setSelectedVideoIds(new Set())
+                                                            }}
+                                                            className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-medium text-white transition hover:bg-white/[0.1]"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void removeSelectedVideos()}
+                                                            disabled={selectedVideoIds.size === 0}
+                                                            className="rounded-full bg-rose-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/45"
+                                                        >
+                                                            Delete selected ({selectedVideoIds.size})
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : null}
+
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                {selectedPlaylist.videos.map((video) => {
+                                                    const videoKey = getVideoKey(video)
+                                                    const checked = selectedVideoIds.has(videoKey)
+
+                                                    return (
+                                                        <div
+                                                            key={videoKey}
+                                                            role="button"
+                                                            tabIndex={0}
                                                             onClick={() => openVideo(video)}
-                                                            className="group flex min-w-0 gap-3 rounded-[18px] border border-white/8 bg-black/18 p-2.5 text-left transition hover:border-cyan-200/24 hover:bg-white/[0.07]"
+                                                            onKeyDown={(event) => {
+                                                                if (event.key === "Enter" || event.key === " ") {
+                                                                    event.preventDefault()
+                                                                    openVideo(video)
+                                                                }
+                                                            }}
+                                                            className={`group flex min-w-0 cursor-pointer gap-3 rounded-[18px] border bg-black/18 p-2.5 text-left transition hover:border-cyan-200/24 hover:bg-white/[0.07] ${
+                                                                checked ? "border-cyan-200/40 ring-1 ring-cyan-200/20" : "border-white/8"
+                                                            }`}
                                                         >
                                                             <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-[14px] bg-white/[0.05] sm:h-24 sm:w-40">
                                                                 <img
@@ -218,9 +386,6 @@ const PlaylistPage = () => {
                                                                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                                                                 />
                                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/48 via-transparent to-transparent" />
-                                                                <span className="absolute bottom-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg">
-                                                                    <Play size={13} className="ml-0.5 fill-current" />
-                                                                </span>
                                                             </div>
 
                                                             <div className="min-w-0 flex-1 py-1">
@@ -234,13 +399,29 @@ const PlaylistPage = () => {
                                                                     {video.orientation === "PORTRAIT" ? "Portrait" : "Video"}
                                                                 </p>
                                                             </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </motion.section>
-                                    ) : null}
 
+                                                            {selectingVideos ? (
+                                                                <label
+                                                                    className="self-start rounded-full border border-white/15 bg-white/[0.08] p-2 transition hover:bg-white/[0.12]"
+                                                                    onClick={(event) => event.stopPropagation()}
+                                                                    title="Select video"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={() => toggleSelectedVideo(video)}
+                                                                        className="h-4 w-4 accent-cyan-300"
+                                                                    />
+                                                                </label>
+                                                            ) : null}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </motion.section>
+                            ) : (
                                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                     {playlists.map((playlist, index) => (
                                         <motion.div
@@ -305,19 +486,7 @@ const PlaylistPage = () => {
                                                         <Clock3 size={13} />
                                                         {getUpdatedLabel(playlist)}
                                                     </span>
-                                                    {playlist.videos[0] && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation()
-                                                                setSelectedPlaylistId(playlist.id)
-                                                            }}
-                                                            className="inline-flex items-center gap-1.5 text-white/85 transition hover:text-white"
-                                                        >
-                                                            <Play size={13} />
-                                                            View
-                                                        </button>
-                                                    )}
+                                                    <span className="text-cyan-100/60">Open playlist</span>
                                                 </div>
 
                                                 <div className="h-1 overflow-hidden rounded-full bg-white/8">
@@ -330,12 +499,42 @@ const PlaylistPage = () => {
                                         </motion.div>
                                     ))}
                                 </div>
-                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+            {message ? (
+                <div className="pointer-events-none fixed left-1/2 top-24 z-[90] w-[calc(100vw-2rem)] max-w-xs -translate-x-1/2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center text-sm font-semibold text-white shadow-[0_18px_42px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                    {message}
+                </div>
+            ) : null}
+            {playlistToDelete ? (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+                    <div className="w-full max-w-sm rounded-[28px] border border-white/12 bg-[#121028] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+                        <p className="text-lg font-semibold">Delete playlist?</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">
+                            This will remove "{playlistToDelete.name}" and all saved videos inside it from your playlist library.
+                        </p>
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPlaylistToDelete(null)}
+                                className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white transition hover:bg-white/[0.1]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void deletePlaylist()}
+                                className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </AppLayout>
     )
 }

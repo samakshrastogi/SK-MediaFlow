@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
 import { io } from "socket.io-client"
@@ -102,7 +102,6 @@ const syncProcessingState = (item: UploadItem): UploadItem => {
 const Upload = () => {
 
     const navigate = useNavigate()
-    const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     const [channel, setChannel] = useState<Channel | null>(null)
     const [loadingChannel, setLoadingChannel] = useState(true)
@@ -649,12 +648,29 @@ const Upload = () => {
 
                 {/* DROPZONE */}
 
-                <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="group relative cursor-pointer overflow-hidden rounded-[30px] border border-dashed border-cyan-200/28 bg-white/[0.035] p-6 text-center transition hover:border-cyan-300/50 hover:bg-white/[0.055] sm:p-12"
+                <label
+                    htmlFor="fileInput"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                        event.preventDefault()
+                        handleFiles(event.dataTransfer.files)
+                    }}
+                    className="group relative block cursor-pointer overflow-hidden rounded-[30px] border border-dashed border-cyan-200/28 bg-white/[0.035] p-6 text-center transition hover:border-cyan-300/50 hover:bg-white/[0.055] sm:p-12"
                 >
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_32%),linear-gradient(135deg,rgba(168,85,247,0.08),transparent_45%)] opacity-80" />
-                    <div className="relative mx-auto flex max-w-xl flex-col items-center gap-4">
+                    <input
+                        id="fileInput"
+                        type="file"
+                        accept="video/*"
+                        multiple
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        aria-label="Choose video files"
+                        onChange={(event) => {
+                            handleFiles(event.target.files)
+                            event.target.value = ""
+                        }}
+                    />
+                    <div className="pointer-events-none relative mx-auto flex max-w-xl flex-col items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition group-hover:scale-105 group-hover:bg-cyan-400/12">
                             <FileVideo size={28} />
                         </div>
@@ -671,17 +687,7 @@ const Upload = () => {
                             MP4, MOV, and common video files
                         </div>
                     </div>
-                </div>
-
-                <input
-                    ref={fileInputRef}
-                    id="fileInput"
-                    type="file"
-                    accept="video/*"
-                    multiple
-                    hidden
-                    onChange={(e) => handleFiles(e.target.files)}
-                />
+                </label>
 
                 {!channel && (
                     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.16),_transparent_28%),rgba(5,3,14,0.82)] px-3 py-4 backdrop-blur-sm sm:px-4">

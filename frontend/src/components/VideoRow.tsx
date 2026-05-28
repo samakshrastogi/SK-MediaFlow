@@ -166,7 +166,7 @@ const HomeVideoCard = ({
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,10,27,0.06),rgba(4,10,27,0.16)_38%,rgba(3,7,20,0.92)_100%)]" />
                     <div className={`absolute inset-0 bg-gradient-to-br ${accentStyles[accent]} opacity-75`} />
 
-                    <div className="absolute right-3 top-3 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100">
+                    <div className="absolute right-3 top-3 rounded-full border border-white/35 bg-black/72 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-md [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">
                         {timeAgo}
                     </div>
 

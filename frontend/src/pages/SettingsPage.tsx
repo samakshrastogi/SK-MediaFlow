@@ -474,7 +474,7 @@ const SettingsPage = () => {
     if (loading) {
         return (
             <AppLayout>
-                <div className="h-52 animate-pulse rounded-[32px] border border-white/10 bg-white/[0.04]" />
+                <div className="h-52 animate-pulse rounded-[32px] border border-white/10 bg-white/[0.03]" />
             </AppLayout>
         )
     }
@@ -743,7 +743,7 @@ const SettingsPage = () => {
                                                     <motion.div
                                                         key={session.id}
                                                         whileHover={{ y: -1 }}
-                                                        className="rounded-xl border border-white/10 bg-black/18 px-3 py-2.5"
+                                                        className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2.5"
                                                     >
                                                         <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
                                                             <div className="min-w-0">
@@ -980,8 +980,7 @@ const SettingsPage = () => {
                             exit={{ opacity: 0, y: 22 }}
                             className="fixed inset-x-0 bottom-20 z-40 px-4 md:bottom-6 md:left-auto md:right-6 md:w-auto md:max-w-lg"
                         >
-                            <div className="overflow-hidden rounded-[24px] border border-white/12 bg-[linear-gradient(145deg,rgba(17,30,59,0.94),rgba(11,17,34,0.96))] p-3.5 shadow-[0_20px_64px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-                                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.18),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(192,132,252,0.12),transparent_28%)]" />
+                            <div className="overflow-hidden rounded-[24px] border border-white/12 bg-white/[0.08] p-3.5 shadow-[0_18px_48px_rgba(73,40,156,0.24)] backdrop-blur-xl">
                                 <div className="relative flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <p className="text-sm font-semibold text-white">Unsaved preference changes</p>
@@ -1058,13 +1057,8 @@ const HeroPanel = ({
 }) => (
     <motion.div
         whileHover={{ y: -3 }}
-        className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(15,22,40,0.68),rgba(10,14,28,0.82))] p-4 shadow-[0_28px_76px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+        className="relative overflow-hidden rounded-[28px] border border-white/10 bg-transparent p-4 shadow-none"
     >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.16),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_28%)]" />
-        <div
-            className="absolute -top-12 left-16 h-28 w-56 rounded-full bg-cyan-400/14 blur-3xl"
-            style={{ animation: "skfxGlow 8s ease-in-out infinite" }}
-        />
         <div
             className="absolute right-8 top-5 h-px w-32 bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent"
             style={{ animation: "skfxFloat 5s ease-in-out infinite" }}
@@ -1108,7 +1102,7 @@ const HeroPanel = ({
                             initial={{ opacity: 0, y: 18 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.15 + index * 0.06, duration: 0.6 }}
-                            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur-xl"
+                            className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
                         >
                             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
                                 {item.label}
@@ -1140,7 +1134,7 @@ const SidebarPanel = ({
     activeSection: (typeof sectionItems)[number]["id"]
     onSelect: (id: (typeof sectionItems)[number]["id"]) => void
 }) => (
-    <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,22,38,0.76),rgba(8,12,23,0.82))] p-2.5 shadow-[0_20px_48px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+    <div className="overflow-hidden rounded-[24px] border border-white/10 bg-transparent p-2.5 shadow-none">
         <p className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
             Navigation
         </p>
@@ -1210,13 +1204,12 @@ const GlassTiltCard = ({
             id={id}
             variants={variants}
             whileHover={{ y: -1 }}
-            className={`relative scroll-mt-24 overflow-hidden rounded-[28px] border p-4 shadow-[0_28px_72px_rgba(0,0,0,0.26)] backdrop-blur-2xl ${
+            className={`relative scroll-mt-24 overflow-hidden rounded-[28px] border p-4 shadow-none ${
                 danger
-                    ? "border-rose-400/16 bg-[linear-gradient(145deg,rgba(56,15,26,0.65),rgba(20,11,17,0.82))]"
-                    : "border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))]"
+                    ? "border-rose-400/18 bg-rose-500/8"
+                    : "border-white/10 bg-transparent"
             }`}
         >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.08),transparent_28%)]" />
             <div className="absolute inset-0 rounded-[28px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" />
             <div className="relative mb-4 flex items-start gap-3">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
@@ -1256,11 +1249,11 @@ const DeviceCard = ({
     return (
         <motion.div
             whileHover={{ y: -1 }}
-            className={`relative overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br ${gradientByIndex[index] || gradientByIndex[0]} p-3.5 shadow-[0_18px_40px_rgba(0,0,0,0.22)]`}
+            className={`relative overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br ${gradientByIndex[index] || gradientByIndex[0]} p-3.5 shadow-[0_16px_34px_rgba(73,40,156,0.18)]`}
         >
             <div className="absolute right-3 top-3 h-16 w-16 rounded-full bg-white/10 blur-2xl" />
             <div className="relative flex items-start justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-black/18 text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.05] text-white">
                     <Icon size={18} />
                 </div>
                 <div className="flex items-center gap-2 rounded-full border border-emerald-300/16 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-medium text-emerald-200">
@@ -1319,9 +1312,9 @@ const FloatingField = ({
         <span
             className={`pointer-events-none absolute left-3.5 z-10 rounded-full px-2 text-[10px] font-medium tracking-[0.12em] text-slate-300/80 transition-all ${
                 value
-                    ? "top-0 -translate-y-1/2 bg-[#0a1020]"
+                    ? "top-0 -translate-y-1/2 bg-transparent"
                     : "top-1/2 -translate-y-1/2 bg-transparent text-slate-400"
-            } group-focus-within:top-0 group-focus-within:-translate-y-1/2 group-focus-within:bg-[#0a1020] group-focus-within:text-cyan-200`}
+            } group-focus-within:top-0 group-focus-within:-translate-y-1/2 group-focus-within:bg-transparent group-focus-within:text-cyan-200`}
         >
             {label}
         </span>
@@ -1353,7 +1346,7 @@ const SelectField = ({
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="mt-1.5 h-11 w-full rounded-lg border border-white/10 bg-[#12192c] px-3 text-sm text-white outline-none transition-all focus:border-cyan-300/40 focus:shadow-[0_0_0_1px_rgba(103,232,249,0.18),0_0_20px_rgba(34,211,238,0.12)]"
+            className="mt-1.5 h-11 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-sm text-white outline-none transition-all focus:border-cyan-300/40 focus:shadow-[0_0_0_1px_rgba(103,232,249,0.18),0_0_20px_rgba(34,211,238,0.12)]"
         >
             {options.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -1377,7 +1370,7 @@ const ToggleRow = ({
 }) => (
     <motion.label
         whileHover={{ y: 0 }}
-        className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-black/18 px-3 py-2.5"
+        className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2.5"
     >
         <div>
             <p className="text-sm font-medium text-white">{label}</p>
@@ -1447,7 +1440,7 @@ const StrengthMeter = ({
     label: string
     color: string
 }) => (
-    <div className="rounded-xl border border-white/10 bg-black/18 px-3 py-2">
+    <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
         <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Strength</span>
             <span className={`text-xs font-semibold ${color}`}>{label}</span>
@@ -1589,13 +1582,13 @@ const ConfirmModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4 backdrop-blur-md"
+        className="fixed inset-0 z-[90] flex items-center justify-center bg-purple-950/70 px-4 backdrop-blur-md"
     >
         <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
-            className="relative w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,23,39,0.92),rgba(9,12,21,0.96))] p-5 shadow-[0_35px_90px_rgba(0,0,0,0.45)]"
+            className="relative w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.08] p-5 shadow-[0_28px_70px_rgba(73,40,156,0.28)] backdrop-blur-xl"
         >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.18),transparent_26%)]" />
             <div className="relative">

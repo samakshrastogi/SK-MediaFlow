@@ -313,11 +313,33 @@ export const handleAddToPlaylist = async (req: AuthRequest, res: Response) => {
         if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
+        const playlist = await prisma.playlist.findFirst({
+            where: {
+                id: String(playlistId),
+                userId: req.user.id
+            },
+            select: { id: true }
+        })
+        if (!playlist) return res.status(404).json({ message: "Playlist not found" })
+
+        const existingAction = await prisma.videoAction.findFirst({
+            where: {
+                userId: req.user.id,
+                videoId: video.id,
+                playlistId: playlist.id,
+                actionType: "ADD_TO_PLAYLIST"
+            },
+            select: { id: true }
+        })
+        if (existingAction) {
+            return res.status(409).json({ message: "Video is already added to this playlist." })
+        }
+
         const action = await prisma.videoAction.create({
             data: {
                 userId: req.user.id,
                 videoId: video.id,
-                playlistId: playlistId ? String(playlistId) : null,
+                playlistId: playlist.id,
                 actionType: "ADD_TO_PLAYLIST"
             }
         })
@@ -359,6 +381,78 @@ export const handleCreatePlaylist = async (req: AuthRequest, res: Response) => {
         return res.json(playlist)
     } catch {
         return res.status(500).json({ message: "Failed to create playlist" })
+    }
+}
+
+export const handleDeletePlaylist = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ message: "Unauthorized" })
+
+        const { playlistId } = req.params
+
+        const playlist = await prisma.playlist.findFirst({
+            where: {
+                id: playlistId,
+                userId: req.user.id
+            },
+            select: { id: true }
+        })
+        if (!playlist) return res.status(404).json({ message: "Playlist not found" })
+
+        await prisma.videoAction.deleteMany({
+            where: {
+                playlistId: playlist.id,
+                actionType: "ADD_TO_PLAYLIST"
+            }
+        })
+
+        await prisma.playlist.delete({
+            where: { id: playlist.id }
+        })
+
+        return res.json({ message: "Playlist deleted." })
+    } catch {
+        return res.status(500).json({ message: "Failed to delete playlist" })
+    }
+}
+
+export const handleRemoveVideoFromPlaylist = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ message: "Unauthorized" })
+
+        const { playlistId, publicId } = req.params
+
+        const playlist = await prisma.playlist.findFirst({
+            where: {
+                id: playlistId,
+                userId: req.user.id
+            },
+            select: { id: true }
+        })
+        if (!playlist) return res.status(404).json({ message: "Playlist not found" })
+
+        const video = await prisma.video.findUnique({
+            where: { publicId },
+            select: { id: true }
+        })
+        if (!video) return res.status(404).json({ message: "Video not found" })
+
+        const result = await prisma.videoAction.deleteMany({
+            where: {
+                userId: req.user.id,
+                videoId: video.id,
+                playlistId: playlist.id,
+                actionType: "ADD_TO_PLAYLIST"
+            }
+        })
+
+        if (result.count === 0) {
+            return res.status(404).json({ message: "Video is not in this playlist" })
+        }
+
+        return res.json({ message: "Video removed from playlist." })
+    } catch {
+        return res.status(500).json({ message: "Failed to remove video from playlist" })
     }
 }
 

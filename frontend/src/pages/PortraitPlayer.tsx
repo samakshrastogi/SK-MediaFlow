@@ -272,13 +272,17 @@ const PortraitPlayer = () => {
     const addVideoToPlaylist = async (playlistId: string) => {
         if (!activeVideo?.publicId) return
 
-        await api.post("/video-actions/playlist", {
-            publicId: activeVideo.publicId,
-            playlistId
-        })
-
-        setShowPlaylist(false)
-        setPlaylistMessage("Video added to playlist.")
+        try {
+            await api.post("/video-actions/playlist", {
+                publicId: activeVideo.publicId,
+                playlistId
+            })
+            setPlaylistMessage("Video added to playlist.")
+        } catch (error) {
+            setPlaylistMessage(error instanceof Error ? error.message : "Failed to add video to playlist.")
+        } finally {
+            setShowPlaylist(false)
+        }
     }
 
     const createPlaylist = async () => {

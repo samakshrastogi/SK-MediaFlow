@@ -200,12 +200,17 @@ const VideoPlayer = () => {
     }
 
     const addVideoToPlaylist = async (playlistId: string) => {
-        await api.post("/video-actions/playlist", {
-            publicId,
-            playlistId
-        })
-        setShowPlaylist(false)
-        setPlaylistMessage("Video added to playlist.")
+        try {
+            await api.post("/video-actions/playlist", {
+                publicId,
+                playlistId
+            })
+            setPlaylistMessage("Video added to playlist.")
+        } catch (error) {
+            setPlaylistMessage(error instanceof Error ? error.message : "Failed to add video to playlist.")
+        } finally {
+            setShowPlaylist(false)
+        }
     }
 
     const createPlaylist = async () => {
