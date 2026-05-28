@@ -675,16 +675,16 @@ const PortraitPlayer = () => {
                                 className="flex h-14 min-w-0 flex-col items-center justify-center rounded-xl bg-purple-600 text-white shadow-md transition hover:bg-purple-500 lg:w-14 lg:flex-none"
                             >
                                 <span className="text-lg">➕</span>
-                                <span className="text-[10px]">Save</span>
+                                <span className="text-[10px]">Playlist</span>
                             </button>
 
                         </div>
 
                         {/* PLAYLIST POPUP */}
                         {showPlaylist && (
-                            <div className="fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-50 overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:left-auto sm:right-4 sm:w-[320px] lg:absolute lg:bottom-auto lg:left-full lg:top-1/2 lg:z-30 lg:mt-0 lg:ml-4 lg:-translate-y-1/2">
+                            <div className="absolute right-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:w-[320px] lg:left-full lg:right-auto lg:top-1/2 lg:z-30 lg:mt-0 lg:ml-4 lg:-translate-y-1/2">
                                 <div className="border-b border-white/10 px-5 py-4">
-                                    <p className="text-[15px] font-semibold">Save video to...</p>
+                                    <p className="text-[15px] font-semibold">Playlist</p>
                                 </div>
 
                                 <div className="max-h-56 overflow-y-auto">

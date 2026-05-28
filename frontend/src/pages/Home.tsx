@@ -535,7 +535,7 @@ const Home = () => {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
-            className="relative"
+            className="relative hidden md:block"
           >
             <HeroCarousel videos={featuredCarouselVideos} />
 
@@ -553,7 +553,7 @@ const Home = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.6 }}
-                className="grid gap-3 px-1 md:grid-cols-3"
+                className="hidden gap-3 px-1 md:grid md:grid-cols-3"
               >
                 <HomePulsePanel
                   title="Watching Now"

@@ -172,6 +172,8 @@ const getMemberSince = (date?: string) => {
     return `Member since ${new Date(date).getFullYear()}`
 }
 
+const normalizeComparableText = (value?: string) => value?.trim().toLowerCase() || ""
+
 const ProfilePage = () => {
     const navigate = useNavigate()
     const { user: authUser, updateUser } = useAuth()
@@ -520,6 +522,8 @@ const ProfilePage = () => {
         if (uploadVisibility === "organization") return visibleOrganizationVideos
         return visiblePublicVideos
     }, [uploadVisibility, visiblePublicVideos, visiblePrivateVideos, visibleOrganizationVideos])
+    const displayName = user?.name || authUser?.name || "SK-MediaFlow Creator"
+    const showChannelPill = Boolean(channelName) && normalizeComparableText(channelName) !== normalizeComparableText(displayName)
 
     const availableUploadTabs = useMemo(() => {
         const tabs: { key: "public" | "private" | "organization"; label: string }[] = []
@@ -555,11 +559,11 @@ const ProfilePage = () => {
         return (
             <AppLayout>
                 <div className="space-y-6">
-                    <div className="h-[34rem] animate-pulse rounded-[36px] border border-white/10 bg-white/6" />
-                    <div className="grid gap-4 lg:grid-cols-3">
-                        <div className="h-40 animate-pulse rounded-[28px] border border-white/10 bg-white/6" />
-                        <div className="h-40 animate-pulse rounded-[28px] border border-white/10 bg-white/6" />
-                        <div className="h-40 animate-pulse rounded-[28px] border border-white/10 bg-white/6" />
+                    <div className="h-[26rem] animate-pulse rounded-[28px] border border-white/10 bg-white/6 sm:h-[34rem] sm:rounded-[36px]" />
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                        <div className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/6 sm:h-40 sm:rounded-[28px]" />
+                        <div className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/6 sm:h-40 sm:rounded-[28px]" />
+                        <div className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/6 sm:h-40 sm:rounded-[28px]" />
                     </div>
                 </div>
             </AppLayout>
@@ -568,8 +572,8 @@ const ProfilePage = () => {
 
     return (
         <AppLayout>
-            <div className="relative isolate space-y-8 pb-8">
-                <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[52rem] overflow-hidden">
+            <div className="relative isolate min-w-0 space-y-5 pb-8 sm:space-y-8">
+                <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38rem] overflow-hidden sm:h-[52rem]">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(147,51,234,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_24%),linear-gradient(180deg,rgba(10,13,30,0.28),rgba(5,7,18,0))]" />
                     <motion.div
                         animate={{ x: [0, 18, -6, 0], y: [0, -10, 6, 0] }}
@@ -588,7 +592,7 @@ const ProfilePage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative overflow-hidden rounded-[36px] border border-white/12 bg-[linear-gradient(135deg,rgba(15,19,42,0.9),rgba(19,18,43,0.82)_46%,rgba(36,22,67,0.76))] shadow-[0_30px_120px_rgba(5,8,22,0.45)]"
+                    className="relative overflow-hidden rounded-[26px] border border-white/12 bg-[linear-gradient(135deg,rgba(15,19,42,0.9),rgba(19,18,43,0.82)_46%,rgba(36,22,67,0.76))] shadow-[0_30px_120px_rgba(5,8,22,0.45)] sm:rounded-[36px]"
                 >
                     <motion.div
                         animate={{ scale: [1.02, 1.06, 1.02], x: [0, 8, 0], y: [0, -6, 0] }}
@@ -608,42 +612,42 @@ const ProfilePage = () => {
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.24),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(192,132,252,0.2),transparent_26%),linear-gradient(120deg,rgba(13,16,31,0.2),rgba(10,14,28,0.84))]" />
                     <div className="absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent)]" />
 
-                    <div className="relative z-10 px-6 py-8 sm:px-8 sm:py-10 xl:px-10 xl:py-12">
-                        <div className="space-y-6">
-                            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                                <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+                    <div className="relative z-10 px-4 py-5 sm:px-8 sm:py-10 xl:px-10 xl:py-12">
+                        <div className="space-y-5 sm:space-y-6">
+                            <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-5">
                                     <motion.div
                                         animate={{ y: [0, -4, 0] }}
                                         transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
-                                        className="relative"
+                                        className="relative self-start sm:self-auto"
                                     >
-                                        <div className="absolute inset-[-12px] rounded-full bg-[conic-gradient(from_0deg,rgba(34,211,238,0.8),rgba(168,85,247,0.86),rgba(56,189,248,0.86),rgba(34,211,238,0.8))] opacity-90 blur-sm" />
-                                        <div className="absolute inset-[-4px] rounded-full border border-white/24" />
+                                        <div className="absolute inset-[-8px] rounded-[2rem] bg-[conic-gradient(from_0deg,rgba(34,211,238,0.72),rgba(168,85,247,0.78),rgba(56,189,248,0.76),rgba(34,211,238,0.72))] opacity-80 blur-sm sm:inset-[-12px] sm:rounded-full" />
+                                        <div className="absolute inset-[-3px] rounded-[1.8rem] border border-white/24 sm:inset-[-4px] sm:rounded-full" />
                                         <div className="relative rounded-full bg-slate-950/70 p-[6px] shadow-[0_18px_45px_rgba(5,8,25,0.52)] backdrop-blur-xl">
                                             <UserAvatar
                                                 name={user?.name || authUser?.name || "User"}
                                                 avatarUrl={user?.avatarUrl}
                                                 avatarKey={user?.avatarKey}
-                                                className="h-28 w-28 border-2 border-white/18 text-3xl sm:h-32 sm:w-32"
+                                                className="h-20 w-20 border-2 border-white/18 text-2xl sm:h-32 sm:w-32 sm:text-3xl"
                                             />
                                         </div>
-                                        <span className="absolute bottom-2 right-2 flex h-5 w-5 rounded-full border-2 border-slate-950 bg-emerald-400 shadow-[0_0_18px_rgba(74,222,128,0.8)]" />
+                                        <span className="absolute bottom-1 right-1 flex h-4 w-4 rounded-full border-2 border-slate-950 bg-emerald-400 shadow-[0_0_18px_rgba(74,222,128,0.8)] sm:bottom-2 sm:right-2 sm:h-5 sm:w-5" />
                                     </motion.div>
 
-                                    <div className="space-y-4">
+                                    <div className="min-w-0 space-y-3 sm:space-y-4">
                                         <motion.h1
                                             initial={{ opacity: 0, y: 16 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.16, duration: 0.7 }}
-                                            className="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-[3.8rem]"
+                                            className="max-w-4xl break-words text-3xl font-black leading-tight tracking-tight text-white sm:text-5xl xl:text-[3.8rem]"
                                         >
                                             <span className="bg-[linear-gradient(135deg,#ffffff_0%,#e0f2fe_28%,#f5d0fe_100%)] bg-clip-text text-transparent">
-                                                {user?.name || authUser?.name || "SK-MediaFlow Creator"}
+                                                {displayName}
                                             </span>
                                         </motion.h1>
-                                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200/74">
+                                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-200/74 sm:gap-3">
                                             <Pill>{getMemberSince(user?.createdAt)}</Pill>
-                                            {channelName && channelName.trim() !== (user?.name || authUser?.name || "").trim() ? (
+                                            {showChannelPill ? (
                                                 <Pill icon={<Sparkles size={14} />}>{channelName}</Pill>
                                             ) : null}
                                             <Pill icon={<Sparkles size={14} />}>Organization</Pill>
@@ -652,7 +656,7 @@ const ProfilePage = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-3 lg:max-w-sm lg:justify-end">
+                                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 lg:max-w-sm lg:justify-end">
                                     <HeroActionButton icon={<Settings2 size={18} />} onClick={() => navigate("/settings")}>
                                         Settings
                                     </HeroActionButton>
@@ -662,7 +666,7 @@ const ProfilePage = () => {
                                 </div>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-3">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-4">
                                 {statCards.map((card, index) => (
                                     <StatCard key={card.label} index={index} icon={card.icon} label={card.label} value={card.value} />
                                 ))}
@@ -682,7 +686,7 @@ const ProfilePage = () => {
                     </motion.div>
                 ) : null}
 
-                <div className="flex flex-wrap gap-3 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,25,48,0.9),rgba(12,18,35,0.96))] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl">
+                <div className="flex gap-2 overflow-x-auto rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,25,48,0.9),rgba(12,18,35,0.96))] p-2 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-wrap sm:gap-3 sm:overflow-visible sm:rounded-[28px] sm:p-3 [&::-webkit-scrollbar]:hidden">
                     <SectionSwitchButton icon={<Play size={16} />} active={activePanel === "history"} onClick={() => setActivePanel("history")}>
                         Continue Watching
                     </SectionSwitchButton>
@@ -862,13 +866,13 @@ const SectionShell = ({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.6 }}
-        className="rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,46,0.94),rgba(10,15,30,0.98))] px-6 py-7 shadow-[0_20px_80px_rgba(4,7,20,0.28)] backdrop-blur-2xl sm:px-8 sm:py-8"
+        className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,46,0.94),rgba(10,15,30,0.98))] px-4 py-5 shadow-[0_20px_80px_rgba(4,7,20,0.28)] backdrop-blur-2xl sm:rounded-[34px] sm:px-8 sm:py-8"
     >
-        <div className="mb-7 flex flex-col gap-4 border-b border-white/8 pb-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="mb-5 flex flex-col gap-4 border-b border-white/8 pb-5 sm:mb-7 sm:pb-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100/54">{eyebrow}</p>
-                <h2 className="text-3xl font-bold tracking-tight text-white sm:text-[2.15rem]">{title}</h2>
-                <p className="max-w-3xl text-base leading-7 text-slate-300/68">{subtitle}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/54 sm:text-xs sm:tracking-[0.28em]">{eyebrow}</p>
+                <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[2.15rem]">{title}</h2>
+                <p className="max-w-3xl text-sm leading-6 text-slate-300/68 sm:text-base sm:leading-7">{subtitle}</p>
             </div>
             {rightContent}
         </div>
@@ -878,7 +882,7 @@ const SectionShell = ({
 
 const Badge = ({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "teal" }) => (
     <span
-        className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] backdrop-blur-xl ${
+        className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] backdrop-blur-xl sm:px-4 sm:py-2 sm:text-xs sm:tracking-[0.28em] ${
             tone === "teal"
                 ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100/84"
                 : "border-white/12 bg-white/8 text-slate-200/74"
@@ -889,7 +893,7 @@ const Badge = ({ children, tone = "default" }: { children: ReactNode; tone?: "de
 )
 
 const Pill = ({ children, icon }: { children: ReactNode; icon?: ReactNode }) => (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-4 py-2 text-sm text-slate-200/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
+    <span className="inline-flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.08] px-3 py-2 text-xs text-slate-100/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:rounded-full sm:px-4 sm:text-sm">
         {icon}
         {children}
     </span>
@@ -910,7 +914,7 @@ const HeroActionButton = ({
         whileHover={{ y: -2, scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
         onClick={onClick}
-        className={`inline-flex items-center gap-3 rounded-full px-5 py-3 text-sm font-semibold transition ${
+        className={`inline-flex min-w-0 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-semibold transition sm:gap-3 sm:rounded-full sm:px-5 sm:py-3 ${
             primary
                 ? "border border-cyan-300/24 bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(168,85,247,0.92))] text-slate-950 shadow-[0_18px_42px_rgba(56,189,248,0.34)]"
                 : "border border-white/12 bg-white/[0.08] text-white shadow-[0_12px_34px_rgba(5,8,22,0.24)] backdrop-blur-xl hover:bg-white/[0.12]"
@@ -936,14 +940,14 @@ const SectionSwitchButton = ({
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.99 }}
         onClick={onClick}
-        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ${
+        className={`inline-flex min-w-fit shrink-0 items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-xs font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition sm:gap-2 sm:rounded-full sm:px-4 sm:text-sm ${
             active
                 ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
                 : "border-white/12 bg-white/[0.08] text-slate-100 hover:bg-white/[0.14]"
         }`}
     >
-        {icon}
-        {children}
+        <span className="shrink-0">{icon}</span>
+        <span className="min-w-0 text-center leading-tight">{children}</span>
     </motion.button>
 )
 
@@ -963,16 +967,16 @@ const StatCard = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 * index, duration: 0.55 }}
         whileHover={{ y: -4 }}
-        className="rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.11),rgba(255,255,255,0.05))] p-5 shadow-[0_18px_44px_rgba(5,8,22,0.25)] backdrop-blur-2xl"
+        className="rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035))] p-3 shadow-[0_18px_44px_rgba(5,8,22,0.25)] backdrop-blur-2xl sm:rounded-[28px] sm:p-5"
     >
-        <div className="flex items-start justify-between gap-3">
-            <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.26em] text-cyan-100/54">{label}</p>
-                <p className="mt-3 text-4xl font-black tracking-tight text-white">{value}</p>
-                <p className="mt-2 text-sm text-slate-300/62">Cinematic library signal</p>
+        <div className="flex h-full flex-col justify-between gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-2">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100/54 sm:text-xs sm:tracking-[0.26em]">{label}</p>
+                <p className="text-4xl font-black leading-none tracking-tight text-white">{value}</p>
+                <p className="mt-1 hidden text-sm text-slate-300/62 sm:block">Cinematic library signal</p>
             </div>
-            <div className="rounded-2xl border border-white/12 bg-white/[0.08] p-3 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <Icon size={20} />
+            <div className="self-start rounded-xl border border-white/12 bg-white/[0.08] p-2.5 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-2xl sm:p-3">
+                <Icon size={19} />
             </div>
         </div>
     </motion.div>
@@ -997,7 +1001,7 @@ const ShowcaseVideoCard = ({
         <motion.article
             whileHover={{ y: -8, rotateX: 1.5, rotateY: -1.5 }}
             transition={{ type: "spring", stiffness: 220, damping: 22 }}
-            className="group overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_22px_65px_rgba(5,8,20,0.24)]"
+            className="group overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_22px_65px_rgba(5,8,20,0.24)] sm:rounded-[30px]"
             style={{ transformStyle: "preserve-3d", perspective: "1400px" }}
         >
             <div className="relative overflow-hidden">
@@ -1007,20 +1011,20 @@ const ShowcaseVideoCard = ({
                     onError={(event) => {
                         event.currentTarget.src = "/placeholder.jpg"
                     }}
-                    className={`w-full object-cover transition-transform duration-700 group-hover:scale-105 ${isPortrait ? "h-[28rem]" : "h-72"}`}
+                    className={`w-full object-cover transition-transform duration-700 group-hover:scale-105 ${isPortrait ? "h-72 sm:h-[28rem]" : "h-52 sm:h-72"}`}
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,8,20,0.04),rgba(6,8,20,0.22)_40%,rgba(5,7,18,0.86))]" />
-                <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
+                <div className="absolute left-3 right-3 top-3 flex items-center justify-between gap-2 sm:left-4 sm:right-4 sm:top-4 sm:gap-3">
                     <Badge tone="teal">{badge}</Badge>
                     <Badge>{getDurationLabel(video)}</Badge>
                 </div>
                 <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(5,7,18,0.94))]" />
             </div>
 
-            <div className="space-y-4 px-5 py-5">
+            <div className="space-y-3 px-4 py-4 sm:space-y-4 sm:px-5 sm:py-5">
                 <div className="space-y-2">
-                    <h3 className="line-clamp-2 text-2xl font-semibold tracking-tight text-white">{getTitle(video)}</h3>
-                    <p className="text-base text-slate-300/72">{getChannel(video)}</p>
+                    <h3 className="line-clamp-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">{getTitle(video)}</h3>
+                    <p className="truncate text-sm text-slate-300/72 sm:text-base">{getChannel(video)}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300/66">
                     <span>{getTimeAgoLabel(video.createdAt)}</span>
@@ -1072,12 +1076,12 @@ const EmptyState = ({
     actionLabel: string
     onAction: () => void
 }) => (
-    <div className="flex min-h-[18rem] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-6 py-10 text-center">
+    <div className="flex min-h-[16rem] flex-col items-center justify-center rounded-[24px] border border-dashed border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-4 py-8 text-center sm:min-h-[18rem] sm:rounded-[28px] sm:px-6 sm:py-10">
         <div className="mb-5 rounded-full border border-white/10 bg-white/[0.07] p-4 text-cyan-100 shadow-[0_0_28px_rgba(56,189,248,0.16)]">
             {icon}
         </div>
-        <h3 className="text-2xl font-semibold text-white">{title}</h3>
-        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300/68">{description}</p>
+        <h3 className="text-xl font-semibold text-white sm:text-2xl">{title}</h3>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300/68 sm:text-base sm:leading-7">{description}</p>
         <button
             onClick={onAction}
             className="mt-6 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/16"
@@ -1114,14 +1118,14 @@ const EditModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-3 py-4 backdrop-blur-lg sm:px-4"
         onClick={onClose}
     >
         <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-4 shadow-[0_24px_80px_rgba(6,8,20,0.34)] sm:p-6"
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[24px] border border-white/14 bg-[linear-gradient(145deg,rgba(92,60,168,0.92),rgba(46,37,96,0.94)_42%,rgba(24,24,45,0.96))] p-4 shadow-[0_24px_80px_rgba(6,8,20,0.34)] sm:rounded-[28px] sm:p-6"
             onClick={(event) => event.stopPropagation()}
         >
             <div className="space-y-6">
@@ -1214,7 +1218,7 @@ const EditModal = ({
                     </Field>
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
+                <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
                     <button
                         onClick={onClose}
                         className="rounded-xl border border-white/10 bg-white/12 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/18"
@@ -1263,18 +1267,18 @@ const EditVideoModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-4 backdrop-blur-lg"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.16),transparent_28%),rgba(10,11,20,0.46)] px-3 py-4 backdrop-blur-lg sm:px-4"
         onClick={onClose}
     >
         <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
-            className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[30px] border border-white/14 bg-[linear-gradient(145deg,rgba(62,37,120,0.94),rgba(26,24,55,0.96)_42%,rgba(15,18,38,0.98))] shadow-[0_26px_90px_rgba(6,8,20,0.4)]"
+            className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[24px] border border-white/14 bg-[linear-gradient(145deg,rgba(62,37,120,0.94),rgba(26,24,55,0.96)_42%,rgba(15,18,38,0.98))] shadow-[0_26px_90px_rgba(6,8,20,0.4)] sm:rounded-[30px]"
             onClick={(event) => event.stopPropagation()}
         >
             <div className="flex flex-col">
-                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
                     <div>
                         <h2 className="text-2xl font-semibold text-white">Edit Video</h2>
                         <p className="mt-1 text-sm text-purple-100/65">
@@ -1290,7 +1294,7 @@ const EditVideoModal = ({
                     </button>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
                     <div className="space-y-5">
                         {confirmDelete ? (
                             <div className="rounded-2xl border border-red-500/22 bg-red-500/10 p-4">
@@ -1410,7 +1414,7 @@ const EditVideoModal = ({
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                     <button
                         onClick={() => setConfirmDelete(true)}
                         className="inline-flex items-center gap-2 rounded-xl border border-red-500/22 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition hover:bg-red-500/18"

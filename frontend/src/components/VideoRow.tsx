@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Play, Sparkles } from "lucide-react"
+import UserAvatar from "@/components/UserAvatar"
 
 export interface Video {
     publicId?: string
@@ -92,14 +93,16 @@ const VideoRow = ({
                 {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
             </div>
 
-            <div className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="grid gap-4 md:flex md:overflow-x-auto md:pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {videos.map((video, index) => {
                     const key = video.publicId || `missing-${index}`
 
                     return (
                         <div
                             key={key}
-                            className={`${isPortraitRow ? "w-[220px] sm:w-[240px]" : "w-[300px] sm:w-[340px]"} shrink-0`}
+                            className={`min-w-0 w-full md:shrink-0 ${
+                                isPortraitRow ? "md:w-[220px] lg:w-[240px]" : "md:w-[300px] lg:w-[340px]"
+                            }`}
                         >
                             <HomeVideoCard video={video} index={index} accent={accent} portrait={isPortraitRow} />
                         </div>
@@ -128,8 +131,8 @@ const HomeVideoCard = ({
         ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}`
         : "/placeholder.jpg"
     const progress = typeof video.progress === "number" ? Math.max(4, Math.min(100, video.progress)) : undefined
-    const quality = index % 3 === 0 ? "4K" : "HD"
     const timeAgo = getTimeAgoLabel(video.createdAt)
+    const channelName = video.channel?.name || video.uploaderName || "SK-MediaFlow Channel"
 
     return (
         <motion.div
@@ -163,15 +166,6 @@ const HomeVideoCard = ({
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,10,27,0.06),rgba(4,10,27,0.16)_38%,rgba(3,7,20,0.92)_100%)]" />
                     <div className={`absolute inset-0 bg-gradient-to-br ${accentStyles[accent]} opacity-75`} />
 
-                    <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/10 bg-black/28 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/92 backdrop-blur-md">
-                            {quality}
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-black/28 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/92 backdrop-blur-md">
-                            {video.duration || (portrait ? "12m" : "24m")}
-                        </span>
-                    </div>
-
                     <div className="absolute right-3 top-3 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100">
                         {timeAgo}
                     </div>
@@ -204,9 +198,17 @@ const HomeVideoCard = ({
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 text-xs text-purple-100/48">
-                        <span className="truncate">{video.channel?.name || video.uploaderName || "SK-MediaFlow Channel"}</span>
-                        <span>{progress ? "Continue" : "Watch now"}</span>
+                    <div className="flex items-center gap-3 text-xs text-purple-100/48">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <UserAvatar
+                                name={channelName}
+                                avatarUrl={video.uploaderAvatarUrl}
+                                avatarKey={video.uploaderAvatarKey}
+                                alt={channelName}
+                                className="h-6 w-6 text-[10px]"
+                            />
+                            <span className="truncate">{channelName}</span>
+                        </div>
                     </div>
                 </div>
             </motion.button>

@@ -98,7 +98,7 @@ const HeroCarousel = ({ videos }: Props) => {
     if (!randomVideos.length) return null
 
     return (
-        <div className="relative space-y-4">
+        <div className="relative hidden space-y-4 md:block">
             <HeroCard
                 key={randomVideos[safeIndex].publicId}
                 video={randomVideos[safeIndex]}

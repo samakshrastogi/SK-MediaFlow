@@ -537,14 +537,13 @@ const VideoPlayer = () => {
                                         onClick={() => setShowPlaylist(!showPlaylist)}
                                         className="inline-flex min-w-0 w-full items-center justify-center gap-1 rounded-xl bg-purple-600 px-2 py-2 text-xs transition hover:bg-purple-700 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
                                     >
-                                        <span className="min-w-0 truncate text-center sm:hidden">Save</span>
-                                        <span className="hidden sm:inline">Save to Playlist</span>
+                                        <span className="min-w-0 truncate text-center">Playlist</span>
                                     </button>
 
                                     {showPlaylist && (
-                                        <div className="absolute inset-x-0 top-full z-30 mt-3 overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:left-auto sm:right-0 sm:w-[320px] lg:left-full lg:right-auto lg:top-1/2 lg:mt-0 lg:ml-3 lg:-translate-y-1/2">
+                                        <div className="absolute right-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-[#2d1f52] via-[#241a46] to-[#17122f] text-white shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:w-[320px] lg:left-full lg:right-auto lg:top-1/2 lg:mt-0 lg:ml-3 lg:-translate-y-1/2">
                                             <div className="border-b border-white/10 px-5 py-4">
-                                                <p className="text-[15px] font-semibold">Save video to...</p>
+                                                <p className="text-[15px] font-semibold">Playlist</p>
                                             </div>
 
                                             <div className="max-h-56 overflow-y-auto">
