@@ -229,14 +229,7 @@ export const handleGetVideos = async (
     res: Response
 ) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: "Unauthorized"
-            })
-        }
-
-        const videos = await getAllVideos(req.user.id)
+        const videos = await getAllVideos(req.user?.id)
 
         return res.json({
             success: true,
@@ -556,14 +549,7 @@ export const handleGetPortraitVideos = async (
     res: Response
 ) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: "Unauthorized"
-            })
-        }
-
-        const videos = await getPortraitVideos(req.user.id)
+        const videos = await getPortraitVideos(req.user?.id)
 
         return res.json({
             success: true,
@@ -710,13 +696,6 @@ export const handleSearchVideos = async (
     res: Response
 ) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: "Unauthorized"
-            })
-        }
-
         const q = String(req.query.q || "").trim()
 
         if (!q) {
@@ -726,7 +705,7 @@ export const handleSearchVideos = async (
             })
         }
 
-        const videos = await searchVideos(q, req.user.id)
+        const videos = await searchVideos(q, req.user?.id)
 
         return res.json({
             success: true,
@@ -809,9 +788,94 @@ export const handleGetUploadSpritesheet = async (
             data
         })
     } catch (error: any) {
+        if (error?.statusCode === 404 && error?.message === "Spritesheet is not ready yet") {
+            return res.status(202).json({
+                success: false,
+                ready: false,
+                message: error.message
+            })
+        }
+
         return res.status(error?.statusCode || 500).json({
             success: false,
             message: error.message || "Failed to fetch spritesheet"
+        })
+    }
+}
+
+export const handleGetUploadProcessingStatus = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized"
+            })
+        }
+
+        const videoId = normalizeId(req.params.videoId)
+        if (!videoId) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid videoId"
+            })
+        }
+
+        const video = await prisma.video.findUnique({
+            where: { id: videoId },
+            select: {
+                thumbnailKey: true,
+                channel: {
+                    select: {
+                        userId: true
+                    }
+                },
+                aiData: {
+                    select: {
+                        status: true
+                    }
+                }
+            }
+        })
+
+        if (!video) {
+            return res.status(404).json({
+                success: false,
+                message: "Video not found"
+            })
+        }
+
+        if (video.channel.userId !== req.user.id) {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied"
+            })
+        }
+
+        const aiStatus = video.aiData?.status || "pending"
+        const thumbnailStatus = video.thumbnailKey ? "completed" : "processing"
+
+        return res.json({
+            success: true,
+            data: {
+                aiStatus,
+                thumbnailStatus,
+                aiProgress:
+                    aiStatus === "completed" || aiStatus === "failed"
+                        ? 100
+                        : aiStatus === "processing"
+                            ? 50
+                            : 10,
+                thumbnailProgress: thumbnailStatus === "completed" ? 100 : 50,
+                thumbnailKey: video.thumbnailKey
+            }
+        })
+    } catch (error: any) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch processing status"
         })
     }
 }

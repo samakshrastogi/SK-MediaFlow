@@ -2,28 +2,35 @@
 import { Queue } from "bullmq"
 import { prisma } from "../config/prisma"
 import { redisConnection } from "../config/redis"
+import { thumbnailQueue } from "../queues/thumbnail.queue"
+import { videoAIQueue } from "../queues/video-ai.queue"
 
 /* ---------------- QUEUES ---------------- */
 
-export const thumbnailQueue = new Queue(
-    "thumbnailQueue",
-    {
-        connection: redisConnection as any,
-        skipVersionCheck: true
+export { thumbnailQueue, videoAIQueue }
+
+const defaultJobOptions = {
+    attempts: 3,
+    backoff: {
+        type: "exponential",
+        delay: 5000
+    },
+    removeOnComplete: {
+        age: 3600,
+        count: 500
+    },
+    removeOnFail: {
+        age: 24 * 3600,
+        count: 1000
     }
-)
-export const videoAIQueue = new Queue(
-    "videoAIQueue",
-    {
-        connection: redisConnection as any,
-        skipVersionCheck: true
-    }
-)
+}
+
 export const videoMetadataQueue = new Queue(
     "videoMetadataQueue",
     {
         connection: redisConnection as any,
-        skipVersionCheck: true
+        skipVersionCheck: true,
+        defaultJobOptions
     }
 )
 
@@ -52,8 +59,7 @@ export const startVideoProcessing = async (videoId: string) => {
         "generateThumbnail",
         { videoId },
         {
-            attempts: 3,
-            backoff: { type: "exponential", delay: 5000 }
+            jobId: `thumbnail-${videoId}`
         }
     )
 
@@ -61,8 +67,7 @@ export const startVideoProcessing = async (videoId: string) => {
         "processVideoAI",
         { videoId },
         {
-            attempts: 3,
-            backoff: { type: "exponential", delay: 5000 }
+            jobId: `video-ai-${videoId}`
         }
     )
 
@@ -71,8 +76,7 @@ export const startVideoProcessing = async (videoId: string) => {
         "extractVideoMetadata",
         { videoId },
         {
-            attempts: 3,
-            backoff: { type: "exponential", delay: 5000 }
+            jobId: `video-metadata-${videoId}`
         }
     )
 }

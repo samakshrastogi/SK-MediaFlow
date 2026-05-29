@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
 import { io } from "socket.io-client"
@@ -44,6 +44,15 @@ interface AIMetadata {
     description?: string | null
     keywords?: string[]
     tags?: string[]
+    status?: string
+}
+
+interface ProcessingStatus {
+    aiStatus?: string
+    thumbnailStatus?: string
+    aiProgress?: number
+    thumbnailProgress?: number
+    thumbnailKey?: string | null
 }
 
 interface UploadItem {
@@ -53,6 +62,8 @@ interface UploadItem {
     thumbnailFile?: File
     thumbnailKey?: string
     spritesheet?: SpritesheetData
+    isLoadingSpritesheet?: boolean
+    spritesheetMessage?: string
     selectedSpriteFrameIndex?: number
     isSavingSpriteSelection?: boolean
     duration: number
@@ -84,6 +95,15 @@ const wait = (ms: number) =>
 const isWorkerFinished = (status: WorkerStatus) =>
     status === "completed" || status === "failed"
 
+const normalizePolledWorkerStatus = (
+    status: string | undefined,
+    fallback: WorkerStatus
+): WorkerStatus => {
+    if (status === "completed" || status === "failed") return status
+    if (status === "processing" || status === "pending") return "processing"
+    return fallback
+}
+
 const syncProcessingState = (item: UploadItem): UploadItem => {
     if (
         item.status === "processing" &&
@@ -112,6 +132,7 @@ const Upload = () => {
     const [channelSuggestions, setChannelSuggestions] = useState<string[]>([])
 
     const [queue, setQueue] = useState<UploadItem[]>([])
+    const queueRef = useRef<UploadItem[]>([])
     const [uploading, setUploading] = useState(false)
     const [globalVisibility, setGlobalVisibility] = useState<"PUBLIC" | "PRIVATE" | "ORGANIZATION">("PUBLIC")
 
@@ -132,21 +153,38 @@ const Upload = () => {
         throw lastError
     }
 
-    const fetchSpritesheetMetadata = async (videoId: string) => {
-        let lastError: unknown = null
+    const fetchSpritesheetMetadata = async (videoId: string): Promise<SpritesheetData | null> => {
+        try {
+            const res = await api.get(`/video/upload/${videoId}/spritesheet`, {
+                validateStatus: (status) => (status >= 200 && status < 300) || status === 202
+            })
 
-        for (let attempt = 0; attempt < 20; attempt++) {
-            try {
-                const res = await api.get(`/video/upload/${videoId}/spritesheet`)
-                return res.data?.data as SpritesheetData
-            } catch (err) {
-                lastError = err
-                await wait(1000)
+            if (res.status === 202 || res.data?.ready === false) {
+                return null
             }
-        }
 
-        throw lastError
+            return res.data?.data as SpritesheetData
+        } catch (err) {
+            if (
+                axios.isAxiosError(err) &&
+                err.response?.status === 404 &&
+                err.response.data?.message === "Spritesheet is not ready yet"
+            ) {
+                return null
+            }
+
+            throw err
+        }
     }
+
+    const fetchProcessingStatus = async (videoId: string): Promise<ProcessingStatus> => {
+        const res = await api.get(`/video/upload/${videoId}/processing-status`)
+        return res.data?.data as ProcessingStatus
+    }
+
+    useEffect(() => {
+        queueRef.current = queue
+    }, [queue])
 
     /* ---------------- SOCKET EVENTS ---------------- */
 
@@ -203,7 +241,11 @@ const Upload = () => {
                     setQueue(prev =>
                         prev.map(item =>
                             String(item.videoId) === String(videoId)
-                                ? { ...item, spritesheet }
+                                ? {
+                                    ...item,
+                                    spritesheet: spritesheet || undefined,
+                                    spritesheetMessage: spritesheet ? undefined : "Spritesheet is still being generated."
+                                }
                                 : item
                         )
                     )
@@ -302,6 +344,113 @@ const Upload = () => {
 
     }, [])
 
+    useEffect(() => {
+        let cancelled = false
+
+        const pollProcessingStatus = async () => {
+            const processingItems = queueRef.current.filter(
+                (item) =>
+                    item.videoId &&
+                    item.status === "processing" &&
+                    (!isWorkerFinished(item.aiStatus) ||
+                        !isWorkerFinished(item.thumbnailStatus))
+            )
+
+            if (!processingItems.length) return
+
+            const results = await Promise.all(
+                processingItems.map(async (item) => {
+                    try {
+                        const status = await fetchProcessingStatus(item.videoId!)
+                        let ai: AIMetadata | null = null
+                        let spritesheet: SpritesheetData | null = null
+
+                        if (
+                            status.aiStatus === "completed" &&
+                            item.aiStatus !== "completed"
+                        ) {
+                            try {
+                                ai = await fetchAIMetadata(item.videoId!)
+                            } catch {
+                            }
+
+                            try {
+                                spritesheet = await fetchSpritesheetMetadata(item.videoId!)
+                            } catch {
+                            }
+                        }
+
+                        return {
+                            videoId: item.videoId,
+                            status,
+                            ai,
+                            spritesheet
+                        }
+                    } catch {
+                        return null
+                    }
+                })
+            )
+
+            if (cancelled) return
+
+            setQueue((prev) =>
+                prev.map((item) => {
+                    const result = results.find(
+                        (entry) => entry?.videoId && String(entry.videoId) === String(item.videoId)
+                    )
+
+                    if (!result) return item
+
+                    const aiStatus = normalizePolledWorkerStatus(
+                        result.status.aiStatus,
+                        item.aiStatus
+                    )
+                    const thumbnailStatus = normalizePolledWorkerStatus(
+                        result.status.thumbnailStatus,
+                        item.thumbnailStatus
+                    )
+
+                    return syncProcessingState({
+                        ...item,
+                        aiStatus,
+                        thumbnailStatus,
+                        aiProgress: Math.max(
+                            item.aiProgress,
+                            Number(result.status.aiProgress) || 0,
+                            aiStatus === "completed" || aiStatus === "failed" ? 100 : 0
+                        ),
+                        thumbnailProgress: Math.max(
+                            item.thumbnailProgress,
+                            Number(result.status.thumbnailProgress) || 0,
+                            thumbnailStatus === "completed" || thumbnailStatus === "failed" ? 100 : 0
+                        ),
+                        thumbnailKey: result.status.thumbnailKey || item.thumbnailKey,
+                        spritesheet: result.spritesheet || item.spritesheet,
+                        spritesheetMessage:
+                            result.spritesheet ? undefined : item.spritesheetMessage,
+                        title:
+                            item.title.trim()
+                                ? item.title
+                                : result.ai?.title ?? item.title,
+                        description:
+                            item.description.trim()
+                                ? item.description
+                                : result.ai?.description ?? item.description,
+                        tags: result.ai?.tags?.join(", ") ?? item.tags
+                    })
+                })
+            )
+        }
+
+        const intervalId = window.setInterval(pollProcessingStatus, 15000)
+
+        return () => {
+            cancelled = true
+            window.clearInterval(intervalId)
+        }
+    }, [])
+
     /* ---------------- FETCH CHANNEL ---------------- */
 
     useEffect(() => {
@@ -349,6 +498,8 @@ const Upload = () => {
                     thumbnailFile: undefined,
                     thumbnailKey: undefined,
                     spritesheet: undefined,
+                    isLoadingSpritesheet: false,
+                    spritesheetMessage: undefined,
                     selectedSpriteFrameIndex: undefined,
                     isSavingSpriteSelection: false,
                     duration: video.duration,
@@ -430,9 +581,21 @@ const Upload = () => {
         if (!item.videoId) return
 
         try {
+            updateItem(index, {
+                isLoadingSpritesheet: true,
+                spritesheetMessage: undefined
+            })
             const spritesheet = await fetchSpritesheetMetadata(item.videoId)
-            updateItem(index, { spritesheet })
+            updateItem(index, {
+                spritesheet: spritesheet || undefined,
+                isLoadingSpritesheet: false,
+                spritesheetMessage: spritesheet ? undefined : "Spritesheet is still being generated."
+            })
         } catch (err) {
+            updateItem(index, {
+                isLoadingSpritesheet: false,
+                spritesheetMessage: "Failed to check spritesheet. Try again in a moment."
+            })
         }
     }
 
@@ -620,31 +783,37 @@ const Upload = () => {
 
                 {/* HEADER */}
 
-                <div className="px-1 py-2 sm:px-2">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
-                                <UploadCloud size={13} />
-                                Upload Studio
+                <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_54px_rgba(4,7,20,0.24)] backdrop-blur-2xl sm:p-5">
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_42%)]" />
+                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/18 bg-cyan-400/12 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                                <UploadCloud size={22} />
                             </div>
-                            <h1 className="break-words text-3xl font-black leading-tight text-white sm:text-4xl">
-                                {channel?.name}
-                            </h1>
 
-                            <p className="mt-1 text-sm text-gray-400">
-                                @{channel?.username}
-                            </p>
+                            <div className="min-w-0">
+                                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/86 sm:text-[11px]">
+                                    Upload Studio
+                                </div>
+                                <h1 className="break-words text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">
+                                    {channel?.name}
+                                </h1>
+
+                                <p className="mt-1 max-w-full truncate text-sm font-medium text-cyan-100/68">
+                                    @{channel?.username}
+                                </p>
+                            </div>
                         </div>
 
                         <button
                             onClick={() => navigate("/s3-import")}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 sm:w-auto sm:px-5"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.24)] transition hover:bg-cyan-300 sm:w-auto sm:px-5"
                         >
-                            <Database size={16} />
+                            <Database size={17} />
                             S3 Import
                         </button>
                     </div>
-                </div>
+                </section>
 
                 {/* DROPZONE */}
 
@@ -1056,14 +1225,15 @@ const Upload = () => {
                                         ) : (
                                             <div className="flex items-center gap-3">
                                                 <p className="text-xs text-slate-400">
-                                                    Spritesheet is not ready yet.
+                                                    {item.spritesheetMessage || "Spritesheet is not ready yet."}
                                                 </p>
                                                 <button
                                                     type="button"
                                                     onClick={() => loadSpritesheetForItem(index)}
+                                                    disabled={item.isLoadingSpritesheet}
                                                     className="rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs text-white transition hover:bg-white/16"
                                                 >
-                                                    Retry load spritesheet
+                                                    {item.isLoadingSpritesheet ? "Checking..." : "Retry load spritesheet"}
                                                 </button>
                                             </div>
                                         )}

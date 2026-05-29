@@ -671,7 +671,7 @@ const ProfilePage = () => {
                     </motion.div>
                 ) : null}
 
-                <div className="flex gap-2 overflow-x-auto px-1 py-2 [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-wrap sm:gap-3 sm:overflow-visible sm:px-2 [&::-webkit-scrollbar]:hidden">
+                <div className="flex flex-wrap gap-2 px-1 py-2 sm:gap-3 sm:px-2">
                     <SectionSwitchButton icon={<Play size={16} />} active={activePanel === "history"} onClick={() => setActivePanel("history")}>
                         Continue Watching
                     </SectionSwitchButton>
@@ -681,8 +681,12 @@ const ProfilePage = () => {
                     }}>
                         Uploads
                     </SectionSwitchButton>
-                    <SectionSwitchButton icon={<Sparkles size={16} />} onClick={() => navigate("/organization")}>
-                        Organization
+                    <span className="basis-full sm:hidden" aria-hidden="true" />
+                    <SectionSwitchButton icon={<ListVideo size={16} />} onClick={() => navigate("/playlists")}>
+                        Playlists
+                    </SectionSwitchButton>
+                    <SectionSwitchButton icon={<Heart size={16} />} onClick={() => navigate("/favorites")}>
+                        Favourites
                     </SectionSwitchButton>
                     {user?.platformAdmin ? (
                         <SectionSwitchButton icon={<Shield size={16} />} onClick={() => navigate("/admin")}>

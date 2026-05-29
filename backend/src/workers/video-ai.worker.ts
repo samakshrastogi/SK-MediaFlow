@@ -15,6 +15,10 @@ import { formatDurationMs } from "../utils/time"
 
 ffmpeg.setFfmpegPath("ffmpeg")
 
+const SHOULD_WRITE_REDIS_PROGRESS = process.env.ENABLE_REDIS_PROGRESS === "true"
+const MIN_REDIS_PROGRESS_STEP = 45
+const MIN_REDIS_PROGRESS_INTERVAL_MS = 30000
+
 const ensureExists = (filePath: string) => {
     if (!fs.existsSync(filePath)) {
         throw new Error(`File not created: ${filePath}`)
@@ -111,8 +115,29 @@ const processVideoAI = async (job: Job) => {
     const { videoId } = job.data
     const startedAt = Date.now()
     logger.info("VIDEO_AI_WORKER", "AI worker started")
-    const updateProgress = async (progress: number) => {
-        await job.updateProgress({ videoId, progress })
+    let lastRedisProgress = -1
+    let lastRedisProgressAt = 0
+
+    const updateProgress = async (progress: number, force = false) => {
+        if (!SHOULD_WRITE_REDIS_PROGRESS) {
+            return
+        }
+
+        const normalizedProgress = Math.max(0, Math.min(100, Math.round(progress)))
+        const now = Date.now()
+        const progressedEnough =
+            lastRedisProgress < 0 ||
+            normalizedProgress - lastRedisProgress >= MIN_REDIS_PROGRESS_STEP
+        const waitedEnough =
+            now - lastRedisProgressAt >= MIN_REDIS_PROGRESS_INTERVAL_MS
+
+        if (!force && normalizedProgress !== 100 && !progressedEnough && !waitedEnough) {
+            return
+        }
+
+        lastRedisProgress = normalizedProgress
+        lastRedisProgressAt = now
+        await job.updateProgress({ videoId, progress: normalizedProgress })
     }
 
     const uniqueId = `${videoId}-${Date.now()}`
@@ -197,7 +222,7 @@ ${shorten(transcript)}
             }
         })
 
-        await updateProgress(100)
+        await updateProgress(100, true)
         logger.info("VIDEO_AI_WORKER", `AI worker finished in ${formatDurationMs(Date.now() - startedAt)}`)
         return { videoId }
 
@@ -225,12 +250,19 @@ const worker = new Worker(
     {
         connection: redisConnection as any,
         skipVersionCheck: true,
-        concurrency: 2
+        concurrency: 1,
+        drainDelay: 60,
+        lockDuration: 10 * 60 * 1000,
+        stalledInterval: 5 * 60 * 1000
     }
 )
 
 worker.on("failed", (job, error) => {
     logger.error("VIDEO_AI_WORKER", "AI worker failed", { error })
+})
+
+worker.on("error", (error) => {
+    logger.error("VIDEO_AI_WORKER", "AI worker Redis error", { error })
 })
 
 export default worker

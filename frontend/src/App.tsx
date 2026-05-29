@@ -31,7 +31,14 @@ function App() {
       <Route path="/oauth-success" element={<OAuthSuccess />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
-      <Route path="/video/:publicId" element={<VideoPlayer />} />
+      <Route
+        path="/video/:publicId"
+        element={
+          <ProtectedRoute>
+            <VideoPlayer />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/portrait/:publicId"
         element={
@@ -48,6 +55,22 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/home"
+        element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <ProtectedRoute>
+            <SearchPage />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         element={
@@ -56,8 +79,6 @@ function App() {
           </ProtectedRoute>
         }
       >
-
-        <Route path="/home" element={<Home />} />
 
         <Route path="/upload" element={<Upload />} />
 
@@ -68,12 +89,13 @@ function App() {
         <Route path="/playlists" element={<PlaylistPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/search" element={<SearchPage />} />
         <Route path="/organization" element={<OrganizationPage />} />
         <Route path="/organization/dashboard" element={<OrganizationDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
 
       </Route>
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
 
     </Routes>
   )

@@ -292,8 +292,7 @@ const buildVisibilityWhere = async (userId?: string) => {
 
     const access = await getOrganizationAccessContext(userId)
 
-    const clauses: any[] = []
-    if (access.canSeePublic) clauses.push({ visibility: "PUBLIC" })
+    const clauses: any[] = [{ visibility: "PUBLIC" }]
     if (access.canSeePrivate) clauses.push({ visibility: "PRIVATE" })
     if (access.canSeeOrganization && access.activeOrganizationId) {
         let adminUserIds: string[] | null = null
@@ -865,13 +864,6 @@ export const getVideoById = async (publicId: string, userId?: string) => {
 
     if (!video) {
         throw new Error("Video not found")
-    }
-
-    if (
-        video.visibility === "PUBLIC" &&
-        !access.canSeePublic
-    ) {
-        throw new Error("Public videos are restricted by your organization policy")
     }
 
     if (

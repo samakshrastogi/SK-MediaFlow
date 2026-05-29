@@ -15,6 +15,7 @@ export const generateMetadataService = async (videoId: string) => {
         description: videoAI.aiDescription,
         keywords: videoAI.keywords,
         tags: videoAI.tags,
+        status: videoAI.status,
     };
 };
 

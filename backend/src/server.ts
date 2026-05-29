@@ -1,11 +1,11 @@
 import http from "http";
 import { Server } from "socket.io";
-import { QueueEvents, Queue } from "bullmq";
+import { QueueEvents } from "bullmq";
 
 import "./config/env";
 import app from "./app";
-import { redisConnection } from "./config/redis";
 import { setSocketServer } from "./services/realtime.service";
+import { logger } from "./utils/logger";
 
 const PORT = process.env.PORT;
 
@@ -27,72 +27,52 @@ io.on("connection", (socket) => {
   });
 });
 
-/* ---------------- QUEUE EVENTS ---------------- */
-
-const queueEvents = new QueueEvents("videoAIQueue", {
-  connection: redisConnection as any
-});
 setSocketServer(io);
-const videoAIQueue = new Queue("videoAIQueue", {
-  connection: redisConnection as any
-});
 
-/* ---------------- PROGRESS EVENT ---------------- */
+if (process.env.ENABLE_REDIS_QUEUE_EVENTS === "true") {
+  const { redisConnection } = require("./config/redis");
+  const queueEvents = new QueueEvents("videoAIQueue", {
+    connection: redisConnection as any
+  });
 
-queueEvents.on("progress", ({ data }) => {
+  queueEvents.on("progress", ({ data }) => {
+    const progress =
+      typeof data === "object" && data !== null && "progress" in data
+        ? (data as any).progress
+        : typeof data === "number"
+          ? data
+          : 0;
 
-  const progress =
-    typeof data === "object" && data !== null && "progress" in data
-      ? (data as any).progress
-      : typeof data === "number"
-        ? data
-        : 0;
-
-  const videoId =
-    typeof data === "object" && data !== null && "videoId" in data
-      ? (data as any).videoId
-      : null;
-
-  if (!videoId) return;
-
-  io.emit("ai-progress", { videoId, progress });
-
-});
-
-/* ---------------- COMPLETED EVENT ---------------- */
-
-queueEvents.on("completed", ({ returnvalue }) => {
-
-  let videoId: string | null = null;
-
-  if (returnvalue && typeof returnvalue === "object") {
-    const data = returnvalue as { videoId?: string };
-
-    if (typeof data.videoId === "string") {
-      videoId = data.videoId;
-    }
-  }
-
-  if (!videoId) return;
-
-  io.emit("ai-completed", { videoId });
-
-});
-
-queueEvents.on("failed", async ({ jobId }) => {
-  if (!jobId) return;
-
-  try {
-    const job = await videoAIQueue.getJob(jobId);
     const videoId =
-      typeof job?.data?.videoId === "string" ? job.data.videoId : null;
+      typeof data === "object" && data !== null && "videoId" in data
+        ? (data as any).videoId
+        : null;
 
     if (!videoId) return;
 
-    io.emit("ai-failed", { videoId });
-  } catch {
-  }
-});
+    io.emit("ai-progress", { videoId, progress });
+  });
+
+  queueEvents.on("completed", ({ returnvalue }) => {
+    let videoId: string | null = null;
+
+    if (returnvalue && typeof returnvalue === "object") {
+      const data = returnvalue as { videoId?: string };
+
+      if (typeof data.videoId === "string") {
+        videoId = data.videoId;
+      }
+    }
+
+    if (!videoId) return;
+
+    io.emit("ai-completed", { videoId });
+  });
+
+  queueEvents.on("error", (error) => {
+    logger.error("QUEUE_EVENTS", "Queue events Redis error", { error });
+  });
+}
 
 /* ---------------- START SERVER ---------------- */
 

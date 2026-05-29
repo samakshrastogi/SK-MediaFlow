@@ -40,10 +40,17 @@ const worker = new Worker(
     {
         connection: redisConnection as any,
         skipVersionCheck: true,
-        concurrency: 5
+        concurrency: 1,
+        drainDelay: 60,
+        lockDuration: 10 * 60 * 1000,
+        stalledInterval: 5 * 60 * 1000
     }
 )
 
 worker.on("failed", (job, error) => {
     logger.error("VIDEO_METADATA_WORKER", "Metadata worker failed", { error })
+})
+
+worker.on("error", (error) => {
+    logger.error("VIDEO_METADATA_WORKER", "Metadata worker Redis error", { error })
 })

@@ -38,6 +38,29 @@ const getThumbnail = (video?: Video) =>
         ? `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}/${video.thumbnailKey}`
         : "/placeholder-thumbnail.png"
 
+const getDescription = (video: Video) => video.aiDescription?.trim() || "No description available."
+
+const getRelativeTime = (date?: string) => {
+    if (!date) return "Recently added"
+
+    const diffInSeconds = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 1000))
+    const units = [
+        { label: "year", value: 60 * 60 * 24 * 365 },
+        { label: "month", value: 60 * 60 * 24 * 30 },
+        { label: "week", value: 60 * 60 * 24 * 7 },
+        { label: "day", value: 60 * 60 * 24 },
+        { label: "hour", value: 60 * 60 },
+        { label: "minute", value: 60 }
+    ]
+
+    for (const unit of units) {
+        const amount = Math.floor(diffInSeconds / unit.value)
+        if (amount > 0) return `${amount} ${unit.label}${amount > 1 ? "s" : ""} ago`
+    }
+
+    return "Just now"
+}
+
 const getUpdatedLabel = (playlist: Playlist) => {
     const hours = (stableHash(`${playlist.id}${playlist.name}`) % 18) + 1
     return `${hours}h ago`
@@ -355,10 +378,11 @@ const PlaylistPage = () => {
                                                 </div>
                                             ) : null}
 
-                                            <div className="grid gap-3 md:grid-cols-2">
+                                            <div className="grid gap-4 xl:grid-cols-2">
                                                 {selectedPlaylist.videos.map((video) => {
                                                     const videoKey = getVideoKey(video)
                                                     const checked = selectedVideoIds.has(videoKey)
+                                                    const channelName = video.channel?.name || video.uploaderName || "Unknown channel"
 
                                                     return (
                                                         <div
@@ -372,11 +396,11 @@ const PlaylistPage = () => {
                                                                     openVideo(video)
                                                                 }
                                                             }}
-                                                            className={`group flex min-w-0 cursor-pointer gap-3 rounded-[18px] border bg-black/18 p-2.5 text-left transition hover:border-cyan-200/24 hover:bg-white/[0.07] ${
+                                                            className={`group flex min-w-0 cursor-pointer flex-col gap-3 rounded-[22px] border bg-black/18 p-3 text-left transition hover:border-cyan-200/24 hover:bg-white/[0.07] sm:flex-row sm:p-3.5 ${
                                                                 checked ? "border-cyan-200/40 ring-1 ring-cyan-200/20" : "border-white/8"
                                                             }`}
                                                         >
-                                                            <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-[14px] bg-white/[0.05] sm:h-24 sm:w-40">
+                                                            <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-[18px] bg-white/[0.05] sm:h-36 sm:w-56">
                                                                 <img
                                                                     src={getThumbnail(video)}
                                                                     alt={getTitle(video)}
@@ -386,18 +410,31 @@ const PlaylistPage = () => {
                                                                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                                                                 />
                                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/48 via-transparent to-transparent" />
+                                                                <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur-md">
+                                                                    {video.orientation === "PORTRAIT" ? "Portrait" : "Video"}
+                                                                </span>
                                                             </div>
 
-                                                            <div className="min-w-0 flex-1 py-1">
-                                                                <p className="line-clamp-2 text-sm font-semibold leading-5 text-white sm:text-base">
+                                                            <div className="min-w-0 flex-1 py-1 sm:py-0">
+                                                                <p className="line-clamp-3 text-base font-semibold leading-6 text-white sm:text-lg">
                                                                     {getTitle(video)}
                                                                 </p>
-                                                                <p className="mt-1 truncate text-xs text-slate-400">
-                                                                    {video.channel?.name || video.uploaderName || "Unknown channel"}
+
+                                                                <p className="mt-2 line-clamp-2 text-sm leading-5 text-slate-300/72">
+                                                                    {getDescription(video)}
                                                                 </p>
-                                                                <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100/54">
-                                                                    {video.orientation === "PORTRAIT" ? "Portrait" : "Video"}
-                                                                </p>
+
+                                                                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                                                                    <span className="max-w-full truncate text-cyan-100/80">
+                                                                        {channelName}
+                                                                    </span>
+                                                                    <span className="h-1 w-1 rounded-full bg-white/25" />
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                        <Clock3 size={12} />
+                                                                        {getRelativeTime(video.createdAt)}
+                                                                    </span>
+                                                                </div>
+
                                                             </div>
 
                                                             {selectingVideos ? (

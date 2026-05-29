@@ -16,7 +16,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 className={`
                     pt-20 sm:pt-22.5
                     px-4 md:px-6 xl:px-8 2xl:px-10
-                    pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-10
+                    pb-[calc(8.5rem+env(safe-area-inset-bottom))]
                     transition-all duration-300
                     ${sidebarOpen ? "md:ml-64" : "md:ml-0"}
                 `}

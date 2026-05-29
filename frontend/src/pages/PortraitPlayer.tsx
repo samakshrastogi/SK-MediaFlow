@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { api } from "@/api/axios"
 import Topbar from "@/components/Topbar"
@@ -44,7 +44,13 @@ interface Playlist {
 const PortraitPlayer = () => {
     const { publicId } = useParams()
     const navigate = useNavigate()
+    const location = useLocation()
     const { user } = useAuth()
+    const requireLogin = () => {
+        if (user) return true
+        navigate("/login", { state: { from: `${location.pathname}${location.search}` } })
+        return false
+    }
 
     const [videos, setVideos] = useState<VideoDetail[]>([])
     const [loading, setLoading] = useState(true)
@@ -161,6 +167,10 @@ const PortraitPlayer = () => {
 
     useEffect(() => {
         const loadPlaylists = async () => {
+            if (!user) {
+                setPlaylists([])
+                return
+            }
             try {
                 const res = await api.get("/video-actions/playlists")
                 setPlaylists(res.data || [])
@@ -169,7 +179,7 @@ const PortraitPlayer = () => {
         }
 
         loadPlaylists()
-    }, [])
+    }, [user])
 
     useEffect(() => {
         if (shouldScroll && commentsRef.current) {
@@ -248,6 +258,7 @@ const PortraitPlayer = () => {
     }
 
     const likeVideo = async () => {
+        if (!requireLogin()) return
         if (!activeVideo?.publicId) return
 
         await api.post("/video-actions/react", {
@@ -259,6 +270,7 @@ const PortraitPlayer = () => {
     }
 
     const dislikeVideo = async () => {
+        if (!requireLogin()) return
         if (!activeVideo?.publicId) return
 
         await api.post("/video-actions/react", {
@@ -270,6 +282,7 @@ const PortraitPlayer = () => {
     }
 
     const addVideoToPlaylist = async (playlistId: string) => {
+        if (!requireLogin()) return
         if (!activeVideo?.publicId) return
 
         try {
@@ -286,6 +299,7 @@ const PortraitPlayer = () => {
     }
 
     const createPlaylist = async () => {
+        if (!requireLogin()) return
         if (!newPlaylistName.trim()) return
 
         const res = await api.post("/video-actions/playlists", {
@@ -297,6 +311,7 @@ const PortraitPlayer = () => {
     }
 
     const submitComment = async () => {
+        if (!requireLogin()) return
         if (!activeVideo?.publicId || !commentInput.trim()) return
 
         await api.post("/video-actions/comment", {
@@ -312,6 +327,7 @@ const PortraitPlayer = () => {
 
     const shareVideo = async (method = "COPY_LINK", targetUrl?: string) => {
         if (!activeVideo?.publicId) return
+        if (!requireLogin()) return
         const videoLink = `${window.location.origin}/portrait/${activeVideo.publicId}`
 
         if (method === "COPY_LINK") {
@@ -340,6 +356,7 @@ const PortraitPlayer = () => {
     }
 
     const toggleSubscribe = async () => {
+        if (!requireLogin()) return
         if (!activeVideo?.publicId) return
         await api.post("/video-actions/subscribe", { publicId: activeVideo.publicId })
         await loadActions(activeVideo.publicId)
@@ -353,7 +370,7 @@ const PortraitPlayer = () => {
     }, [activeVideo?.publicId])
 
     useEffect(() => {
-        if (!activeVideo?.publicId) return
+        if (!activeVideo?.publicId || !user) return
 
         const flushWatch = async (forceSeconds?: number) => {
             const watchedSeconds = Math.floor(forceSeconds ?? watchedBufferRef.current)
@@ -443,7 +460,7 @@ const PortraitPlayer = () => {
             <Topbar />
             <Sidebar />
 
-            <main className="px-3 pt-[76px] pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-4 md:px-6 md:pb-10 xl:px-6 2xl:px-8">
+            <main className="px-3 pt-[76px] pb-[calc(8.5rem+env(safe-area-inset-bottom))] sm:px-4 md:px-6 xl:px-6 2xl:px-8">
                 <div className="grid w-full items-start gap-4 sm:gap-6 xl:gap-8 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)_120px]">
                     <section className="order-3 h-fit space-y-5 rounded-[1.25rem] border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 shadow-lg backdrop-blur-xl sm:rounded-2xl sm:p-5 lg:order-1">
 

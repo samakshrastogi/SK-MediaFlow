@@ -60,17 +60,19 @@ const assertVideoAccess = async (video: any, userId: string) => {
 
 export const handleRecordView = async (req: AuthRequest, res: Response) => {
     try {
-        if (!req.user) return res.status(401).json({ message: "Unauthorized" })
-
         const { publicId } = req.body
         const video = await findVideoByPublicId(publicId)
 
         if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
-        await assertVideoAccess(video, req.user.id)
+        if (req.user) {
+            await assertVideoAccess(video, req.user.id)
+        } else if (video.visibility !== "PUBLIC") {
+            return res.status(401).json({ message: "Login required" })
+        }
 
         const recent = await prisma.videoView.findFirst({
             where: {
-                userId: req.user.id,
+                userId: req.user?.id ?? null,
                 videoId: video.id,
                 createdAt: {
                     gte: new Date(Date.now() - 30 * 1000)
@@ -81,7 +83,7 @@ export const handleRecordView = async (req: AuthRequest, res: Response) => {
         if (!recent) {
             await prisma.videoView.create({
                 data: {
-                    userId: req.user.id,
+                    userId: req.user?.id ?? null,
                     videoId: video.id
                 }
             })
@@ -468,8 +470,11 @@ export const handleGetVideoActions = async (req: AuthRequest, res: Response) => 
             })
         }
 
-        if (!req.user) return res.status(401).json({ message: "Unauthorized" })
-        await assertVideoAccess(video, req.user.id)
+        if (req.user) {
+            await assertVideoAccess(video, req.user.id)
+        } else if (video.visibility !== "PUBLIC") {
+            return res.status(401).json({ message: "Login required" })
+        }
 
         const videoId = video.id
 
@@ -678,6 +683,7 @@ export const handleGetUserPlaylistsWithVideos = async (req: AuthRequest, res: Re
                         publicId: v.publicId,
                         title: v.title,
                         aiTitle: v.aiData?.aiTitle ?? null,
+                        aiDescription: v.aiData?.aiDescription ?? null,
                         thumbnailKey: v.thumbnailKey,
                         uploaderAvatarKey: v.channel?.user?.avatarKey ?? null,
                         uploaderAvatarUrl: v.channel?.user?.avatarKey

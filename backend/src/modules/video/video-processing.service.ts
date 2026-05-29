@@ -16,6 +16,14 @@ import { formatDurationMs } from "../../utils/time"
 const execAsync = promisify(exec)
 const MAX_SPRITE_FRAMES = 120
 const STREAMABLE_EXTENSIONS = new Set([".mp4", ".m4v", ".mov"])
+const RETAIN_COMPLETED_JOBS = {
+    age: 3600,
+    count: 500
+}
+const RETAIN_FAILED_JOBS = {
+    age: 24 * 3600,
+    count: 1000
+}
 
 const optimizeVideoForStreaming = async (
     inputPath: string,
@@ -196,13 +204,14 @@ export const startVideoPostUploadPipeline = async (
             "generateThumbnail",
             { videoId },
             {
+                jobId: `thumbnail-${videoId}`,
                 attempts: 3,
                 backoff: {
                     type: "exponential",
                     delay: 5000
                 },
-                removeOnComplete: true,
-                removeOnFail: false
+                removeOnComplete: RETAIN_COMPLETED_JOBS,
+                removeOnFail: RETAIN_FAILED_JOBS
             }
         )
         if (thumbnailJob.id) {
@@ -214,13 +223,14 @@ export const startVideoPostUploadPipeline = async (
         "processVideoAI",
         { videoId },
         {
+            jobId: `video-ai-${videoId}`,
             attempts: 3,
             backoff: {
                 type: "exponential",
                 delay: 5000
             },
-            removeOnComplete: true,
-            removeOnFail: false
+            removeOnComplete: RETAIN_COMPLETED_JOBS,
+            removeOnFail: RETAIN_FAILED_JOBS
         }
     )
     if (videoAIJob.id) {
@@ -231,13 +241,14 @@ export const startVideoPostUploadPipeline = async (
         "extractVideoMetadata",
         { videoId },
         {
+            jobId: `video-metadata-${videoId}`,
             attempts: 3,
             backoff: {
                 type: "exponential",
                 delay: 5000
             },
-            removeOnComplete: true,
-            removeOnFail: false
+            removeOnComplete: RETAIN_COMPLETED_JOBS,
+            removeOnFail: RETAIN_FAILED_JOBS
         }
     )
     if (metadataJob.id) {

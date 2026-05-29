@@ -110,3 +110,72 @@ export const authenticate = async (
         })
     }
 }
+
+export const optionalAuthenticate = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    const authHeader = req.headers.authorization
+
+    if (!authHeader) {
+        return next()
+    }
+
+    const [scheme, token] = authHeader.split(" ")
+
+    if (scheme !== "Bearer" || !token) {
+        return next()
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET) as unknown as {
+            sub: string
+            email: string
+            loginId?: string
+        }
+
+        const userId = String(decoded.sub || "")
+        if (!MONGO_OBJECT_ID_RE.test(userId)) {
+            return next()
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                isVerified: true,
+                deactivatedAt: true,
+                deletedAt: true,
+            }
+        })
+
+        if (!user?.isVerified || user.deletedAt || user.deactivatedAt) {
+            return next()
+        }
+
+        if (decoded.loginId) {
+            const loginRecord = await prisma.userLogin.findUnique({
+                where: { id: decoded.loginId },
+                select: { userId: true, revokedAt: true },
+            })
+
+            if (
+                !loginRecord ||
+                loginRecord.userId !== userId ||
+                loginRecord.revokedAt
+            ) {
+                return next()
+            }
+        }
+
+        req.user = {
+            id: userId,
+            email: decoded.email,
+            loginId: decoded.loginId,
+        }
+
+        return next()
+    } catch {
+        return next()
+    }
+}

@@ -21,7 +21,8 @@ export const videoAIQueue = new Queue("videoAIQueue", {
         },
 
         removeOnFail: {
-            age: 24 * 3600 // 24 hours
+            age: 24 * 3600, // 24 hours
+            count: 1000
         }
     }
 });

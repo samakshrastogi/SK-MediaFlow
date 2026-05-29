@@ -111,12 +111,25 @@ export const AuthProvider = ({
 
     useEffect(() => {
         const handleAuthExpired = () => {
+            const pathname = window.location.pathname
+            const isPublicRoute =
+                pathname === "/" ||
+                pathname === "/home" ||
+                pathname === "/search" ||
+                pathname === "/login" ||
+                pathname === "/register" ||
+                pathname === "/oauth-success" ||
+                pathname === "/reset-password" ||
+                pathname === "/portrait" ||
+                pathname.startsWith("/video/") ||
+                pathname.startsWith("/portrait/")
+
             clearStoredAuth()
             setToken(null)
             setUser(null)
             setLoginId(null)
 
-            if (window.location.pathname !== "/login") {
+            if (!isPublicRoute) {
                 window.location.href = "/login"
             }
         }

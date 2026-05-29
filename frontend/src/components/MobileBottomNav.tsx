@@ -1,71 +1,31 @@
-import { useEffect, useState } from "react"
-import { Home, Search, Film, Heart, User, Smartphone } from "lucide-react"
+import { Home, Search, UploadCloud, Building2, User } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { api } from "@/api/axios"
-
-let portraitAvailabilityPromise: Promise<boolean> | null = null
-let portraitAvailabilityCache: boolean | null = null
-
-const getPortraitAvailability = async () => {
-    if (portraitAvailabilityCache !== null) return portraitAvailabilityCache
-
-    if (!portraitAvailabilityPromise) {
-        portraitAvailabilityPromise = api.get("/video/portrait")
-            .then((res) => {
-                portraitAvailabilityCache = (res.data?.data || []).length > 0
-                return portraitAvailabilityCache
-            })
-            .catch(() => {
-                portraitAvailabilityCache = false
-                return false
-            })
-            .finally(() => {
-                portraitAvailabilityPromise = null
-            })
-    }
-
-    return portraitAvailabilityPromise
-}
 
 const MobileBottomNav = () => {
     const navigate = useNavigate()
     const location = useLocation()
-    const [hasPortraitVideos, setHasPortraitVideos] = useState(false)
-
-    useEffect(() => {
-        let mounted = true
-        void getPortraitAvailability().then((hasVideos) => {
-            if (mounted) {
-                setHasPortraitVideos(hasVideos)
-            }
-        })
-
-        return () => {
-            mounted = false
-        }
-    }, [])
 
     const items = [
-        { icon: Home, path: "/home" },
-        { icon: Search, path: "/search" },
-        ...(hasPortraitVideos ? [{ icon: Smartphone, path: "/portrait" }] : []),
-        { icon: Film, path: "/playlists" },
-        { icon: Heart, path: "/favorites" },
-        { icon: User, path: "/profile" },
+        { icon: Home, path: "/home", label: "Home" },
+        { icon: Search, path: "/search", label: "Search" },
+        { icon: UploadCloud, path: "/upload", label: "Upload" },
+        { icon: Building2, path: "/organization", label: "Organization" },
+        { icon: User, path: "/profile", label: "Profile" },
     ]
 
     return (
         <div
-            className="fixed bottom-3 left-0 z-40 w-full px-4 md:hidden"
+            className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-0 z-40 w-full px-4"
         >
             <div className="mx-auto flex max-w-sm items-center justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))] px-2 py-2 shadow-[0_22px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
-                {items.map(({ icon: Icon, path }) => {
+                {items.map(({ icon: Icon, path, label }) => {
                     const active = location.pathname === path
 
                     return (
                         <button
                             key={path}
-                            aria-label="h"
+                            aria-label={label}
+                            title={label}
                             onClick={() => navigate(path)}
                             className="flex flex-1 flex-col items-center justify-center py-1"
                         >

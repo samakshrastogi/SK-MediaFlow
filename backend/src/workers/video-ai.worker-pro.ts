@@ -15,6 +15,8 @@ import { emitProcessingEvent } from "../services/realtime.service"
 
 ffmpeg.setFfmpegPath("ffmpeg")
 
+const SHOULD_WRITE_REDIS_PROGRESS = process.env.ENABLE_REDIS_PROGRESS === "true"
+
 const extractAudio = (videoPath: string, audioPath: string): Promise<void> => {
     return new Promise((resolve, reject) => {
         ffmpeg(videoPath)
@@ -69,7 +71,9 @@ const processVideoAI = async (job: Job) => {
     const { videoId } = job.data
 
     const updateProgress = async (progress: number) => {
-        await job.updateProgress({ videoId, progress })
+        if (SHOULD_WRITE_REDIS_PROGRESS) {
+            await job.updateProgress({ videoId, progress })
+        }
         emitProcessingEvent("ai-progress", { videoId, progress })
     }
 
@@ -219,6 +223,9 @@ const worker = new Worker(
         connection: redisConnection as any,
         skipVersionCheck: true,
         concurrency: 1,
+        drainDelay: 60,
+        lockDuration: 10 * 60 * 1000,
+        stalledInterval: 5 * 60 * 1000,
         limiter: {
             max: 10,
             duration: 1000

@@ -1,6 +1,6 @@
 type LogLevel = "INFO" | "WARN" | "ERROR" | "DEBUG"
 const recentMessages = new Map<string, number>()
-const DEDUPE_WINDOW_MS = 4000
+const DEDUPE_WINDOW_MS = 10000
 
 const formatHint = (meta?: Record<string, unknown>) => {
     if (!meta) return ""
@@ -27,7 +27,7 @@ const write = (
     const now = Date.now()
     const lastSeenAt = recentMessages.get(dedupeKey)
 
-    if (level !== "ERROR" && lastSeenAt && now - lastSeenAt < DEDUPE_WINDOW_MS) {
+    if (lastSeenAt && now - lastSeenAt < DEDUPE_WINDOW_MS) {
         return
     }
 

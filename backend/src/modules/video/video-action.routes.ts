@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { authenticate } from "../../middlewares/auth.middleware"
+import { authenticate, optionalAuthenticate } from "../../middlewares/auth.middleware"
 
 import {
     handleRecordView,
@@ -22,7 +22,7 @@ import {
 const router = Router()
 
 router.post("/react", authenticate, handleReaction)
-router.post("/view", authenticate, handleRecordView)
+router.post("/view", optionalAuthenticate, handleRecordView)
 router.post("/watch-progress", authenticate, handleWatchProgress)
 
 router.post("/comment", authenticate, handleComment)
@@ -31,7 +31,7 @@ router.post("/subscribe", authenticate, handleToggleSubscribe)
 
 router.post("/playlist", authenticate, handleAddToPlaylist)
 
-router.get("/video/:publicId", authenticate, handleGetVideoActions)
+router.get("/video/:publicId", optionalAuthenticate, handleGetVideoActions)
 
 router.get("/playlists", authenticate, handleGetPlaylists)
 

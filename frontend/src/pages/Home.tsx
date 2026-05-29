@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { motion } from "framer-motion"
-import { Flame, Radio, Sparkles, TrendingUp } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import { api } from "@/api/axios"
 import AppLayout from "@/layouts/AppLayout"
 import HeroCarousel from "@/components/HeroCarousel"
@@ -489,7 +489,6 @@ const Home = () => {
     [trendingSource, recentlyUploadedSource, popularSource, recommendedSource]
   )
 
-  const heroVideo = trendingNow[0] || recentlyUploaded[0] || popular[0] || videos[0]
   const hasAnyRows =
     !!selectedOrgId ||
     !!continueWatching.length ||
@@ -548,34 +547,6 @@ const Home = () => {
           <SkeletonLoader />
         ) : (
           <div className="space-y-9 pb-10">
-            {heroVideo && (
-              <motion.section
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15, duration: 0.6 }}
-                className="hidden gap-3 px-1 md:grid md:grid-cols-3"
-              >
-                <HomePulsePanel
-                  title="Watching Now"
-                  value={heroVideo.aiTitle || heroVideo.title || "Featured Stream"}
-                  meta="Live hero spotlight is active"
-                  icon={<Radio className="h-4 w-4" />}
-                />
-                <HomePulsePanel
-                  title="Trending Pulse"
-                  value={`${trendingNow.length} active picks`}
-                  meta="Curated from current public streaming shelves"
-                  icon={<TrendingUp className="h-4 w-4" />}
-                />
-                <HomePulsePanel
-                  title="Viewer Atmosphere"
-                  value={`${recentlyUploaded.length} fresh drops`}
-                  meta="Recently uploaded titles shaping the feed"
-                  icon={<Flame className="h-4 w-4" />}
-                />
-              </motion.section>
-            )}
-
             {selectedOrgId && (
               <VideoRow
                 title={selectedOrgName ? `${selectedOrgName} Videos` : "Organization Videos"}
@@ -738,32 +709,5 @@ const SkeletonLoader = () => {
     </div>
   )
 }
-
-const HomePulsePanel = ({
-  title,
-  value,
-  meta,
-  icon
-}: {
-  title: string
-  value: string
-  meta: string
-  icon: ReactNode
-}) => (
-  <motion.div
-    whileHover={{ y: -6, rotateX: 5, rotateY: -5 }}
-    transition={{ type: "spring", stiffness: 220, damping: 18 }}
-    className="rounded-[24px] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_48px_rgba(0,0,0,0.16)] backdrop-blur-xl"
-  >
-    <div className="flex items-center justify-between">
-      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-100/55">{title}</p>
-      <div className="rounded-2xl border border-white/10 bg-black/18 p-2 text-cyan-100">
-        {icon}
-      </div>
-    </div>
-    <p className="mt-3 text-lg font-semibold text-white">{value}</p>
-    <p className="mt-1 text-sm text-purple-100/55">{meta}</p>
-  </motion.div>
-)
 
 export default Home

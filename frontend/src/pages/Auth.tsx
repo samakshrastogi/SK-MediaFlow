@@ -139,6 +139,10 @@ const Auth = () => {
     };
 
     const passwordStrength = getPasswordStrength(password);
+    const showPasswordStrength =
+        mode === "register" &&
+        password.length > 0 &&
+        password !== confirmPassword
     const passwordChecks = [
         { label: "At least 8 characters", ok: password.length >= 8 },
         { label: "Uppercase letter", ok: /[A-Z]/.test(password) },
@@ -389,13 +393,13 @@ const Auth = () => {
             </div>
 
             {/* RIGHT AUTH CARD */}
-            <div className="flex flex-1 items-center justify-center p-8">
+            <div className="flex flex-1 items-center justify-center px-4 py-6 sm:p-8">
 
-                <div className="w-full max-w-lg p-10 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+                <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:p-8 lg:p-10">
 
                     {/* Header */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
+                    <div className="mb-6 text-center sm:mb-8">
+                        <h1 className="text-4xl font-extrabold leading-tight bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent sm:text-5xl lg:text-4xl">
                             SK-MediaFlow
                         </h1>
                         <p className="text-gray-400 mt-2 text-sm">
@@ -404,7 +408,7 @@ const Auth = () => {
                     </div>
 
                     {/* Toggle */}
-                    <div className="relative flex bg-black/40 rounded-xl p-1 mb-6">
+                    <div className="relative mb-5 flex rounded-xl bg-black/40 p-1 sm:mb-6">
 
                         <div
                             className={`absolute top-1 bottom-1 w-1/2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 transition-all duration-300 ${mode === "login" ? "left-1" : "left-1/2"
@@ -482,7 +486,7 @@ const Auth = () => {
                     )}
 
                     {step === "form" ? (
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
 
                             {/* FULL NAME (REGISTER ONLY) */}
                             {mode === "register" && (
@@ -509,10 +513,10 @@ const Auth = () => {
                             />
 
                             {/* PASSWORD ROW */}
-                            <div className={`${mode === "register" ? "flex gap-4" : ""}`}>
+                            <div className={`${mode === "register" ? "grid gap-4 sm:grid-cols-2" : ""}`}>
 
                                 {/* PASSWORD */}
-                                <div className={`relative ${mode === "register" ? "w-1/2" : "w-full"}`}>
+                                <div className="relative w-full">
                                     <input
                                         type={
                                             mode === "register"
@@ -548,7 +552,7 @@ const Auth = () => {
 
                                 {/* CONFIRM PASSWORD */}
                                 {mode === "register" && (
-                                    <div className="relative w-1/2">
+                                    <div className="relative w-full">
                                         <input
                                             type={showConfirmPassword ? "text" : "password"}
                                             placeholder="Confirm Password"
@@ -576,9 +580,9 @@ const Auth = () => {
                                 </div>
                             )}
 
-                            {mode === "register" && (
-                                <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <div className="flex items-center justify-between text-sm">
+                            {showPasswordStrength && (
+                                <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                                    <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                                         <span className="text-gray-300">Password strength</span>
                                         <span className={passwordStrength.color}>
                                             {passwordStrength.label}
@@ -600,7 +604,7 @@ const Auth = () => {
                                             />
                                         ))}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
+                                    <div className="grid gap-2 text-xs text-gray-400 sm:grid-cols-2">
                                         {passwordChecks.map((item) => (
                                             <div
                                                 key={item.label}

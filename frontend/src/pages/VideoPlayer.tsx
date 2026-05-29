@@ -94,6 +94,11 @@ const VideoPlayer = () => {
 
     const { user } = useAuth()
     const currentUsername = user?.username
+    const requireLogin = () => {
+        if (user) return true
+        navigate("/login", { state: { from: `${location.pathname}${location.search}` } })
+        return false
+    }
 
     const [video, setVideo] = useState<VideoDetail | null>(() => toVideoDetail(navigationVideo))
     const [related, setRelated] = useState<RelatedVideo[]>([])
@@ -179,11 +184,16 @@ const VideoPlayer = () => {
     }
 
     const loadPlaylists = async () => {
+        if (!user) {
+            setPlaylists([])
+            return
+        }
         const res = await api.get("/video-actions/playlists")
         setPlaylists(res.data)
     }
 
     const likeVideo = async () => {
+        if (!requireLogin()) return
         await api.post("/video-actions/react", {
             publicId,
             type: "LIKE"
@@ -192,6 +202,7 @@ const VideoPlayer = () => {
     }
 
     const dislikeVideo = async () => {
+        if (!requireLogin()) return
         await api.post("/video-actions/react", {
             publicId,
             type: "DISLIKE"
@@ -200,6 +211,7 @@ const VideoPlayer = () => {
     }
 
     const addVideoToPlaylist = async (playlistId: string) => {
+        if (!requireLogin()) return
         try {
             await api.post("/video-actions/playlist", {
                 publicId,
@@ -214,6 +226,7 @@ const VideoPlayer = () => {
     }
 
     const createPlaylist = async () => {
+        if (!requireLogin()) return
         if (!newPlaylistName.trim()) return
 
         const res = await api.post("/video-actions/playlists", {
@@ -225,6 +238,7 @@ const VideoPlayer = () => {
     }
 
     const submitComment = async () => {
+        if (!requireLogin()) return
         if (!commentInput.trim()) return
 
         await api.post("/video-actions/comment", {
@@ -240,6 +254,7 @@ const VideoPlayer = () => {
 
     const shareVideo = async (method = "COPY_LINK", targetUrl?: string) => {
         if (!publicId || !video) return
+        if (!requireLogin()) return
 
         const videoLink = `${window.location.origin}/video/${publicId}`
 
@@ -266,6 +281,7 @@ const VideoPlayer = () => {
     }
 
     const toggleSubscribe = async () => {
+        if (!requireLogin()) return
         if (!publicId) return
 
         await api.post("/video-actions/subscribe", { publicId })
@@ -319,7 +335,7 @@ const VideoPlayer = () => {
     }, [publicId])
 
     useEffect(() => {
-        if (!publicId) return
+        if (!publicId || !user) return
 
         const flushWatch = async (forceSeconds?: number) => {
             const watchedSeconds = Math.floor(forceSeconds ?? watchedBufferRef.current)

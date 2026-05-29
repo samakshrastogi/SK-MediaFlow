@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { authenticate } from "../../middlewares/auth.middleware"
+import { authenticate, optionalAuthenticate } from "../../middlewares/auth.middleware"
 
 import {
     getPresignedUrl,
@@ -17,6 +17,7 @@ import {
     handleGetChannelPrivateVideos,
     handleGetChannelOrganizationVideos,
     handleGetUploadSpritesheet,
+    handleGetUploadProcessingStatus,
     handleSaveThumbnailFromSpritesheet,
     handleUpdateOwnedVideo,
     handleDeleteOwnedVideo
@@ -34,6 +35,7 @@ const router = Router()
 router.post("/upload/presign", authenticate, getPresignedUrl)
 router.post("/upload/thumbnail-presign", authenticate, getThumbnailPresignedUrl)
 router.post("/upload/complete", authenticate, finishUpload)
+router.get("/upload/:videoId/processing-status", authenticate, handleGetUploadProcessingStatus)
 router.get("/upload/:videoId/spritesheet", authenticate, handleGetUploadSpritesheet)
 router.post("/upload/:videoId/spritesheet/select-thumbnail", authenticate, handleSaveThumbnailFromSpritesheet)
 
@@ -46,10 +48,10 @@ router.get("/s3/buckets/:id/scan", authenticate, scanBucket)
 router.post("/s3/import", authenticate, importVideo)
 
 router.get("/ai-insights", authenticate, handleGetAIInsights)
-router.get("/search", authenticate, handleSearchVideos)
+router.get("/search", optionalAuthenticate, handleSearchVideos)
 
-router.get("/", authenticate, handleGetVideos)
-router.get("/portrait", authenticate, handleGetPortraitVideos)
+router.get("/", optionalAuthenticate, handleGetVideos)
+router.get("/portrait", optionalAuthenticate, handleGetPortraitVideos)
 router.get("/organization/:organizationId", authenticate, handleGetOrganizationRowVideos)
 
 router.get("/channel/:channelId/public", handleGetChannelPublicVideos)
@@ -68,5 +70,5 @@ router.patch("/:publicId", authenticate, handleUpdateOwnedVideo)
 router.delete("/:publicId", authenticate, handleDeleteOwnedVideo)
 
 // ✅ KEEP THIS LAST (VERY IMPORTANT)
-router.get("/:publicId", authenticate, handleGetVideoById)
+router.get("/:publicId", optionalAuthenticate, handleGetVideoById)
 export default router

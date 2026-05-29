@@ -6,14 +6,43 @@ import { emitProcessingEvent } from "../services/realtime.service"
 import { logger } from "../utils/logger"
 import { formatDurationMs } from "../utils/time"
 
+const SHOULD_WRITE_REDIS_PROGRESS = process.env.ENABLE_REDIS_PROGRESS === "true"
+const MIN_REDIS_PROGRESS_STEP = 45
+const MIN_REDIS_PROGRESS_INTERVAL_MS = 30000
+
 const worker = new Worker(
     "thumbnailQueue",
     async (job) => {
         const { videoId } = job.data
         const startedAt = Date.now()
+        let lastRedisProgress = -1
+        let lastRedisProgressAt = 0
+
+        const updateRedisProgress = async (progress: number, force = false) => {
+            if (!SHOULD_WRITE_REDIS_PROGRESS) {
+                return
+            }
+
+            const normalizedProgress = Math.max(0, Math.min(100, Math.round(progress)))
+            const now = Date.now()
+            const progressedEnough =
+                lastRedisProgress < 0 ||
+                normalizedProgress - lastRedisProgress >= MIN_REDIS_PROGRESS_STEP
+            const waitedEnough =
+                now - lastRedisProgressAt >= MIN_REDIS_PROGRESS_INTERVAL_MS
+
+            if (!force && normalizedProgress !== 100 && !progressedEnough && !waitedEnough) {
+                return
+            }
+
+            lastRedisProgress = normalizedProgress
+            lastRedisProgressAt = now
+            await job.updateProgress(normalizedProgress)
+        }
+
         logger.info("THUMBNAIL_WORKER", "Thumbnail worker started")
         emitProcessingEvent("thumbnail-progress", { videoId, progress: 5 })
-        await job.updateProgress(5)
+        await updateRedisProgress(5, true)
 
         const video = await prisma.video.findUnique({
             where: { id: videoId }
@@ -23,12 +52,12 @@ const worker = new Worker(
         }
 
         emitProcessingEvent("thumbnail-progress", { videoId, progress: 12 })
-        await job.updateProgress(12)
+        await updateRedisProgress(12)
         const result = await processThumbnailPipeline(videoId, async (progress) => {
             emitProcessingEvent("thumbnail-progress", { videoId, progress })
-            await job.updateProgress(progress)
+            await updateRedisProgress(progress)
         })
-        await job.updateProgress(100)
+        await updateRedisProgress(100, true)
         emitProcessingEvent("thumbnail-completed", { videoId, thumbnailKey: result, progress: 100 })
         logger.info("THUMBNAIL_WORKER", `Thumbnail worker finished in ${formatDurationMs(Date.now() - startedAt)}`)
 
@@ -39,7 +68,10 @@ const worker = new Worker(
         // ✅ FIX: correct Redis config
         connection: redisConnection as any,
         skipVersionCheck: true,
-        concurrency: 5
+        concurrency: 1,
+        drainDelay: 60,
+        lockDuration: 10 * 60 * 1000,
+        stalledInterval: 5 * 60 * 1000
     }
 )
 
@@ -48,6 +80,10 @@ const worker = new Worker(
 worker.on("failed", (job, error) => {
     logger.error("THUMBNAIL_WORKER", "Thumbnail worker failed", { error })
     emitProcessingEvent("thumbnail-failed", { videoId: job?.data?.videoId })
+})
+
+worker.on("error", (error) => {
+    logger.error("THUMBNAIL_WORKER", "Thumbnail worker Redis error", { error })
 })
 
 export default worker

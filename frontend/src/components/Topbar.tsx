@@ -60,6 +60,10 @@ const Topbar = () => {
     const notificationRef = useRef<HTMLDivElement>(null)
 
     const loadNotifications = async () => {
+        if (!user) {
+            setNotifications([])
+            return
+        }
         const rows = await getNotifications()
         setNotifications(rows)
     }
@@ -86,6 +90,11 @@ const Topbar = () => {
     }, [])
 
     useEffect(() => {
+        if (!user) {
+            setNotifications([])
+            return
+        }
+
         const timer = window.setTimeout(() => {
             void loadNotifications()
         }, 0)
@@ -96,7 +105,7 @@ const Topbar = () => {
             window.clearTimeout(timer)
             window.clearInterval(interval)
         }
-    }, [])
+    }, [user])
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 18)
@@ -176,7 +185,13 @@ const Topbar = () => {
                 {/* NOTIFICATIONS */}
                 <div ref={notificationRef} className="relative">
                     <button
-                        onClick={() => setNotificationOpen((v) => !v)}
+                        onClick={() => {
+                            if (!user) {
+                                navigate("/login", { state: { from: window.location.pathname } })
+                                return
+                            }
+                            setNotificationOpen((v) => !v)
+                        }}
                         className="relative cursor-pointer rounded-full border border-white/10 bg-white/6 p-2 text-gray-300 transition hover:bg-white/10 hover:text-white"
                         aria-label="Notifications"
                     >
@@ -272,7 +287,13 @@ const Topbar = () => {
                 {/* PROFILE */}
                 <div ref={dropdownRef} className="relative">
                     <div
-                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                        onClick={() => {
+                            if (!user) {
+                                navigate("/login", { state: { from: window.location.pathname } })
+                                return
+                            }
+                            setDropdownOpen(!dropdownOpen)
+                        }}
                         className="cursor-pointer rounded-full border border-white/10 bg-white/6 p-0.5 shadow-[0_0_18px_rgba(96,165,250,0.12)] transition hover:bg-white/10"
                     >
                         <UserAvatar
@@ -306,18 +327,8 @@ const Topbar = () => {
                                 </button>
 
                                 <button
-                                    onClick={() => {
-                                        setDropdownOpen(false)
-                                        navigate("/settings")
-                                    }}
-                                    className="rounded-lg bg-white/10 p-2 text-sm transition hover:bg-white/16"
-                                >
-                                    Settings
-                                </button>
-
-                                <button
                                     onClick={handleLogout}
-                                    className="rounded-lg bg-red-600 p-2 text-sm transition hover:bg-red-700 col-span-2"
+                                    className="rounded-lg bg-red-600 p-2 text-sm transition hover:bg-red-700"
                                 >
                                     Logout
                                 </button>
