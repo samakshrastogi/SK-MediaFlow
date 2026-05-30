@@ -7,6 +7,7 @@ import { api } from "@/api/axios"
 import { SOCKET_URL } from "@/config/env"
 import AppLayout from "@/layouts/AppLayout"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
+import AIGenerateAction from "@/components/AIGenerateAction"
 import { Cloud, Database, FileVideo, UploadCloud } from "lucide-react"
 
 interface Channel {
@@ -80,8 +81,10 @@ interface UploadItem {
     title: string
     description: string
     tags: string
+    generateAIOnUpload: boolean
 
     videoId?: string
+    publicId?: string
 }
 
 const socket = io(SOCKET_URL, {
@@ -95,6 +98,9 @@ const wait = (ms: number) =>
 const isWorkerFinished = (status: WorkerStatus) =>
     status === "completed" || status === "failed"
 
+const isWorkerSettled = (status: WorkerStatus) =>
+    status === "idle" || isWorkerFinished(status)
+
 const normalizePolledWorkerStatus = (
     status: string | undefined,
     fallback: WorkerStatus
@@ -107,8 +113,8 @@ const normalizePolledWorkerStatus = (
 const syncProcessingState = (item: UploadItem): UploadItem => {
     if (
         item.status === "processing" &&
-        isWorkerFinished(item.aiStatus) &&
-        isWorkerFinished(item.thumbnailStatus)
+        isWorkerSettled(item.aiStatus) &&
+        isWorkerSettled(item.thumbnailStatus)
     ) {
         return {
             ...item,
@@ -134,6 +140,7 @@ const Upload = () => {
     const [queue, setQueue] = useState<UploadItem[]>([])
     const queueRef = useRef<UploadItem[]>([])
     const [uploading, setUploading] = useState(false)
+    const [uploadError, setUploadError] = useState("")
     const [globalVisibility, setGlobalVisibility] = useState<"PUBLIC" | "PRIVATE" | "ORGANIZATION">("PUBLIC")
 
     const fetchAIMetadata = async (videoId: string) => {
@@ -352,8 +359,8 @@ const Upload = () => {
                 (item) =>
                     item.videoId &&
                     item.status === "processing" &&
-                    (!isWorkerFinished(item.aiStatus) ||
-                        !isWorkerFinished(item.thumbnailStatus))
+                    (!isWorkerSettled(item.aiStatus) ||
+                        !isWorkerSettled(item.thumbnailStatus))
             )
 
             if (!processingItems.length) return
@@ -515,7 +522,8 @@ const Upload = () => {
 
                     title: "",
                     description: "",
-                    tags: ""
+                    tags: "",
+                    generateAIOnUpload: false
                 }
 
                 setQueue(prev => [...prev, newItem])
@@ -542,6 +550,7 @@ const Upload = () => {
         if (!file) return
 
         const preview = URL.createObjectURL(file)
+        setUploadError("")
         updateItem(index, {
             thumbnailFile: file,
             thumbnailPreview: preview
@@ -607,6 +616,16 @@ const Upload = () => {
 
         if (!channel) return
 
+        const missingThumbnail = queue.some(
+            (item) => item.status === "waiting" && !item.thumbnailFile && !item.generateAIOnUpload
+        )
+
+        if (missingThumbnail) {
+            setUploadError("Upload a thumbnail or choose Generate AI before uploading.")
+            return
+        }
+
+        setUploadError("")
         setUploading(true)
 
         for (let i = 0; i < queue.length; i++) {
@@ -627,6 +646,12 @@ const Upload = () => {
         const item = queue[index];
 
         try {
+            if (!item.thumbnailFile && !item.generateAIOnUpload) {
+                setUploadError("Upload a thumbnail or choose Generate AI before uploading.")
+                updateItem(index, { status: "error" })
+                return
+            }
+
             updateItem(index, { status: "uploading" });
 
             /* ---------- 1. GET PRESIGNED URL ---------- */
@@ -667,7 +692,7 @@ const Upload = () => {
                 },
             });
 
-            /* ---------- 2.5 OPTIONAL CUSTOM THUMBNAIL ---------- */
+            /* ---------- 2.5 REQUIRED CUSTOM THUMBNAIL ---------- */
 
             let thumbnailKey: string | undefined = undefined
 
@@ -702,26 +727,30 @@ const Upload = () => {
                 duration: item.duration,
                 size: item.file.size,
                 visibility: globalVisibility, // ✅ IMPORTANT
-                thumbnailKey
+                thumbnailKey,
+                generateAIAssets: item.generateAIOnUpload
             });
 
-            const videoId = completeRes.data.data.id;
+            const uploadedVideo = completeRes.data.data
+            const videoId = uploadedVideo.id
+            const publicId = uploadedVideo.publicId
 
             /* ---------- 4. FINAL STATE ---------- */
 
             setQueue(prev => {
                 return prev.map((item, i) =>
                     i === index
-                        ? syncProcessingState({
+                        ? {
                             ...item,
                             videoId,
+                            publicId,
                             thumbnailKey: thumbnailKey ?? item.thumbnailKey,
-                            thumbnailProgress: thumbnailKey ? 100 : Math.max(item.thumbnailProgress, 5),
-                            aiStatus: "processing",
-                            thumbnailStatus: thumbnailKey ? "completed" : "processing",
-                            status: "processing",
+                            thumbnailProgress: item.generateAIOnUpload && !thumbnailKey ? 5 : 0,
+                            aiStatus: item.generateAIOnUpload ? "processing" : "idle",
+                            thumbnailStatus: item.generateAIOnUpload && !thumbnailKey ? "processing" : "idle",
+                            status: item.generateAIOnUpload ? "processing" : "completed",
                             uploadProgress: 100,
-                        })
+                        }
                         : item
                 );
             });
@@ -774,6 +803,10 @@ const Upload = () => {
     }
 
     /* ---------------- UI ---------------- */
+
+    const hasMissingThumbnail = queue.some(
+        (item) => item.status === "waiting" && !item.thumbnailFile && !item.generateAIOnUpload
+    )
 
     return (
 
@@ -969,15 +1002,22 @@ const Upload = () => {
 
                 {queue.length > 0 && (
 
-                    <div className="rounded-[24px] border border-white/10 bg-white/[0.05] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4">
+                    <div className="space-y-3 rounded-[24px] border border-white/10 bg-white/[0.05] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl">
+                        {uploadError ? (
+                            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                                {uploadError}
+                            </div>
+                        ) : null}
 
-                        <button
-                            onClick={startUploadQueue}
-                            disabled={uploading}
-                            className="w-full rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 sm:w-auto"
-                        >
-                            {uploading ? "Uploading..." : "Start Uploading"}
-                        </button>
+                        <div className="sm:flex sm:items-center sm:justify-between sm:gap-4">
+
+                            <button
+                                onClick={startUploadQueue}
+                                disabled={uploading || hasMissingThumbnail}
+                                className="w-full rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                            >
+                                {uploading ? "Uploading..." : "Start Uploading"}
+                            </button>
 
                         {/* VISIBILITY TOGGLE */}
 
@@ -1017,6 +1057,8 @@ const Upload = () => {
 
                     </div>
 
+                    </div>
+
                 )}
                 
 
@@ -1028,7 +1070,7 @@ const Upload = () => {
 
                         <div
                             key={index}
-                            className="space-y-5 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(18,28,49,0.62),rgba(10,15,28,0.78))] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:space-y-6 sm:rounded-[28px] sm:p-8"
+                            className="space-y-5 rounded-[24px] border border-white/10 bg-transparent p-4 sm:space-y-6 sm:rounded-[28px] sm:p-8"
                         >
 
                             {/* VIDEO + PROGRESS */}
@@ -1111,26 +1153,59 @@ const Upload = () => {
                                 {/* THUMBNAIL */}
                                 <div className="space-y-2">
                                     <label className="text-sm text-slate-400">
-                                        Thumbnail
+                                        Thumbnail <span className="text-red-300">*</span>
                                     </label>
 
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                        <button
-                                            type="button"
-                                            disabled={item.status !== "waiting"}
-                                            onClick={() =>
-                                                document
-                                                    .getElementById(`thumbInput-${index}`)
-                                                    ?.click()
-                                            }
-                                            className="rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs text-white disabled:opacity-60"
-                                        >
-                                            Upload Thumbnail
-                                        </button>
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                            <button
+                                                type="button"
+                                                disabled={item.status !== "waiting"}
+                                                onClick={() =>
+                                                    document
+                                                        .getElementById(`thumbInput-${index}`)
+                                                        ?.click()
+                                                }
+                                                className="rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs text-white disabled:opacity-60"
+                                            >
+                                                Upload Thumbnail
+                                            </button>
 
-                                        <p className="text-xs text-slate-400">
-                                            Leave empty to use auto-generated thumbnail
-                                        </p>
+                                            {item.thumbnailFile ? (
+                                                <span
+                                                    title={item.thumbnailFile.name}
+                                                    className="max-w-full truncate rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-medium text-cyan-100 sm:max-w-64"
+                                                >
+                                                    {item.thumbnailFile.name}
+                                                </span>
+                                            ) : null}
+                                        </div>
+
+                                        {(item.status === "waiting" || item.status === "completed") ? (
+                                            <AIGenerateAction
+                                                publicId={item.publicId}
+                                                title={item.title || item.file.name}
+                                                includeThumbnail={!item.thumbnailKey}
+                                                selected={item.generateAIOnUpload}
+                                                onConfirm={() => {
+                                                    setUploadError("")
+                                                    updateItem(index, {
+                                                        generateAIOnUpload: true
+                                                    })
+                                                }}
+                                                onStarted={() =>
+                                                    item.publicId
+                                                        ? updateItem(index, {
+                                                            aiStatus: "processing",
+                                                            aiProgress: Math.max(item.aiProgress, 5),
+                                                            spritesheetMessage: "AI generation started. Spritesheet is being prepared."
+                                                        })
+                                                        : updateItem(index, {
+                                                            generateAIOnUpload: true
+                                                        })
+                                                }
+                                            />
+                                        ) : null}
                                     </div>
 
                                     <input
@@ -1156,9 +1231,9 @@ const Upload = () => {
                                             updateItem(index, { title: e.target.value })
                                         }
                                         disabled={item.status !== "waiting"}
-                                        placeholder="Leave empty to use autogenerated title"
+                                        placeholder="Optional title"
                                         aria-label="Video title"
-                                        className="w-full rounded-lg border border-white/10 bg-[#0b1120] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
+                                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
                                     />
                                 </div>
 
@@ -1174,9 +1249,9 @@ const Upload = () => {
                                             updateItem(index, { description: e.target.value })
                                         }
                                         disabled={item.status !== "waiting"}
-                                        placeholder="Leave empty to use autogenerated description"
+                                        placeholder="Optional description"
                                         aria-label="Video description"
-                                        className="w-full rounded-lg border border-white/10 bg-[#0b1120] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
+                                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
                                     />
                                 </div>
 

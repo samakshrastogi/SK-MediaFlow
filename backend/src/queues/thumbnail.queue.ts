@@ -5,11 +5,7 @@ export const thumbnailQueue = new Queue("thumbnailQueue", {
     connection: redisConnection as any,
     skipVersionCheck: true,
     defaultJobOptions: {
-        attempts: 3,
-        backoff: {
-            type: "exponential",
-            delay: 5000
-        },
+        attempts: 1,
         removeOnComplete: {
             age: 3600,
             count: 500

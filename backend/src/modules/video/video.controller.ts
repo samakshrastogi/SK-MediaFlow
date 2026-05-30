@@ -18,7 +18,10 @@ import {
 import { nanoid } from "nanoid"
 import { prisma } from "../../config/prisma"
 import { AuthRequest } from "../../middlewares/auth.middleware"
-import { startVideoPostUploadPipeline } from "./video-processing.service"
+import {
+    startRequestedAIAssets,
+    startVideoPostUploadPipeline
+} from "./video-processing.service"
 import { getSignedUrl as getCFSignedUrl } from "@aws-sdk/cloudfront-signer"
 
 const signCloudFrontUrl = (key: string) => {
@@ -87,11 +90,19 @@ export const finishUpload = async (
         }
 
         const { key, title, description, size, visibility, thumbnailKey } = req.body
+        const generateAIAssets = req.body?.generateAIAssets === true
 
         if (!key || !size) {
             return res.status(400).json({
                 success: false,
                 message: "key and size are required"
+            })
+        }
+
+        if (!thumbnailKey && !generateAIAssets) {
+            return res.status(400).json({
+                success: false,
+                message: "thumbnailKey is required unless AI generation is selected"
             })
         }
 
@@ -102,14 +113,25 @@ export const finishUpload = async (
             Number(size),
             visibility,
             description,
-            thumbnailKey
+            thumbnailKey,
+            generateAIAssets
         )
+
+        let aiAssets = null
+        if (generateAIAssets) {
+            aiAssets = await startRequestedAIAssets(req.user.id, video.publicId, {
+                ai: true,
+                thumbnail: !thumbnailKey,
+                spritesheet: true
+            })
+        }
 
         return res.status(201).json({
             success: true,
             data: {
                 ...video,
-                size: video.size.toString()
+                size: video.size.toString(),
+                aiAssets
             }
         })
     } catch (error: any) {
@@ -691,6 +713,48 @@ export const handleDeleteOwnedVideo = async (
     }
 }
 
+export const handleGenerateAIAssets = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized"
+            })
+        }
+
+        const publicId = String(req.params.publicId || "").trim()
+        if (!publicId) {
+            return res.status(400).json({
+                success: false,
+                message: "publicId is required"
+            })
+        }
+
+        const data = await startRequestedAIAssets(req.user.id, publicId, {
+            ai: req.body?.ai !== false,
+            thumbnail: req.body?.thumbnail === true,
+            spritesheet: req.body?.spritesheet !== false
+        })
+
+        return res.json({
+            success: true,
+            data
+        })
+    } catch (error: any) {
+        const message = error?.message || "Failed to start AI generation"
+        const status =
+            message === "Unauthorized" ? 403 : message === "Video not found" ? 404 : 500
+
+        return res.status(status).json({
+            success: false,
+            message
+        })
+    }
+}
+
 export const handleSearchVideos = async (
     req: AuthRequest,
     res: Response
@@ -827,6 +891,7 @@ export const handleGetUploadProcessingStatus = async (
             where: { id: videoId },
             select: {
                 thumbnailKey: true,
+                aiThumbnailStatus: true,
                 channel: {
                     select: {
                         userId: true
@@ -854,8 +919,8 @@ export const handleGetUploadProcessingStatus = async (
             })
         }
 
-        const aiStatus = video.aiData?.status || "pending"
-        const thumbnailStatus = video.thumbnailKey ? "completed" : "processing"
+        const aiStatus = video.aiData?.status || "idle"
+        const thumbnailStatus = video.thumbnailKey ? "completed" : video.aiThumbnailStatus || "idle"
 
         return res.json({
             success: true,
@@ -867,8 +932,8 @@ export const handleGetUploadProcessingStatus = async (
                         ? 100
                         : aiStatus === "processing"
                             ? 50
-                            : 10,
-                thumbnailProgress: thumbnailStatus === "completed" ? 100 : 50,
+                            : 0,
+                thumbnailProgress: thumbnailStatus === "completed" ? 100 : 0,
                 thumbnailKey: video.thumbnailKey
             }
         })

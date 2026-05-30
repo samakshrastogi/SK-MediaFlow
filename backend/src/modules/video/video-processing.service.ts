@@ -12,6 +12,7 @@ import { thumbnailQueue, videoMetadataQueue } from "../../services/video-process
 import { pipeline } from "stream/promises"
 import { logger } from "../../utils/logger"
 import { formatDurationMs } from "../../utils/time"
+import { ffmpegCommand } from "../../config/ffmpeg"
 
 const execAsync = promisify(exec)
 const MAX_SPRITE_FRAMES = 120
@@ -35,7 +36,7 @@ const optimizeVideoForStreaming = async (
     const optimizedPath = path.join(os.tmpdir(), `${path.basename(inputPath, path.extname(inputPath))}_faststart.mp4`)
 
     await execAsync(
-        `ffmpeg -i "${inputPath}" -map 0 -c copy -movflags +faststart -y "${optimizedPath}"`
+        `${ffmpegCommand} -i "${inputPath}" -map 0 -c copy -movflags +faststart -y "${optimizedPath}"`
     )
 
     await s3.send(
@@ -84,7 +85,7 @@ export const processVideoAfterUpload = async (
         const fpsValue = totalFrames <= 1 ? 1 : totalFrames / Math.max(duration, 1)
 
         const sheetCommand =
-            `ffmpeg -i "${tempVideoPath}" ` +
+            `${ffmpegCommand} -i "${tempVideoPath}" ` +
             `-vf "fps=${fpsValue},scale=${frameWidth}:${frameHeight}:flags=lanczos:force_original_aspect_ratio=decrease,pad=${frameWidth}:${frameHeight}:(ow-iw)/2:(oh-ih)/2:color=black,tile=${cols}x${rows}" ` +
             `-frames:v 1 -c:v libwebp -quality 96 -compression_level 4 -y "${tempSpritePath}"`
 
@@ -177,64 +178,20 @@ export const startVideoPostUploadPipeline = async (
     channelUsername: string,
     initialDescription?: string
 ) => {
-    const currentVideo = await prisma.video.findUnique({
-        where: { id: videoId },
-        select: { thumbnailKey: true }
-    })
-
-    await prisma.videoAI.upsert({
-        where: { videoId },
-        update: {
-            status: "pending",
-            ...(initialDescription?.trim()
-                ? { aiDescription: initialDescription.trim() }
-                : {})
-        },
-        create: {
-            videoId,
-            status: "pending",
-            aiDescription: initialDescription?.trim() || null,
-            keywords: [],
-            tags: []
-        }
-    })
-
-    if (!currentVideo?.thumbnailKey) {
-        const thumbnailJob = await thumbnailQueue.add(
-            "generateThumbnail",
-            { videoId },
-            {
-                jobId: `thumbnail-${videoId}`,
-                attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: 5000
-                },
-                removeOnComplete: RETAIN_COMPLETED_JOBS,
-                removeOnFail: RETAIN_FAILED_JOBS
-            }
-        )
-        if (thumbnailJob.id) {
-            logger.info("VIDEO_PROCESSING", "Thumbnail worker was queued")
-        }
-    }
-
-    const videoAIJob = await videoAIQueue.add(
-        "processVideoAI",
-        { videoId },
-        {
-            jobId: `video-ai-${videoId}`,
-            attempts: 3,
-            backoff: {
-                type: "exponential",
-                delay: 5000
+    if (initialDescription?.trim()) {
+        await prisma.videoAI.upsert({
+            where: { videoId },
+            update: {
+                aiDescription: initialDescription.trim()
             },
-            removeOnComplete: RETAIN_COMPLETED_JOBS,
-            removeOnFail: RETAIN_FAILED_JOBS
-        }
-    )
-    if (videoAIJob.id) {
-        logger.info("VIDEO_PROCESSING", "AI worker was queued")
+            create: {
+                videoId,
+                status: "idle",
+                aiDescription: initialDescription.trim(),
+                keywords: [],
+                tags: []
+            }
+        })
     }
 
     const metadataJob = await videoMetadataQueue.add(
@@ -255,11 +212,134 @@ export const startVideoPostUploadPipeline = async (
         logger.info("VIDEO_PROCESSING", "Metadata worker was queued")
     }
 
-    setImmediate(() => {
-        void processVideoAfterUpload(videoId, s3Key, channelUsername).catch((error) => {
-            logger.error("VIDEO_PROCESSING", "Upload processing failed", {
-                error: error instanceof Error ? error : new Error(String(error))
-            })
-        })
+    logger.info("VIDEO_PROCESSING", "AI and spritesheet generation will wait for user request", {
+        videoId
     })
+}
+
+export const startRequestedAIAssets = async (
+    userId: string,
+    publicId: string,
+    options?: {
+        ai?: boolean
+        thumbnail?: boolean
+        spritesheet?: boolean
+    }
+) => {
+    const shouldQueueAI = options?.ai !== false
+    const shouldQueueThumbnail = options?.thumbnail !== false
+    const shouldGenerateSpritesheet = options?.spritesheet !== false
+
+    const video = await prisma.video.findFirst({
+        where: {
+            publicId,
+            status: "ACTIVE"
+        },
+        include: {
+            aiData: true,
+            channel: {
+                select: {
+                    userId: true,
+                    username: true
+                }
+            }
+        }
+    })
+
+    if (!video) {
+        throw new Error("Video not found")
+    }
+
+    if (video.channel.userId !== userId) {
+        throw new Error("Unauthorized")
+    }
+
+    let aiQueued = false
+    let thumbnailQueued = false
+    let spritesheetQueued = false
+    const thumbnailRequestStatus = video.aiThumbnailStatus || "idle"
+
+    if (shouldQueueAI) {
+        if (video.aiData && video.aiData.status !== "idle") {
+            logger.info("VIDEO_PROCESSING", "AI worker was not queued because it already ran or is queued", {
+                videoId: video.id,
+                status: video.aiData.status
+            })
+        } else {
+            await prisma.videoAI.upsert({
+                where: { videoId: video.id },
+                update: { status: "pending" },
+                create: {
+                    videoId: video.id,
+                    status: "pending",
+                    keywords: [],
+                    tags: []
+                }
+            })
+
+            const videoAIJob = await videoAIQueue.add(
+                "processVideoAI",
+                { videoId: video.id, requestedByUser: true },
+                {
+                    jobId: `video-ai-${video.id}`,
+                    attempts: 1,
+                    removeOnComplete: RETAIN_COMPLETED_JOBS,
+                    removeOnFail: RETAIN_FAILED_JOBS
+                }
+            )
+            if (videoAIJob.id) {
+                aiQueued = true
+                logger.info("VIDEO_PROCESSING", "AI worker was queued by user request")
+            }
+
+            if (shouldGenerateSpritesheet) {
+                spritesheetQueued = true
+                setImmediate(() => {
+                    void processVideoAfterUpload(video.id, video.s3Key, video.channel.username).catch((error) => {
+                        logger.error("VIDEO_PROCESSING", "Requested spritesheet generation failed", {
+                            error: error instanceof Error ? error : new Error(String(error))
+                        })
+                    })
+                })
+                logger.info("VIDEO_PROCESSING", "Spritesheet generation was queued by user request")
+            }
+        }
+    }
+
+    if (shouldQueueThumbnail) {
+        if (video.thumbnailKey || thumbnailRequestStatus !== "idle") {
+            logger.info("VIDEO_PROCESSING", "Thumbnail worker was not queued because it already ran or is queued", {
+                videoId: video.id,
+                status: video.thumbnailKey ? "completed" : thumbnailRequestStatus
+            })
+        } else {
+            await prisma.video.update({
+                where: { id: video.id },
+                data: { aiThumbnailStatus: "pending" }
+            })
+
+            const thumbnailJob = await thumbnailQueue.add(
+                "generateThumbnail",
+                { videoId: video.id, requestedByUser: true },
+                {
+                    jobId: `thumbnail-${video.id}`,
+                    attempts: 1,
+                    removeOnComplete: RETAIN_COMPLETED_JOBS,
+                    removeOnFail: RETAIN_FAILED_JOBS
+                }
+            )
+            if (thumbnailJob.id) {
+                thumbnailQueued = true
+                logger.info("VIDEO_PROCESSING", "Thumbnail worker was queued by user request")
+            }
+        }
+    }
+
+    return {
+        videoId: video.id,
+        publicId: video.publicId,
+        aiQueued,
+        thumbnailQueued,
+        spritesheetQueued
+    }
 }

@@ -9,6 +9,7 @@ import {
     forgotPassword,
     resetUserPassword
 } from "./auth.controller"
+import { authenticate, AuthRequest } from "../../middlewares/auth.middleware"
 
 const router = Router()
 
@@ -21,6 +22,14 @@ router.post("/login", login)
 router.post("/session-end", endSession)
 router.post("/forgot-password", forgotPassword)
 router.post("/reset-password", resetUserPassword)
+router.get("/session", authenticate, (req: AuthRequest, res) => {
+    res.json({
+        success: true,
+        data: {
+            user: req.user
+        }
+    })
+})
 
 router.get(
     "/google",

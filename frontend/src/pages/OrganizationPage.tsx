@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { LayoutDashboard } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
@@ -222,14 +223,44 @@ const OrganizationPage = () => {
                                             return (
                                             <div
                                                 key={m.id}
-                                                className={`rounded-xl border p-3 transition ${
+                                                className={`relative rounded-xl border p-3 transition ${
                                                     isActive
                                                         ? "border-cyan-300/20 bg-cyan-400/10"
                                                         : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
                                                 }`}
                                             >
                                                 <div className="space-y-2">
-                                                    <div>
+                                                    <div className="absolute right-3 top-3 flex items-center gap-1.5">
+                                                        <button
+                                                            onClick={() =>
+                                                                switchMode(isActive ? null : m.organization.id)
+                                                            }
+                                                            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                                                                isActive
+                                                                    ? "border border-white/10 bg-white/8 text-white hover:bg-white/14"
+                                                                    : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+                                                            }`}
+                                                        >
+                                                            {isActive ? "Disable" : "Enable"}
+                                                        </button>
+
+                                                        {m.role === "ADMIN" && (
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Open organization dashboard"
+                                                                title="Dashboard"
+                                                                onClick={async () => {
+                                                                    await switchMode(m.organization.id)
+                                                                    navigate("/organization/dashboard")
+                                                                }}
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/18 text-amber-100 transition hover:bg-amber-500/24"
+                                                            >
+                                                                <LayoutDashboard size={16} aria-hidden="true" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="pr-36">
                                                         <p className="text-sm font-medium text-white">
                                                             {m.organization?.name}
                                                         </p>
@@ -256,42 +287,6 @@ const OrganizationPage = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        <button
-                                                            onClick={() =>
-                                                                switchMode(isActive ? null : m.organization.id)
-                                                            }
-                                                            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                                                                isActive
-                                                                    ? "border border-white/10 bg-white/8 text-white hover:bg-white/14"
-                                                                    : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
-                                                            }`}
-                                                        >
-                                                            {isActive ? "Disable" : "Enable"}
-                                                        </button>
-
-                                                        <button
-                                                            onClick={async () => {
-                                                                await switchMode(m.organization.id)
-                                                                navigate("/home")
-                                                            }}
-                                                            className="rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/16"
-                                                        >
-                                                            Open
-                                                        </button>
-
-                                                        {m.role === "ADMIN" && (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    await switchMode(m.organization.id)
-                                                                    navigate("/organization/dashboard")
-                                                                }}
-                                                                className="rounded-lg bg-amber-500/18 px-2.5 py-1.5 text-xs font-medium text-amber-100 transition hover:bg-amber-500/24"
-                                                            >
-                                                                Dashboard
-                                                            </button>
-                                                        )}
-                                                    </div>
                                                 </div>
                                             </div>
                                             )

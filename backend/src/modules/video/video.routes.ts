@@ -20,7 +20,8 @@ import {
     handleGetUploadProcessingStatus,
     handleSaveThumbnailFromSpritesheet,
     handleUpdateOwnedVideo,
-    handleDeleteOwnedVideo
+    handleDeleteOwnedVideo,
+    handleGenerateAIAssets
 } from "./video.controller"
 
 import {
@@ -67,6 +68,7 @@ router.get(
     handleGetChannelOrganizationVideos
 )
 router.patch("/:publicId", authenticate, handleUpdateOwnedVideo)
+router.post("/:publicId/generate-ai-assets", authenticate, handleGenerateAIAssets)
 router.delete("/:publicId", authenticate, handleDeleteOwnedVideo)
 
 // ✅ KEEP THIS LAST (VERY IMPORTANT)

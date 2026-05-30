@@ -16,6 +16,7 @@ import { pipeline } from "stream/promises"
 
 import { prisma } from "../../config/prisma"
 import { s3 } from "../../config/s3"
+import { ffmpegCommand } from "../../config/ffmpeg"
 import { emitNewVideoUploaded } from "../../services/realtime.service"
 import { getOrganizationAccessContext } from "../organization/organization.service"
 
@@ -163,7 +164,8 @@ export const completeUpload = async (
     size: number,
     visibility?: "PUBLIC" | "PRIVATE" | "ORGANIZATION",
     description?: string,
-    thumbnailKey?: string
+    thumbnailKey?: string,
+    generateAIAssets?: boolean
 ) => {
     const orgAccess = await getOrganizationAccessContext(userId)
     if (orgAccess.activeOrganizationId && !orgAccess.canUpload) {
@@ -177,6 +179,10 @@ export const completeUpload = async (
 
     if (!user?.channel) {
         throw new Error("Channel not found")
+    }
+
+    if (!thumbnailKey?.trim() && !generateAIAssets) {
+        throw new Error("thumbnailKey is required")
     }
 
     const existing = await prisma.video.findUnique({
@@ -1037,7 +1043,7 @@ export const saveThumbnailFromSpritesheet = async (
 
         await pipeline(sheetObject.Body as any, fs.createWriteStream(tempSheetPath))
 
-        const cropCommand = `ffmpeg -i "${tempSheetPath}" -vf "crop=${meta.frameWidth}:${meta.frameHeight}:${x}:${y}" -q:v 2 -y "${tempThumbPath}"`
+        const cropCommand = `${ffmpegCommand} -i "${tempSheetPath}" -vf "crop=${meta.frameWidth}:${meta.frameHeight}:${x}:${y}" -q:v 2 -y "${tempThumbPath}"`
         await execAsync(cropCommand)
 
         const thumbnailKey = `${video.channel.username}/thumbnails/sprite_${video.id}_${frameIndex}_${Date.now()}.jpg`

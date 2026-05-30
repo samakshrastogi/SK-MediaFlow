@@ -9,12 +9,7 @@ export const videoAIQueue = new Queue("videoAIQueue", {
     skipVersionCheck: true,
 
     defaultJobOptions: {
-        attempts: 3,
-
-        backoff: {
-            type: "exponential",
-            delay: 5000
-        },
+        attempts: 1,
 
         removeOnComplete: {
             age: 3600 // 1 hour

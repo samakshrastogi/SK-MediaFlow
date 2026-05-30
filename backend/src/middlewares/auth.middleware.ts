@@ -70,7 +70,14 @@ export const authenticate = async (
             }
         })
 
-        if (!user?.isVerified) {
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "This session is no longer valid. Please sign in again."
+            })
+        }
+
+        if (!user.isVerified) {
             return res.status(403).json({
                 success: false,
                 message: "Account is not verified"
@@ -78,9 +85,9 @@ export const authenticate = async (
         }
 
         if (user.deletedAt || user.deactivatedAt) {
-            return res.status(403).json({
+            return res.status(401).json({
                 success: false,
-                message: "This account is no longer available."
+                message: "This session is no longer valid. Please sign in again."
             })
         }
 

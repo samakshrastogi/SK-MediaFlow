@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Info, X } from "lucide-react"
+import { Copy, Info, Link2, MailPlus, ShieldCheck, UserRoundCog, X } from "lucide-react"
 import AppLayout from "@/layouts/AppLayout"
 import { api } from "@/api/axios"
 
@@ -854,75 +854,86 @@ const AccessControlModal = ({
     onClose: () => void
 }) => (
     <div
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_32%),rgba(8,10,20,0.62)] px-4 backdrop-blur-md"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-white/[0.025] px-3 py-5 backdrop-blur-[7px] sm:px-4"
         onClick={onClose}
     >
         <div
-            className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/12 bg-gradient-to-br from-[#251d46]/96 via-[#19192f]/96 to-[#11131f]/96 shadow-[0_32px_90px_rgba(0,0,0,0.4)]"
+            className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[26px] border border-white/14 bg-[linear-gradient(145deg,rgba(64,54,128,0.92),rgba(35,42,94,0.90)_48%,rgba(22,30,67,0.92))] shadow-[0_26px_80px_rgba(9,13,40,0.34)] backdrop-blur-2xl"
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
-                <div>
-                    <h2 className="text-2xl font-semibold text-white">Invite & Manage Access</h2>
-                    <p className="mt-1 text-sm text-purple-100/58">
-                        Share organization links, invite new users, and promote trusted members from one place.
-                    </p>
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6 sm:py-5">
+                <div className="flex min-w-0 gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/16 bg-cyan-400/12 text-cyan-100">
+                        <UserRoundCog size={22} aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                        <h2 className="text-xl font-semibold text-white sm:text-2xl">Invite & Manage Access</h2>
+                        <p className="mt-1 max-w-2xl text-sm text-slate-200/70">
+                            Share organization links, invite new users, and promote trusted members from one place.
+                        </p>
+                    </div>
                 </div>
                 <button
                     onClick={onClose}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                    aria-label="Close access manager"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/10 text-slate-200 transition hover:bg-white/16 hover:text-white"
                 >
-                    ✕
+                    <X size={18} aria-hidden="true" />
                 </button>
             </div>
 
-            <div className="grid max-h-[calc(90vh-88px)] gap-0 overflow-y-auto lg:grid-cols-[1.05fr_0.95fr]">
-                <section className="space-y-5 border-b border-white/10 px-6 py-6 lg:border-b-0 lg:border-r">
+            <div className="grid max-h-[calc(92vh-84px)] gap-0 overflow-y-auto lg:grid-cols-[1.08fr_0.92fr]">
+                <section className="space-y-4 border-b border-white/10 px-5 py-5 sm:px-6 sm:py-6 lg:border-b-0 lg:border-r">
                     <div>
-                        <h3 className="text-lg font-semibold text-white">Organization Join Links</h3>
-                        <p className="mt-1 text-sm text-purple-100/55">
+                        <div className="flex items-center gap-2 text-white">
+                            <Link2 size={18} className="text-cyan-200" aria-hidden="true" />
+                            <h3 className="text-lg font-semibold">Organization Join Links</h3>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-200/64">
                             Public links join instantly. Private links keep access approval in your control.
                         </p>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="rounded-2xl border border-emerald-500/18 bg-emerald-500/8 p-4">
+                    <div className="space-y-3">
+                        <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                             <div className="mb-2 flex items-center justify-between gap-3">
                                 <p className="text-sm font-medium text-emerald-300">Public Access</p>
-                                <span className="text-[11px] text-purple-100/45">No approval required</span>
+                                <span className="rounded-full bg-white/8 px-2 py-1 text-[11px] text-slate-200/62">No approval required</span>
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input
                                     value={organizationPublicLink}
                                     readOnly
                                     aria-label="public organization link"
-                                    className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white"
+                                    className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/[0.075] px-3 py-2.5 text-sm text-white outline-none"
                                 />
                                 <button
                                     onClick={() => onCopyLink(organizationPublicLink, "public")}
-                                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-emerald-500"
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
                                 >
+                                    <Copy size={14} aria-hidden="true" />
                                     {copiedType === "public" ? "Copied!" : "Copy Public Link"}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-amber-500/18 bg-amber-500/8 p-4">
+                        <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                             <div className="mb-2 flex items-center justify-between gap-3">
                                 <p className="text-sm font-medium text-amber-300">Private Access</p>
-                                <span className="text-[11px] text-purple-100/45">Approval required</span>
+                                <span className="rounded-full bg-white/8 px-2 py-1 text-[11px] text-slate-200/62">Approval required</span>
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input
                                     value={organizationPrivateLink}
                                     readOnly
                                     aria-label="private organization link"
-                                    className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white"
+                                    className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/[0.075] px-3 py-2.5 text-sm text-white outline-none"
                                 />
                                 <button
                                     onClick={() => onCopyLink(organizationPrivateLink, "private")}
-                                    className="rounded-xl bg-amber-500/18 px-4 py-2.5 text-xs font-medium text-amber-100 transition hover:bg-amber-500/24"
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300/18 px-4 py-2.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/26"
                                 >
+                                    <Copy size={14} aria-hidden="true" />
                                     {copiedType === "private" ? "Copied!" : "Copy Private Link"}
                                 </button>
                             </div>
@@ -930,11 +941,14 @@ const AccessControlModal = ({
                     </div>
                 </section>
 
-                <section className="space-y-5 px-6 py-6">
-                    <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+                <section className="space-y-4 px-5 py-5 sm:px-6 sm:py-6">
+                    <div className="space-y-4 rounded-2xl border border-white/12 bg-white/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                         <div>
-                            <h3 className="text-lg font-semibold text-white">Invite User</h3>
-                            <p className="mt-1 text-sm text-purple-100/55">
+                            <div className="flex items-center gap-2 text-white">
+                                <MailPlus size={18} className="text-cyan-200" aria-hidden="true" />
+                                <h3 className="text-lg font-semibold">Invite User</h3>
+                            </div>
+                            <p className="mt-1 text-sm text-slate-200/64">
                                 Invite by email address or channel name.
                             </p>
                         </div>
@@ -944,19 +958,19 @@ const AccessControlModal = ({
                                 onChange={(e) => setInviteEmail(e.target.value)}
                                 placeholder="user@example.com or channel-name"
                                 aria-label="invite user"
-                                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/[0.075] px-3 py-2.5 text-sm text-white placeholder:text-slate-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
                             />
                             <button
                                 onClick={onInvite}
-                                className="rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
+                                className="rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
                             >
                                 Send Invite
                             </button>
                         </div>
 
                         {latestInviteLink && (
-                            <div className="rounded-xl border border-white/10 bg-black/22 p-3 space-y-2">
-                                <p className="text-xs text-purple-100/60">
+                            <div className="space-y-2 rounded-xl border border-white/12 bg-white/[0.06] p-3">
+                                <p className="text-xs text-slate-200/62">
                                     Latest invite link, valid for 24 hours or until used.
                                 </p>
                                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -964,12 +978,13 @@ const AccessControlModal = ({
                                         value={latestInviteLink}
                                         readOnly
                                         aria-label="latest invite link"
-                                        className="flex-1 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white"
+                                        className="min-w-0 flex-1 rounded-lg border border-white/12 bg-white/[0.075] px-3 py-2 text-sm text-white outline-none"
                                     />
                                     <button
                                         onClick={() => onCopyLink(latestInviteLink, "invite")}
-                                        className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/16"
+                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-white/12 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/18"
                                     >
+                                        <Copy size={14} aria-hidden="true" />
                                         {copiedType === "invite" ? "Copied!" : "Copy Invite"}
                                     </button>
                                 </div>
@@ -977,10 +992,13 @@ const AccessControlModal = ({
                         )}
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+                    <div className="space-y-4 rounded-2xl border border-white/12 bg-white/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                         <div>
-                            <h3 className="text-lg font-semibold text-white">Promote Member</h3>
-                            <p className="mt-1 text-sm text-purple-100/55">
+                            <div className="flex items-center gap-2 text-white">
+                                <ShieldCheck size={18} className="text-cyan-200" aria-hidden="true" />
+                                <h3 className="text-lg font-semibold">Promote Member</h3>
+                            </div>
+                            <p className="mt-1 text-sm text-slate-200/64">
                                 Grant admin access by email or channel name.
                             </p>
                         </div>
@@ -990,11 +1008,11 @@ const AccessControlModal = ({
                                 onChange={(e) => setPromoteEmail(e.target.value)}
                                 placeholder="member@example.com or channel-name"
                                 aria-label="promote member"
-                                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/[0.075] px-3 py-2.5 text-sm text-white placeholder:text-slate-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
                             />
                             <button
                                 onClick={onPromote}
-                                className="rounded-xl bg-cyan-500/14 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
+                                className="rounded-xl bg-cyan-300/16 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/24"
                             >
                                 Promote
                             </button>

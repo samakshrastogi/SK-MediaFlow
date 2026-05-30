@@ -13,8 +13,16 @@ const MIN_REDIS_PROGRESS_INTERVAL_MS = 30000
 const worker = new Worker(
     "thumbnailQueue",
     async (job) => {
-        const { videoId } = job.data
+        const { videoId, requestedByUser } = job.data
         const startedAt = Date.now()
+
+        if (requestedByUser !== true) {
+            logger.warn("THUMBNAIL_WORKER", "Skipping thumbnail job because it was not user requested", {
+                videoId
+            })
+            return { videoId, skipped: true }
+        }
+
         let lastRedisProgress = -1
         let lastRedisProgressAt = 0
 
@@ -50,12 +58,20 @@ const worker = new Worker(
         if (!video) {
             throw new Error("Video not found")
         }
+        await prisma.video.update({
+            where: { id: videoId },
+            data: { aiThumbnailStatus: "processing" }
+        })
 
         emitProcessingEvent("thumbnail-progress", { videoId, progress: 12 })
         await updateRedisProgress(12)
         const result = await processThumbnailPipeline(videoId, async (progress) => {
             emitProcessingEvent("thumbnail-progress", { videoId, progress })
             await updateRedisProgress(progress)
+        })
+        await prisma.video.update({
+            where: { id: videoId },
+            data: { aiThumbnailStatus: "completed" }
         })
         await updateRedisProgress(100, true)
         emitProcessingEvent("thumbnail-completed", { videoId, thumbnailKey: result, progress: 100 })
@@ -79,6 +95,16 @@ const worker = new Worker(
 
 worker.on("failed", (job, error) => {
     logger.error("THUMBNAIL_WORKER", "Thumbnail worker failed", { error })
+    if (job?.data?.videoId) {
+        void prisma.video.update({
+            where: { id: job.data.videoId },
+            data: { aiThumbnailStatus: "failed" }
+        }).catch((updateError) => {
+            logger.error("THUMBNAIL_WORKER", "Failed to persist thumbnail failure", {
+                error: updateError instanceof Error ? updateError : new Error(String(updateError))
+            })
+        })
+    }
     emitProcessingEvent("thumbnail-failed", { videoId: job?.data?.videoId })
 })
 

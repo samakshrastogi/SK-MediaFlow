@@ -410,10 +410,11 @@ const SearchPage = () => {
                                 >
                                     <AnimatePresence mode="popLayout">
                                         {filteredResults.map((video, index) => (
-                                            <motion.button
+                                            <motion.div
                                                 layout
                                                 key={video.publicId || video.id || `result-${index}`}
-                                                type="button"
+                                                role="button"
+                                                tabIndex={0}
                                                 initial={{ opacity: 0, y: 16 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, y: 12 }}
@@ -422,6 +423,16 @@ const SearchPage = () => {
                                                 onMouseEnter={() => prefetchMedia(video.signedUrl)}
                                                 onFocus={() => prefetchMedia(video.signedUrl)}
                                                 onClick={() => {
+                                                    const id = video.publicId ?? String(video.id ?? "")
+                                                    if (!id) return
+                                                    prefetchMedia(video.signedUrl)
+                                                    navigate(video.orientation === "PORTRAIT" ? `/portrait/${id}` : `/video/${id}`, {
+                                                        state: { video }
+                                                    })
+                                                }}
+                                                onKeyDown={(event) => {
+                                                    if (event.key !== "Enter" && event.key !== " ") return
+                                                    event.preventDefault()
                                                     const id = video.publicId ?? String(video.id ?? "")
                                                     if (!id) return
                                                     prefetchMedia(video.signedUrl)
@@ -463,7 +474,7 @@ const SearchPage = () => {
                                                         {video.aiDescription?.trim() || "A clean cinematic result surfaced from your library."}
                                                     </p>
                                                 </div>
-                                            </motion.button>
+                                            </motion.div>
                                         ))}
                                     </AnimatePresence>
                                 </motion.div>

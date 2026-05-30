@@ -5,7 +5,7 @@ import {
     useState,
     useEffect,
 } from "react"
-import { clearStoredAuth, setAuthToken } from "@/api/axios"
+import { api, clearStoredAuth, setAuthToken } from "@/api/axios"
 import { API_URL } from "@/config/env"
 
 interface User {
@@ -77,6 +77,30 @@ export const AuthProvider = ({
 
     useEffect(() => {
         setAuthToken(token)
+    }, [token])
+
+    useEffect(() => {
+        if (!token) return
+
+        let cancelled = false
+
+        const validateSession = async () => {
+            try {
+                await api.get("/auth/session")
+            } catch {
+                if (!cancelled && !getStoredToken()) {
+                    setToken(null)
+                    setUser(null)
+                    setLoginId(null)
+                }
+            }
+        }
+
+        validateSession()
+
+        return () => {
+            cancelled = true
+        }
     }, [token])
 
     useEffect(() => {

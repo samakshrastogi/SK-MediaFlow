@@ -10,11 +10,7 @@ import { videoAIQueue } from "../queues/video-ai.queue"
 export { thumbnailQueue, videoAIQueue }
 
 const defaultJobOptions = {
-    attempts: 3,
-    backoff: {
-        type: "exponential",
-        delay: 5000
-    },
+    attempts: 1,
     removeOnComplete: {
         age: 3600,
         count: 500
@@ -46,32 +42,6 @@ export const startVideoProcessing = async (videoId: string) => {
         throw new Error("Video not found")
     }
 
-    await prisma.videoAI.upsert({
-        where: { videoId },
-        update: { status: "pending" },
-        create: {
-            videoId,
-            status: "pending"
-        }
-    })
-
-    await thumbnailQueue.add(
-        "generateThumbnail",
-        { videoId },
-        {
-            jobId: `thumbnail-${videoId}`
-        }
-    )
-
-    await videoAIQueue.add(
-        "processVideoAI",
-        { videoId },
-        {
-            jobId: `video-ai-${videoId}`
-        }
-    )
-
-    // ✅ NEW: Metadata extraction
     await videoMetadataQueue.add(
         "extractVideoMetadata",
         { videoId },

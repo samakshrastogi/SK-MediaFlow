@@ -103,6 +103,7 @@ model Video {
   s3Key String @unique
   size String
   thumbnailKey String?
+  aiThumbnailStatus String @default("idle")
   uploadSource UploadSource
   status UploadStatus @default(ACTIVE)
   visibility VideoVisibility @default(PUBLIC)
