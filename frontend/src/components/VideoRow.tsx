@@ -154,19 +154,19 @@ const HomeVideoCard = ({
                     portrait ? "min-h-[430px]" : "min-h-[372px]"
                 }`}
             >
-                <div className={`relative overflow-hidden ${portrait ? "aspect-[4/5]" : "aspect-video"}`}>
+                <div className={`relative overflow-hidden bg-transparent ${portrait ? "aspect-[4/5]" : "aspect-video"}`}>
                     <img
                         src={thumbnail}
                         alt={title}
                         onError={(e) => {
                             ;(e.currentTarget as HTMLImageElement).src = "/placeholder.jpg"
                         }}
-                        className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
+                        className="absolute -inset-px h-[calc(100%+2px)] w-[calc(100%+2px)] object-cover transition duration-700 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,10,27,0.06),rgba(4,10,27,0.16)_38%,rgba(3,7,20,0.92)_100%)]" />
                     <div className={`absolute inset-0 bg-gradient-to-br ${accentStyles[accent]} opacity-75`} />
 
-                    <div className="absolute left-3 top-3 rounded-full border border-white/35 bg-black/72 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-md [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">
+                    <div className="absolute right-3 top-3 rounded-full border border-white/35 bg-black/72 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-md [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">
                         {timeAgo}
                     </div>
 

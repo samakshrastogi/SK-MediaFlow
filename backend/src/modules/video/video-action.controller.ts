@@ -152,36 +152,65 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
         if (!video || video.status !== "ACTIVE") return res.status(404).json({ message: "Video not found" })
         await assertVideoAccess(video, req.user.id)
 
-        const existing = await prisma.videoReaction.findUnique({
+        const existingReactions = await prisma.videoReaction.findMany({
             where: {
-                userId_videoId: {
-                    userId: req.user.id,
-                    videoId: video.id
-                }
-            }
+                userId: req.user.id,
+                videoId: video.id
+            },
+            orderBy: { updatedAt: "desc" }
         })
 
-        if (existing && existing.type === type) {
-            await prisma.videoReaction.delete({ where: { id: existing.id } })
-            return res.json({ removed: true })
+        const existing = existingReactions[0]
+
+        if (existing) {
+            const duplicateIds = existingReactions.slice(1).map((reaction) => reaction.id)
+            if (duplicateIds.length) {
+                await prisma.videoReaction.deleteMany({
+                    where: {
+                        id: { in: duplicateIds }
+                    }
+                })
+            }
+
+            if (existing.type !== type) {
+                await prisma.videoReaction.update({
+                    where: { id: existing.id },
+                    data: { type }
+                })
+            }
+        } else {
+            try {
+                await prisma.videoReaction.create({
+                    data: {
+                        userId: req.user.id,
+                        videoId: video.id,
+                        type
+                    }
+                })
+            } catch (error) {
+                if (error?.code !== "P2002") throw error
+
+                await prisma.videoReaction.updateMany({
+                    where: {
+                        userId: req.user.id,
+                        videoId: video.id
+                    },
+                    data: { type }
+                })
+            }
         }
 
-        await prisma.videoReaction.upsert({
-            where: {
-                userId_videoId: {
-                    userId: req.user.id,
-                    videoId: video.id
-                }
-            },
-            update: { type },
-            create: {
-                userId: req.user.id,
-                videoId: video.id,
-                type
-            }
-        })
+        const [likes, dislikes] = await Promise.all([
+            prisma.videoReaction.count({ where: { videoId: video.id, type: "LIKE" } }),
+            prisma.videoReaction.count({ where: { videoId: video.id, type: "DISLIKE" } })
+        ])
 
-        return res.json({ success: true })
+        return res.json({
+            success: true,
+            likes,
+            dislikes,
+            userReaction: type
+        })
     } catch {
         return res.status(500).json({ message: "Reaction failed" })
     }
@@ -458,6 +487,36 @@ export const handleRemoveVideoFromPlaylist = async (req: AuthRequest, res: Respo
     }
 }
 
+export const handleRemoveFavouriteVideo = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ message: "Unauthorized" })
+
+        const { publicId } = req.params
+
+        const video = await prisma.video.findUnique({
+            where: { publicId },
+            select: { id: true }
+        })
+        if (!video) return res.status(404).json({ message: "Video not found" })
+
+        const result = await prisma.videoReaction.deleteMany({
+            where: {
+                userId: req.user.id,
+                videoId: video.id,
+                type: "LIKE"
+            }
+        })
+
+        if (result.count === 0) {
+            return res.status(404).json({ message: "Video is not in favourites" })
+        }
+
+        return res.json({ message: "Video removed from favourites." })
+    } catch {
+        return res.status(500).json({ message: "Failed to remove video from favourites" })
+    }
+}
+
 export const handleGetVideoActions = async (req: AuthRequest, res: Response) => {
     try {
         const publicId = req.params.publicId
@@ -569,6 +628,11 @@ export const handleGetFavouriteVideos = async (req: AuthRequest, res: Response) 
                 video: {
                     include: {
                         aiData: true,
+                        metadata: {
+                            select: {
+                                orientation: true
+                            }
+                        },
                         channel: {
                             select: {
                                 name: true,
@@ -588,32 +652,41 @@ export const handleGetFavouriteVideos = async (req: AuthRequest, res: Response) 
             }
         })
 
-        const videos = likes
-            .map((l) => l.video)
-            .filter((v): v is NonNullable<typeof v> => v !== null)
-            .map((video) => {
-                const v = video as typeof video & {
-                    channel?: {
-                        name?: string | null
-                        user?: { avatarKey?: string | null; name?: string | null }
-                    }
-                }
+        const uniqueVideos = new Map<string, (typeof likes)[number]["video"]>()
 
-                return {
-                    publicId: v.publicId,
-                    title: v.title,
-                    aiTitle: v.aiData?.aiTitle ?? null,
-                    thumbnailKey: v.thumbnailKey,
-                    uploaderAvatarKey: v.channel?.user?.avatarKey ?? null,
-                    uploaderAvatarUrl: v.channel?.user?.avatarKey
-                        ? signCloudFrontUrl(v.channel.user.avatarKey)
-                        : null,
-                    uploaderName: v.channel?.user?.name ?? null,
-                    channel: { name: v.channel?.name || "Unknown channel" },
-                    size: Number(v.size),
-                    createdAt: v.createdAt
+        likes
+            .map((like) => like.video)
+            .filter((v): v is NonNullable<typeof v> => v !== null)
+            .forEach((video) => {
+                if (!uniqueVideos.has(video.publicId)) {
+                    uniqueVideos.set(video.publicId, video)
                 }
             })
+
+        const videos = Array.from(uniqueVideos.values()).map((video) => {
+            const v = video as typeof video & {
+                channel?: {
+                    name?: string | null
+                    user?: { avatarKey?: string | null; name?: string | null }
+                }
+            }
+
+            return {
+                publicId: v.publicId,
+                title: v.title,
+                aiTitle: v.aiData?.aiTitle ?? null,
+                thumbnailKey: v.thumbnailKey,
+                uploaderAvatarKey: v.channel?.user?.avatarKey ?? null,
+                uploaderAvatarUrl: v.channel?.user?.avatarKey
+                    ? signCloudFrontUrl(v.channel.user.avatarKey)
+                    : null,
+                uploaderName: v.channel?.user?.name ?? null,
+                channel: { name: v.channel?.name || "Unknown channel" },
+                size: Number(v.size),
+                createdAt: v.createdAt,
+                orientation: v.metadata?.orientation ?? null
+            }
+        })
 
         return res.json(videos)
     } catch (error) {

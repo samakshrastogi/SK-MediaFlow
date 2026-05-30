@@ -4,7 +4,6 @@ import axios from "axios"
 import { AnimatePresence, motion } from "framer-motion"
 import {
     CheckCircle2,
-    Eye,
     Heart,
     ListVideo,
     PencilLine,
@@ -527,10 +526,10 @@ const ProfilePage = () => {
 
     const availableUploadTabs = useMemo(() => {
         const tabs: { key: "public" | "private" | "organization"; label: string }[] = []
-        if (visiblePublicVideos.length > 0) tabs.push({ key: "public", label: "Uploads" })
+        if (visiblePublicVideos.length > 0) tabs.push({ key: "public", label: "Public" })
         if (visiblePrivateVideos.length > 0) tabs.push({ key: "private", label: "Private" })
         if (visibleOrganizationVideos.length > 0) tabs.push({ key: "organization", label: "Organization" })
-        if (tabs.length === 0) tabs.push({ key: "public", label: "Uploads" })
+        if (tabs.length === 0) tabs.push({ key: "public", label: "Public" })
         return tabs
     }, [visiblePublicVideos.length, visiblePrivateVideos.length, visibleOrganizationVideos.length])
 
@@ -654,12 +653,6 @@ const ProfilePage = () => {
                     </div>
                 </motion.section>
 
-                <div className="flex flex-nowrap items-center justify-center gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2 sm:px-2 [&::-webkit-scrollbar]:hidden">
-                    {statCards.map((card, index) => (
-                        <StatCard key={card.label} index={index} label={card.label} value={card.value} />
-                    ))}
-                </div>
-
                 {message ? (
                     <motion.div
                         initial={{ opacity: 0, y: -8 }}
@@ -671,28 +664,36 @@ const ProfilePage = () => {
                     </motion.div>
                 ) : null}
 
-                <div className="flex flex-wrap gap-2 px-1 py-2 sm:gap-3 sm:px-2">
-                    <SectionSwitchButton icon={<Play size={16} />} active={activePanel === "history"} onClick={() => setActivePanel("history")}>
-                        Continue Watching
-                    </SectionSwitchButton>
-                    <SectionSwitchButton icon={<UploadCloud size={16} />} active={activePanel === "uploads"} onClick={() => {
-                        setActivePanel("uploads")
-                        setUploadVisibility("public")
-                    }}>
-                        Uploads
-                    </SectionSwitchButton>
-                    <span className="basis-full sm:hidden" aria-hidden="true" />
-                    <SectionSwitchButton icon={<ListVideo size={16} />} onClick={() => navigate("/playlists")}>
-                        Playlists
-                    </SectionSwitchButton>
-                    <SectionSwitchButton icon={<Heart size={16} />} onClick={() => navigate("/favorites")}>
-                        Favourites
-                    </SectionSwitchButton>
-                    {user?.platformAdmin ? (
-                        <SectionSwitchButton icon={<Shield size={16} />} onClick={() => navigate("/admin")}>
-                            Admin
+                <div className="flex flex-col gap-3 px-1 py-2 sm:px-2 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="order-2 flex flex-wrap gap-2 sm:gap-3 xl:order-1 xl:min-w-0 xl:flex-nowrap">
+                        <SectionSwitchButton icon={<Play size={16} />} active={activePanel === "history"} onClick={() => setActivePanel("history")}>
+                            Continue Watching
                         </SectionSwitchButton>
-                    ) : null}
+                        <SectionSwitchButton icon={<UploadCloud size={16} />} active={activePanel === "uploads"} onClick={() => {
+                            setActivePanel("uploads")
+                            setUploadVisibility("public")
+                        }}>
+                            Uploads
+                        </SectionSwitchButton>
+                        <span className="basis-full sm:hidden" aria-hidden="true" />
+                        <SectionSwitchButton icon={<ListVideo size={16} />} onClick={() => navigate("/playlists")}>
+                            Playlists
+                        </SectionSwitchButton>
+                        <SectionSwitchButton icon={<Heart size={16} />} onClick={() => navigate("/favorites")}>
+                            Favourites
+                        </SectionSwitchButton>
+                        {user?.platformAdmin ? (
+                            <SectionSwitchButton icon={<Shield size={16} />} onClick={() => navigate("/admin")}>
+                                Admin
+                            </SectionSwitchButton>
+                        ) : null}
+                    </div>
+
+                    <div className="order-1 flex flex-nowrap items-center justify-start gap-1.5 overflow-x-auto py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] sm:gap-2 xl:order-2 xl:shrink-0 xl:justify-end [&::-webkit-scrollbar]:hidden">
+                        {statCards.map((card, index) => (
+                            <StatCard key={card.label} index={index} label={card.label} value={card.value} />
+                        ))}
+                    </div>
                 </div>
 
                 {activePanel === "history" ? (
@@ -724,38 +725,36 @@ const ProfilePage = () => {
                     </SectionShell>
                 ) : (
                     <SectionShell
-                        eyebrow="Creator vault"
                         title="Your Uploads"
                         subtitle="Manage public, private, and organization content inside a premium media showcase."
                         rightContent={
-                            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-                                {availableUploadTabs.some((tab) => tab.key !== "public") ? (
-                                    <div className="flex flex-wrap gap-2">
-                                        {availableUploadTabs.map((tab) => (
-                                            <button
-                                                key={tab.key}
-                                                onClick={() => handleUploadHeaderButtonClick(tab.key)}
-                                                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                                                    uploadVisibility === tab.key
-                                                        ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
-                                                        : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
-                                                }`}
-                                            >
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : null}
-                                <button
-                                    onClick={() => navigate("/upload")}
-                                    className="inline-flex items-center justify-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-                                >
-                                    <UploadCloud size={15} />
-                                    Upload Video
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => navigate("/upload")}
+                                className="inline-flex items-center justify-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                            >
+                                <UploadCloud size={15} />
+                                Upload Video
+                            </button>
                         }
                     >
+                        {availableUploadTabs.some((tab) => tab.key !== "public") ? (
+                            <div className="mb-5 flex flex-wrap gap-2">
+                                {availableUploadTabs.map((tab) => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => handleUploadHeaderButtonClick(tab.key)}
+                                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                            uploadVisibility === tab.key
+                                                ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
+                                                : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
+
                         {uploadVideos.length > 0 ? (
                             <>
                                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -768,10 +767,6 @@ const ProfilePage = () => {
                                             secondaryActionLabel="Edit"
                                         />
                                     ))}
-                                </div>
-                                <div className="mt-4 flex flex-wrap gap-3">
-                                    <Pill icon={<UploadCloud size={14} />}>{uploadVideos.length} visible in this lane</Pill>
-                                    <Pill icon={<Eye size={14} />}>{uploadVisibility} showcase active</Pill>
                                 </div>
                             </>
                         ) : (

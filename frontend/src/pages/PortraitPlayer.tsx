@@ -64,6 +64,7 @@ const PortraitPlayer = () => {
     const [subscribed, setSubscribed] = useState(false)
     const [liked, setLiked] = useState(false)
     const [disliked, setDisliked] = useState(false)
+    const [reactionPending, setReactionPending] = useState(false)
     const [comments, setComments] = useState<Comment[]>([])
     const [commentInput, setCommentInput] = useState("")
     const [shouldScroll, setShouldScroll] = useState(false)
@@ -258,27 +259,53 @@ const PortraitPlayer = () => {
     }
 
     const likeVideo = async () => {
+        if (reactionPending) return
         if (!requireLogin()) return
         if (!activeVideo?.publicId) return
 
-        await api.post("/video-actions/react", {
-            publicId: activeVideo.publicId,
-            type: "LIKE"
-        })
+        setReactionPending(true)
+        try {
+            const res = await api.post("/video-actions/react", {
+                publicId: activeVideo.publicId,
+                type: "LIKE"
+            })
 
-        await loadActions(activeVideo.publicId)
+            if (typeof res.data?.likes === "number" && typeof res.data?.dislikes === "number") {
+                setLikes(res.data.likes)
+                setDislikes(res.data.dislikes)
+                setLiked(res.data.userReaction === "LIKE")
+                setDisliked(res.data.userReaction === "DISLIKE")
+            } else {
+                await loadActions(activeVideo.publicId)
+            }
+        } finally {
+            setReactionPending(false)
+        }
     }
 
     const dislikeVideo = async () => {
+        if (reactionPending) return
         if (!requireLogin()) return
         if (!activeVideo?.publicId) return
 
-        await api.post("/video-actions/react", {
-            publicId: activeVideo.publicId,
-            type: "DISLIKE"
-        })
+        setReactionPending(true)
+        try {
+            const res = await api.post("/video-actions/react", {
+                publicId: activeVideo.publicId,
+                type: "DISLIKE"
+            })
 
-        await loadActions(activeVideo.publicId)
+            if (typeof res.data?.likes === "number" && typeof res.data?.dislikes === "number") {
+                setLikes(res.data.likes)
+                setDislikes(res.data.dislikes)
+                setLiked(res.data.userReaction === "LIKE")
+                setDisliked(res.data.userReaction === "DISLIKE")
+            } else {
+                await loadActions(activeVideo.publicId)
+            }
+        } finally {
+            setReactionPending(false)
+        }
     }
 
     const addVideoToPlaylist = async (playlistId: string) => {
@@ -670,7 +697,8 @@ const PortraitPlayer = () => {
                             {/* LIKE */}
                             <button
                                 onClick={likeVideo}
-                                className={`flex h-14 min-w-0 flex-col items-center justify-center rounded-xl transition lg:w-14 lg:flex-none ${liked
+                                disabled={reactionPending}
+                                className={`flex h-14 min-w-0 flex-col items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-70 lg:w-14 lg:flex-none ${liked
                                     ? "bg-green-600 text-white"
                                     : "bg-white/10 hover:bg-white/20"
                                     }`}
@@ -682,7 +710,8 @@ const PortraitPlayer = () => {
                             {/* DISLIKE */}
                             <button
                                 onClick={dislikeVideo}
-                                className={`flex h-14 min-w-0 flex-col items-center justify-center rounded-xl transition lg:w-14 lg:flex-none ${disliked
+                                disabled={reactionPending}
+                                className={`flex h-14 min-w-0 flex-col items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-70 lg:w-14 lg:flex-none ${disliked
                                     ? "bg-red-600 text-white"
                                     : "bg-white/10 hover:bg-white/20"
                                     }`}

@@ -8,7 +8,7 @@ import { SOCKET_URL } from "@/config/env"
 import AppLayout from "@/layouts/AppLayout"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
 import AIGenerateAction from "@/components/AIGenerateAction"
-import { Cloud, Database, FileVideo, UploadCloud } from "lucide-react"
+import { CheckCircle2, Cloud, Database, FileVideo, UploadCloud } from "lucide-react"
 
 interface Channel {
     id: string
@@ -141,6 +141,8 @@ const Upload = () => {
     const queueRef = useRef<UploadItem[]>([])
     const [uploading, setUploading] = useState(false)
     const [uploadError, setUploadError] = useState("")
+    const [showUploadCompleteModal, setShowUploadCompleteModal] = useState(false)
+    const [completedUploadCount, setCompletedUploadCount] = useState(0)
     const [globalVisibility, setGlobalVisibility] = useState<"PUBLIC" | "PRIVATE" | "ORGANIZATION">("PUBLIC")
 
     const fetchAIMetadata = async (videoId: string) => {
@@ -626,14 +628,23 @@ const Upload = () => {
         }
 
         setUploadError("")
+        setShowUploadCompleteModal(false)
+        setCompletedUploadCount(0)
         setUploading(true)
+        let successfulUploads = 0
 
         for (let i = 0; i < queue.length; i++) {
 
             if (queue[i].status !== "waiting") continue
 
-            await uploadSingle(i)
+            const uploaded = await uploadSingle(i)
+            if (uploaded) successfulUploads += 1
 
+        }
+
+        if (successfulUploads > 0) {
+            setCompletedUploadCount(successfulUploads)
+            setShowUploadCompleteModal(true)
         }
 
         setUploading(false)
@@ -649,7 +660,7 @@ const Upload = () => {
             if (!item.thumbnailFile && !item.generateAIOnUpload) {
                 setUploadError("Upload a thumbnail or choose Generate AI before uploading.")
                 updateItem(index, { status: "error" })
-                return
+                return false
             }
 
             updateItem(index, { status: "uploading" });
@@ -755,12 +766,20 @@ const Upload = () => {
                 );
             });
 
+            return true
+
         } catch (err) {
             updateItem(index, {
                 status: "error",
             });
+            return false
         }
     };
+
+    const handleUploadContinue = () => {
+        setShowUploadCompleteModal(false)
+        navigate("/home")
+    }
 
     const createChannelFirstTime = async () => {
         const trimmedName = channelNameInput.trim()
@@ -994,6 +1013,31 @@ const Upload = () => {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {showUploadCompleteModal && (
+                    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_28%),rgba(5,3,14,0.82)] px-3 py-4 backdrop-blur-sm sm:px-4">
+                        <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(20,18,39,0.98),rgba(11,10,28,0.98))] p-6 text-center shadow-[0_28px_80px_rgba(0,0,0,0.45)] sm:p-8">
+                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-400/12 text-emerald-100">
+                                <CheckCircle2 size={32} />
+                            </div>
+
+                            <h2 className="mt-5 text-2xl font-semibold tracking-tight text-white">
+                                {completedUploadCount > 1 ? "Your videos are uploaded." : "Your video is uploaded."}
+                            </h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                                Continue to the home page to view your uploaded content.
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={handleUploadContinue}
+                                className="mt-6 w-full rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                            >
+                                Continue
+                            </button>
                         </div>
                     </div>
                 )}

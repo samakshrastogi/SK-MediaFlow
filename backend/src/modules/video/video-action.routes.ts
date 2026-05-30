@@ -14,6 +14,7 @@ import {
     handleCreatePlaylist,
     handleDeletePlaylist,
     handleRemoveVideoFromPlaylist,
+    handleRemoveFavouriteVideo,
     handleGetFavouriteVideos,
     handleGetUserPlaylistsWithVideos,
     handleGetUserActivity
@@ -42,6 +43,8 @@ router.delete("/playlists/:playlistId", authenticate, handleDeletePlaylist)
 router.delete("/playlists/:playlistId/videos/:publicId", authenticate, handleRemoveVideoFromPlaylist)
 
 router.get("/favorites", authenticate, handleGetFavouriteVideos)
+
+router.delete("/favorites/:publicId", authenticate, handleRemoveFavouriteVideo)
 
 router.get("/playlists-with-videos", authenticate, handleGetUserPlaylistsWithVideos)
 

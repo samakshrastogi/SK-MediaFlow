@@ -112,6 +112,7 @@ const VideoPlayer = () => {
     const [commentInput, setCommentInput] = useState("")
     const [liked, setLiked] = useState(false)
     const [disliked, setDisliked] = useState(false)
+    const [reactionPending, setReactionPending] = useState(false)
 
     const [playlists, setPlaylists] = useState<Playlist[]>([])
     const [showPlaylist, setShowPlaylist] = useState(false)
@@ -193,21 +194,53 @@ const VideoPlayer = () => {
     }
 
     const likeVideo = async () => {
+        if (reactionPending) return
         if (!requireLogin()) return
-        await api.post("/video-actions/react", {
-            publicId,
-            type: "LIKE"
-        })
-        loadActions()
+        if (!publicId) return
+
+        setReactionPending(true)
+        try {
+            const res = await api.post("/video-actions/react", {
+                publicId,
+                type: "LIKE"
+            })
+
+            if (typeof res.data?.likes === "number" && typeof res.data?.dislikes === "number") {
+                setLikes(res.data.likes)
+                setDislikes(res.data.dislikes)
+                setLiked(res.data.userReaction === "LIKE")
+                setDisliked(res.data.userReaction === "DISLIKE")
+            } else {
+                await loadActions()
+            }
+        } finally {
+            setReactionPending(false)
+        }
     }
 
     const dislikeVideo = async () => {
+        if (reactionPending) return
         if (!requireLogin()) return
-        await api.post("/video-actions/react", {
-            publicId,
-            type: "DISLIKE"
-        })
-        loadActions()
+        if (!publicId) return
+
+        setReactionPending(true)
+        try {
+            const res = await api.post("/video-actions/react", {
+                publicId,
+                type: "DISLIKE"
+            })
+
+            if (typeof res.data?.likes === "number" && typeof res.data?.dislikes === "number") {
+                setLikes(res.data.likes)
+                setDislikes(res.data.dislikes)
+                setLiked(res.data.userReaction === "LIKE")
+                setDisliked(res.data.userReaction === "DISLIKE")
+            } else {
+                await loadActions()
+            }
+        } finally {
+            setReactionPending(false)
+        }
     }
 
     const addVideoToPlaylist = async (playlistId: string) => {
@@ -540,7 +573,8 @@ const VideoPlayer = () => {
                             <div className="grid min-w-0 grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end">
                                 <button
                                     onClick={likeVideo}
-                                    className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition sm:w-auto sm:gap-2 sm:px-4 sm:text-sm ${
+                                    disabled={reactionPending}
+                                    className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm ${
                                         liked
                                             ? "bg-green-600 border-green-500 text-white"
                                             : "bg-white/10 border-white/10 hover:bg-white/15"
@@ -551,7 +585,8 @@ const VideoPlayer = () => {
 
                                 <button
                                     onClick={dislikeVideo}
-                                    className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition sm:w-auto sm:gap-2 sm:px-4 sm:text-sm ${
+                                    disabled={reactionPending}
+                                    className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm ${
                                         disliked
                                             ? "bg-red-600 border-red-500 text-white"
                                             : "bg-white/10 border-white/10 hover:bg-white/15"
