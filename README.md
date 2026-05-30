@@ -1,24 +1,26 @@
 # SK-MediaFlow
 
-`SK-MediaFlow` is a full-stack video platform for publishing, organizing, streaming, and managing media at individual, organization, and platform-admin levels. The current codebase combines creator workflows, AI-assisted metadata, S3-backed ingestion, background processing, and analytics-oriented administration in a single product surface.
+`SK-MediaFlow` is a full-stack video publishing and streaming platform with creator uploads, S3-backed storage, CloudFront delivery, organization workflows, AI-assisted metadata generation, AI thumbnail generation, spritesheet frame picking, and real-time processing updates.
 
-## What The Project Currently Includes
+## Current Capabilities
 
-- Email/password authentication with OTP verification, password reset, and Google OAuth
-- User profiles with avatar and cover management
-- Channel-based publishing
-- Direct video uploads with presigned S3 URLs
+- Email/password auth, OTP verification, password reset, Google OAuth, and session tracking
+- User profiles with avatar and cover uploads
+- Channel-based video publishing
+- Manual video upload through presigned S3 URLs
+- Required thumbnail handling, with an AI-generation alternative during upload
 - S3 bucket registration, scanning, and selective import
 - Public, private, and organization-scoped video visibility
-- Landscape and portrait playback flows
+- Landscape and portrait playback
 - AI-generated transcript, title, description, keywords, and tags
-- Spritesheet generation and frame-based thumbnail selection
-- Reactions, comments, shares, favorites, playlists, and watch history
-- Organization creation, join flows, invite flows, uploader policy controls, and dashboard metrics
-- Platform admin analytics, subscription visibility, and admin access management
-- Real-time processing updates through Socket.IO
+- AI thumbnail generation when selected before upload
+- Spritesheet generation for frame-based thumbnail selection
+- Reactions, comments, shares, favorites, playlists, watch history, and subscriptions
+- Organization creation, join flows, invites, uploader policies, dashboards, and metrics
+- Platform admin analytics and access management
+- Socket.IO progress events for upload, AI, thumbnail, and processing state
 
-## Architecture
+## Tech Stack
 
 ### Frontend
 
@@ -30,6 +32,7 @@
 - Socket.IO client
 - Tailwind CSS 4
 - Framer Motion
+- Lucide icons
 
 ### Backend
 
@@ -38,526 +41,248 @@
 - TypeScript
 - Prisma ORM
 - MongoDB
-- BullMQ with Redis
+- BullMQ
+- Redis
 - AWS S3
-- CloudFront signed delivery
-- FFmpeg and ffprobe
+- CloudFront signed URLs
+- FFmpeg and ffprobe through the backend FFmpeg config
+- OpenAI API for AI transcription and metadata generation
 - Passport Google OAuth
-- JWT-based auth flows
-
-### AI And Processing
-
-- External AI service integration through backend AI modules
-- Queue-backed workers for thumbnailing, AI enrichment, and technical metadata extraction
-- Post-upload media orchestration for optimization, spritesheets, and downstream jobs
-
-## Project Flowchart
-
-```mermaid
-flowchart TD
-    U["User"] --> F["Frontend App<br/>React 19 + Vite"]
-
-    subgraph FE["Frontend Surface"]
-        F --> FE1["Auth Pages<br/>Login, Register, OAuth Success, Reset Password"]
-        F --> FE2["Discovery And Playback<br/>Home, Video Player, Portrait Player, Search"]
-        F --> FE3["Creator Tools<br/>Upload, S3 Import, Profile, Thumbnail Picker"]
-        F --> FE4["Workspace Areas<br/>Favorites, Playlists, Settings"]
-        F --> FE5["Governance Areas<br/>Organization, Organization Dashboard, Admin"]
-    end
-
-    F --> AX["Axios Client"]
-    F --> SO["Socket.IO Client"]
-
-    AX --> API["Backend API<br/>Express + TypeScript"]
-    SO --> RT["Realtime Service<br/>Socket.IO Server"]
-
-    subgraph BE["Backend Modules"]
-        API --> M1["Auth Module<br/>Register, OTP, Login, Google OAuth, Reset Password"]
-        API --> M2["User Module<br/>Profile, Settings, Sessions, Avatar, Cover"]
-        API --> M3["Channel Module<br/>Creator Channel Management"]
-        API --> M4["Video Module<br/>Upload, Search, Playback, S3 Import, Spritesheets"]
-        API --> M5["Video Actions Module<br/>Views, Likes, Dislikes, Comments, Shares, Playlists"]
-        API --> M6["AI Module<br/>Generate And Apply AI Suggestions"]
-        API --> M7["Organization Module<br/>Memberships, Invites, Policies, Billing, Dashboard"]
-        API --> M8["Notification Module<br/>User Notifications"]
-        API --> M9["Admin Module<br/>Metrics, Filters, Admin Access Control"]
-    end
-
-    API --> PR["Prisma ORM"]
-    PR --> DB["MongoDB"]
-
-    M4 --> S3["AWS S3 Storage"]
-    M2 --> S3
-    M4 --> CF["CloudFront Signed Delivery"]
-    M2 --> CF
-
-    M4 --> ORCH["Post-Upload Orchestration"]
-    ORCH --> FFM["FFmpeg / ffprobe Processing"]
-    ORCH --> SPR["Spritesheet Generation"]
-    ORCH --> Q["BullMQ Queues"]
-
-    Q --> REDIS["Redis"]
-    Q --> W1["Thumbnail Worker"]
-    Q --> W2["Video AI Worker"]
-    Q --> W3["Video Metadata Worker"]
-
-    W1 --> S3
-    W1 --> DB
-    W2 --> AI["External AI Service"]
-    AI --> W2
-    W2 --> DB
-    W3 --> DB
-
-    ORCH --> RT
-    W1 --> RT
-    W2 --> RT
-    W3 --> RT
-    RT --> SO
-
-    CF --> FE2
-    CF --> FE3
-```
-
-## Detailed Flowcharts
-
-### Authentication flow
-
-```mermaid
-flowchart TD
-    U["Visitor"] --> A1["Frontend Auth Pages"]
-
-    A1 --> R1["Register"]
-    R1 --> API1["Create Account Request"]
-    API1 --> DB["User Record Created In MongoDB"]
-    API1 --> OTP["OTP Generated And Sent"]
-    OTP --> V1["Verify OTP"]
-    V1 --> DB
-    DB --> READY["Verified Account Ready For Login"]
-
-    A1 --> L1["Login"]
-    L1 --> API2["Login Request"]
-    API2 --> AUTH["Validate Password / Provider State"]
-    AUTH --> LOGINREC["Create UserLogin Session Record"]
-    LOGINREC --> JWT["Issue JWT Token"]
-    JWT --> FE["Token Stored In Frontend Auth Context"]
-
-    A1 --> G1["Google Sign-In"]
-    G1 --> GAPI["Start Google OAuth"]
-    GAPI --> GOOGLE["Google OAuth Consent"]
-    GOOGLE --> GCALL["OAuth Callback"]
-    GCALL --> PROFILE["Find Or Create User + Channel Context"]
-    PROFILE --> GLOGIN["Create UserLogin Session Record"]
-    GLOGIN --> GJWT["Issue JWT And Redirect To /oauth-success"]
-    GJWT --> FE
-
-    A1 --> FP["Forgot Password"]
-    FP --> FPAPI["Request Password Reset"]
-    FPAPI --> MAIL["Reset Link Delivery"]
-    MAIL --> RESET["Submit New Password"]
-    RESET --> DB
-
-    FE --> END["End Session"]
-    END --> DB
-```
-
-### User settings and security flow
-
-```mermaid
-flowchart TD
-    U["Authenticated User"] --> SET["Settings Page"]
-    SET --> LOAD["Load Current Settings"]
-    LOAD --> DB["User + UserLogin + Preferences Data"]
-    DB --> SET
-
-    SET --> PREF["Save Preferences"]
-    PREF --> SAVE1["Save Notification, Privacy, Preference Flags"]
-    SAVE1 --> DB
-
-    SET --> EMAIL["Update Email"]
-    EMAIL --> CHECKPW1["Validate Current Password If Required"]
-    CHECKPW1 --> UPDATEEMAIL["Update Email, Reset Verification State"]
-    UPDATEEMAIL --> REVOKE1["Revoke Sessions"]
-    REVOKE1 --> OTP["Send Verification OTP"]
-    OTP --> DB
-
-    SET --> PASS["Update Password"]
-    PASS --> CHECKPW2["Validate Current Password"]
-    CHECKPW2 --> HASH["Hash New Password"]
-    HASH --> SAVE2["Persist New Password"]
-    SAVE2 --> REVOKE2["Revoke Other Sessions"]
-    REVOKE2 --> DB
-
-    SET --> SESS1["Revoke Other Sessions"]
-    SESS1 --> DB
-
-    SET --> SESS2["Remove Individual Session"]
-    SESS2 --> DB
-
-    SET --> HIST["Clear Watch History"]
-    HIST --> CLEAR["Clear WatchHistory"]
-    CLEAR --> DB
-
-    SET --> DEACT["Deactivate Account"]
-    DEACT --> DEACTSAVE["Mark deactivatedAt + Revoke Sessions"]
-    DEACTSAVE --> DB
-
-    SET --> DEL["Delete Account"]
-    DEL --> CONF["Require DELETE Confirmation"]
-    CONF --> ANON["Anonymize User Fields + Mark deletedAt"]
-    ANON --> DB
-```
-
-### Profile and media management flow
-
-```mermaid
-flowchart LR
-    U["Authenticated Creator"] --> PROF["Profile Page"]
-    PROF --> ME["Load Profile Workspace"]
-    ME --> DB["Load User, Channel, Stats, Uploaded Videos, History, Favorites, Playlists"]
-    DB --> PROF
-
-    PROF --> AV1["Request Avatar Upload URL"]
-    AV1 --> S3A["Presigned S3 Target"]
-    S3A --> AV2["Upload Avatar To S3"]
-    AV2 --> AV3["Save Avatar Key In User Record"]
-    AV3 --> CF["CloudFront Signed URL Returned"]
-
-    PROF --> CV1["Request Cover Upload URL"]
-    CV1 --> S3C["Presigned Cover Upload Target"]
-    S3C --> CV2["Upload Cover To S3"]
-    CV2 --> CV3["Save Cover Selection"]
-    CV3 --> DB2["Save coverKey"]
-    DB2 --> CF
-
-    PROF --> VIDEOS["Owned Video Management"]
-    VIDEOS --> EDIT["Edit Video Details"]
-    VIDEOS --> DEL["Delete Video"]
-    EDIT --> DB3["Update Metadata, Visibility, Ownership Fields"]
-    DEL --> DB4["Soft Delete / Status Update"]
-```
-
-### Channel creation and publishing ownership flow
-
-```mermaid
-flowchart TD
-    U["Authenticated User"] --> PROFILE["Profile Or Creator Workspace"]
-    PROFILE --> CHECK["Check Existing Channel Context"]
-
-    CHECK --> HAS["Channel Already Exists"]
-    CHECK --> CREATE["Create New Channel"]
-
-    CREATE --> DEFAULT["Assign Channel As Default Publishing Owner"]
-    DEFAULT --> SAVECH["Save Channel Ownership To User Context"]
-    SAVECH --> READY["Creator Ready To Publish"]
-
-    HAS --> READY
-
-    READY --> UPLOAD["Start Video Upload Or Import"]
-    UPLOAD --> OWNER["Resolve Publishing Owner"]
-
-    OWNER --> SELF["Personal Default Channel"]
-    OWNER --> ALT["Allowed Owned Channel"]
-
-    SELF --> RULES["Validate Ownership And Permissions"]
-    ALT --> RULES
-
-    RULES --> OK["Ownership Valid"]
-    RULES --> DENY["Ownership Invalid Or Not Allowed"]
-
-    OK --> VIDEO["Create Video Record With Channel Ownership"]
-    VIDEO --> DB["Persist Video And Channel Link"]
-    DB --> LIB["Show Video In Creator Library"]
-
-    DENY --> ERR["Return Ownership Error To User"]
-```
-
-### S3 import flow
-
-```mermaid
-flowchart TD
-    U["Authenticated User"] --> IMP["S3 Import Page"]
-    IMP --> CREDS["Register External Bucket"]
-    CREDS --> DB["Store User S3 Credential Record"]
-
-    IMP --> LIST["Load Registered Buckets"]
-    LIST --> DB
-    DB --> IMP
-
-    IMP --> SCAN["Scan Bucket Contents"]
-    SCAN --> S3["External Bucket Listing"]
-    S3 --> FILES["Return Candidate Media Files"]
-    FILES --> IMP
-
-    IMP --> PICK["Select Videos To Import"]
-    PICK --> IMPORT["Start Import"]
-    IMPORT --> VIDEO["Create Video Records With uploadSource = S3_IMPORT"]
-    VIDEO --> DB2["Persist Imported Video Entries"]
-    VIDEO --> ORCH["Start Standard Post-Upload Orchestration"]
-    ORCH --> JOBS["Spritesheet + Metadata + Thumbnail + AI Jobs"]
-```
-
-### S3 bucket onboarding flow
-
-```mermaid
-flowchart TD
-    U["Authenticated User"] --> S3PAGE["S3 Import Workspace"]
-    S3PAGE --> FORM["Enter Bucket And Credential Details"]
-    FORM --> REGISTER["Register Bucket Connection"]
-
-    REGISTER --> VALIDATE["Validate Credentials And Bucket Access"]
-    VALIDATE --> FAIL["Validation Failed"]
-    VALIDATE --> PASS["Validation Succeeded"]
-
-    FAIL --> FIX["Prompt User To Correct Credentials Or Bucket Settings"]
-    FIX --> FORM
-
-    PASS --> STORE["Store Bucket Configuration"]
-    STORE --> READY["Bucket Ready For Scanning"]
-
-    READY --> SCAN["Start Bucket Scan"]
-    SCAN --> LIST["Load Candidate Media Files"]
-    LIST --> FILTER["Filter Supported And Eligible Video Files"]
-
-    FILTER --> EMPTY["No Eligible Files Found"]
-    FILTER --> ELIGIBLE["Eligible Files Available"]
-
-    EMPTY --> WAIT["Keep Bucket Registered For Later Scans"]
-    ELIGIBLE --> PICK["User Selects Files To Import"]
-    PICK --> IMPORT["Mark Files As Import Ready"]
-    IMPORT --> CREATE["Create Imported Video Records"]
-    CREATE --> ORCH["Start Standard Processing Pipeline"]
-```
-
-### Playback access flow
-
-```mermaid
-flowchart TD
-    U["Viewer"] --> PAGE["Video Player Or Portrait Player"]
-    PAGE --> FETCH["Load Playback Data"]
-    FETCH --> AUTH["Authenticate User"]
-    AUTH --> LOOKUP["Load Video + Channel + AI + Metadata"]
-    LOOKUP --> VIS["Evaluate Visibility Rules"]
-
-    VIS --> PUB["PUBLIC"]
-    VIS --> PRI["PRIVATE"]
-    VIS --> ORG["ORGANIZATION"]
-
-    PUB --> SIGN["Generate Signed CloudFront Media URL"]
-    PRI --> OWN["Allow Only Authorized Owner / Private Access"]
-    OWN --> SIGN
-    ORG --> MEMBER["Validate Organization Membership Or Policy"]
-    MEMBER --> SIGN
-
-    SIGN --> RESP["Return Playback Payload"]
-    RESP --> PLAYER["Frontend Player Loads Media"]
-
-    PLAYER --> VIEW["Record View"]
-    PLAYER --> WATCH["Track Watch Progress"]
-    VIEW --> DB["Record VideoView"]
-    WATCH --> DB2["Upsert WatchHistory"]
-```
-
-### Media playback authorization flow
-
-```mermaid
-flowchart TD
-    U["Viewer"] --> REQUEST["Open Video Playback"]
-    REQUEST --> LOAD["Load Video, Channel, And Visibility State"]
-    LOAD --> AUTH["Check Viewer Session State"]
-    AUTH --> VIS["Inspect Video Visibility"]
-
-    VIS --> PUBLIC["PUBLIC"]
-    VIS --> PRIVATE["PRIVATE"]
-    VIS --> ORG["ORGANIZATION"]
-
-    PUBLIC --> PUBOK["Allow Playback Without Membership Gate"]
-    PUBOK --> SIGN1["Generate Signed Playback URL"]
-
-    PRIVATE --> OWNERCHK["Is Viewer Owner Or Explicitly Allowed?"]
-    OWNERCHK --> YES1["Yes"]
-    OWNERCHK --> NO1["No"]
-    YES1 --> SIGN2["Generate Signed Playback URL"]
-    NO1 --> BLOCK1["Deny Playback"]
-
-    ORG --> MEMBERCHK["Is Viewer In Required Organization?"]
-    MEMBERCHK --> YES2["Yes"]
-    MEMBERCHK --> NO2["No"]
-    YES2 --> POLICY["Check Organization Content Policy"]
-    POLICY --> POLLOW["Policy Allows Playback"]
-    POLICY --> POLDENY["Policy Denies Playback"]
-    POLLOW --> SIGN3["Generate Signed Playback URL"]
-    POLDENY --> BLOCK2["Deny Playback"]
-    NO2 --> BLOCK3["Deny Playback"]
-
-    SIGN1 --> RESP["Return Playback Payload"]
-    SIGN2 --> RESP
-    SIGN3 --> RESP
-    RESP --> PLAYER["Frontend Player Starts Streaming"]
-```
-
-### Video interaction and analytics flow
-
-```mermaid
-flowchart TD
-    U["Authenticated Viewer"] --> PLAYER["Frontend Playback And Action UI"]
-
-    PLAYER --> REACT["Save Reaction"]
-    REACT --> DB1["Create Or Update VideoReaction"]
-
-    PLAYER --> COMMENT["Create Comment"]
-    COMMENT --> DB2["Create VideoComment"]
-
-    PLAYER --> SHARE["Record Share"]
-    SHARE --> DB3["Create VideoShare"]
-
-    PLAYER --> PLAYLIST["Update Playlist"]
-    PLAYLIST --> DB4["Create Playlist Or Add VideoAction Link"]
-
-    PLAYER --> SUB["Toggle Subscription"]
-    SUB --> DB5["Toggle Channel Subscription"]
-
-    PLAYER --> READ1["Load Interaction Summary"]
-    READ1 --> AGG1["Aggregate Counts, Reactions, Comments, Playlist State"]
-    AGG1 --> PLAYER
-
-    PLAYER --> READ2["Load Favorites"]
-    PLAYER --> READ3["Load Playlists"]
-    PLAYER --> READ4["Load Playlists With Videos"]
-    PLAYER --> READ5["Load Activity Feed"]
-
-    DB1 --> ADMIN["Admin / Organization Analytics"]
-    DB2 --> ADMIN
-    DB3 --> ADMIN
-    DB5 --> ADMIN
-```
-
-### Organization invite and approval flow
-
-```mermaid
-flowchart TD
-    OWNER["Organization Owner Or Admin"] --> DASH["Organization Workspace"]
-    DASH --> INVITE["Create Member Invite"]
-    INVITE --> ROLE["Choose Role Or Access Level"]
-    ROLE --> TOKEN["Generate Invite Token Or Link"]
-    TOKEN --> SEND["Send Invite To Recipient"]
-    SEND --> NOTI1["Create Notification Record"]
-
-    RECIP["Recipient"] --> OPEN["Open Invite Link"]
-    OPEN --> AUTH["Authenticate Or Create Account"]
-    AUTH --> ACCEPT["Accept Invite"]
-    ACCEPT --> PENDING["Create Pending Membership Request"]
-    PENDING --> NOTI2["Notify Organization Reviewers"]
-
-    REVIEW["Owner Or Admin Review"] --> LOAD["Load Pending Request"]
-    LOAD --> DECIDE["Approve Or Reject"]
-
-    DECIDE --> APPROVE["Approve Membership"]
-    DECIDE --> REJECT["Reject Membership"]
-
-    APPROVE --> ASSIGN["Assign Final Role And Membership State"]
-    ASSIGN --> MEMBER["Grant Organization Access"]
-    MEMBER --> NOTI3["Notify Recipient Of Approval"]
-
-    REJECT --> DENY["Keep Access Blocked"]
-    DENY --> NOTI4["Notify Recipient Of Rejection"]
-```
-
-### AI suggestion lifecycle
-
-```mermaid
-flowchart TD
-    V["Video Record"] --> JOB["Video AI Worker"]
-    JOB --> TRANS["Request Transcript From External AI Service"]
-    TRANS --> EXT["External AI Service"]
-    EXT --> META["Generate Title, Description, Keywords, Tags"]
-    META --> SAVE["Persist VideoAI Record"]
-    SAVE --> DB["MongoDB"]
-
-    U["Creator Or Editor"] --> PROFILE["Profile / Video Edit UI"]
-    PROFILE --> READ["Load AI Insights"]
-    READ --> DB
-    DB --> SUGGEST["Show Transcript And AI Suggestions"]
-
-    SUGGEST --> APPLY["Apply Suggested Metadata"]
-    APPLY --> MERGE["Copy AI Fields To Main Video Record"]
-    MERGE --> DB2["Update Video Title / Description / Tags"]
-```
-
-### Notification flow
-
-```mermaid
-flowchart TD
-    SRC1["Organization Invite Flow"] --> CREATE["Create Notification Record"]
-    SRC2["Membership Approval Flow"] --> CREATE
-    SRC3["General Platform Events"] --> CREATE
-    CREATE --> DB["MongoDB Notification Collection"]
-
-    U["Authenticated User"] --> NPAGE["Notification UI"]
-    NPAGE --> LOAD["Load Notifications"]
-    LOAD --> DB
-    DB --> LIST["Return Notifications + unreadCount"]
-    LIST --> NPAGE
-
-    NPAGE --> READ1["Mark Notification Read"]
-    READ1 --> DB
-
-    NPAGE --> READALL["Mark All Notifications Read"]
-    READALL --> DB
-```
+- JWT auth
 
 ## Repository Layout
 
 ```text
 SK-MediaFlow/
 ├── README.md
-├── PROJECT_OVERVIEW.md
-├── SETUP_GUIDE.md
-├── SKILLS_DEVELOPED.md
-├── WHISPER_OLLAMA_USAGE.md
 ├── backend/
+│   ├── prisma/
+│   └── src/
+│       ├── modules/
+│       ├── workers/
+│       ├── queues/
+│       ├── services/
+│       └── config/
 └── frontend/
+    └── src/
+        ├── components/
+        ├── pages/
+        ├── layouts/
+        ├── context/
+        └── api/
 ```
 
-## Codebase Overview
+## High-Level Architecture
 
-The repository is split into two main applications:
+```mermaid
+flowchart TD
+    U["User"] --> FE["Frontend<br/>React + Vite"]
+    FE --> API["Backend API<br/>Express + TypeScript"]
+    FE --> RT["Socket.IO"]
 
-- `backend/` for authentication, media orchestration, persistence, worker execution, queue handling, and real-time progress events
-- `frontend/` for playback, uploads, discovery, profile management, organization tools, and admin workflows
+    API --> DB["MongoDB<br/>Prisma"]
+    API --> S3["AWS S3"]
+    API --> CF["CloudFront Signed URLs"]
+    API --> Q["BullMQ Queues"]
 
-Important backend entry files:
+    Q --> REDIS["Redis"]
+    Q --> MW["Video Metadata Worker"]
+    Q --> AW["Video AI Worker"]
+    Q --> TW["Thumbnail Worker"]
 
-- `backend/src/app.ts`
-  Express app setup, middleware registration, route mounting, and worker imports
+    MW --> DB
+    AW --> OAI["OpenAI API"]
+    OAI --> AW
+    AW --> DB
+    TW --> S3
+    TW --> DB
 
-- `backend/src/server.ts`
-  HTTP server creation, Socket.IO setup, and progress event wiring
+    API --> FFM["FFmpeg / ffprobe"]
+    FFM --> S3
 
-- `backend/prisma/schema.prisma`
-  Prisma schema for the MongoDB data model
+    MW --> RT
+    AW --> RT
+    TW --> RT
+    RT --> FE
+```
 
-Important frontend entry files:
+## Upload And AI Flow
 
-- `frontend/src/main.tsx`
-- `frontend/src/App.tsx`
-- `frontend/src/layouts/AppLayout.tsx`
+The upload flow is intentionally user-driven. AI processing and AI thumbnail generation do not start automatically just because a video was uploaded.
+
+### Manual thumbnail path
+
+1. The user selects a video.
+2. The user uploads a thumbnail image.
+3. The frontend uploads the video to S3 with a presigned URL.
+4. The frontend uploads the thumbnail to S3 with a presigned URL.
+5. The frontend completes the upload.
+6. The backend creates the video record using the uploaded thumbnail.
+7. Technical metadata extraction is queued.
+8. AI metadata, AI thumbnail, and spritesheet generation do not start unless the user selected Generate AI.
+
+### Generate AI path
+
+1. The user selects a video.
+2. The user clicks `Generate AI` before starting the upload.
+3. A modal explains that AI will generate title, description, keywords, transcript data, an AI thumbnail, and a spritesheet.
+4. The user confirms generation.
+5. The frontend allows upload without a manual thumbnail.
+6. The upload completion request includes `generateAIAssets: true`.
+7. The backend creates the video record.
+8. The backend queues AI metadata and AI thumbnail generation once.
+9. The backend starts spritesheet generation once.
+10. Socket.IO events update the upload UI as jobs progress.
+
+```mermaid
+flowchart TD
+    V["User selects video"] --> CHOICE{"Before upload"}
+    CHOICE --> MANUAL["Upload thumbnail manually"]
+    CHOICE --> AISEL["Click Generate AI and confirm modal"]
+
+    MANUAL --> UPLOAD1["Upload video + thumbnail to S3"]
+    AISEL --> UPLOAD2["Upload video to S3<br/>thumbnail not required"]
+
+    UPLOAD1 --> COMPLETE1["Complete upload"]
+    UPLOAD2 --> COMPLETE2["Complete upload with generateAIAssets = true"]
+
+    COMPLETE1 --> REC1["Create video record with thumbnailKey"]
+    COMPLETE2 --> REC2["Create video record without thumbnailKey"]
+
+    REC1 --> META1["Queue technical metadata"]
+    REC2 --> META2["Queue technical metadata"]
+    REC2 --> AI["Queue AI metadata job once"]
+    REC2 --> THUMB["Queue AI thumbnail job once"]
+    REC2 --> SPRITE["Generate spritesheet once"]
+
+    AI --> DB1["Persist VideoAI data"]
+    THUMB --> S3TH["Store generated thumbnail in S3"]
+    S3TH --> DB2["Update video.thumbnailKey"]
+    SPRITE --> S3SP["Store spritesheet assets in S3"]
+```
+
+## AI Processing Rules
+
+AI work is explicit and guarded:
+
+- AI processing starts only after a user confirms Generate AI.
+- AI thumbnail generation starts only when Generate AI was selected and no manual thumbnail was uploaded.
+- AI jobs are tagged with `requestedByUser: true`.
+- AI and thumbnail workers skip jobs that are not tagged as user-requested.
+- AI and thumbnail jobs use `attempts: 1`.
+- Failed AI and thumbnail jobs are not retried automatically.
+- Duplicate AI requests are blocked by stored status and deterministic job IDs.
+- Generate AI is available in the upload flow, not on normal browsing video cards.
+
+Technical metadata extraction is separate from AI enrichment. It may still be queued as part of upload/import processing because playback and layout features need duration, orientation, and media facts.
+
+## AI Runtime
+
+The production AI runtime uses the OpenAI API directly from the backend worker. It does not require an `AI_SERVER_URL`, Ollama server, or local Whisper process.
+
+Relevant environment variables:
+
+```env
+OPENAI_API_KEY=...
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+OPENAI_METADATA_MODEL=gpt-4o-mini
+```
+
+`OPENAI_TRANSCRIPTION_MODEL` and `OPENAI_METADATA_MODEL` are optional. The backend has defaults when they are not provided.
+
+Relevant files:
+
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/workers/thumbnail.worker.ts`
+- `backend/src/modules/video/video-processing.service.ts`
+- `backend/src/modules/video/video.controller.ts`
+- `frontend/src/pages/Upload.tsx`
+- `frontend/src/components/AIGenerateAction.tsx`
+
+## Thumbnail Rules
+
+- A thumbnail is required for published videos.
+- The user can satisfy this requirement in either of two ways:
+  - upload a thumbnail before upload
+  - choose Generate AI before upload, which lets the AI thumbnail worker create the thumbnail after upload
+- The selected manual thumbnail filename is shown in the upload row.
+- If a manual thumbnail was uploaded, AI generation does not replace it automatically.
+- Spritesheet frame selection can still be used later to save a different thumbnail frame.
+
+## Background Jobs And Workers
+
+Worker entrypoint:
+
+- `backend/src/workers/index.ts`
+
+Workers:
+
+- `backend/src/workers/video-ai.worker.ts`
+- `backend/src/workers/thumbnail.worker.ts`
+- `backend/src/workers/video-metadata.worker.ts`
+
+Queues:
+
+- `videoAIQueue`
+- `thumbnailQueue`
+- `videoMetadataQueue`
+
+AI and thumbnail queue behavior:
+
+- `videoAIQueue` default attempts: `1`
+- `thumbnailQueue` default attempts: `1`
+- Explicitly queued AI and thumbnail jobs also set `attempts: 1`
+- no retry backoff is configured for AI or thumbnail jobs
+
+Real-time events used by the frontend:
+
+- `ai-progress`
+- `ai-completed`
+- `ai-failed`
+- `thumbnail-progress`
+- `thumbnail-completed`
+- `thumbnail-failed`
+
+## Media Pipeline
+
+Media-related backend features include:
+
+- presigned video upload URLs
+- presigned thumbnail upload URLs
+- S3 upload completion
+- CloudFront signed delivery URLs
+- FFmpeg-based streaming optimization
+- ffprobe-based technical metadata extraction
+- spritesheet generation and metadata storage
+- frame crop from spritesheet to thumbnail
+- AI-generated thumbnail creation
+
+## Backend Domains
+
+- Auth module: register, OTP, login, Google OAuth, reset password, session tracking
+- User module: profile, settings, avatar, cover, sessions, account lifecycle
+- Channel module: creator channel management
+- Video module: upload, listing, playback, search, S3 import, spritesheets, thumbnails, owned-video edits
+- Video actions module: views, reactions, comments, shares, playlists, watch history
+- Organization module: organizations, invites, membership approval, upload policies, dashboards
+- Admin module: platform metrics, filters, admin access control
+- Notification module: notification retrieval and state updates
+- AI module: AI metadata generation and application flows
 
 ## Frontend Surface
 
-The frontend is a protected single-page application centered on content discovery, playback, upload, and account management.
-
-Key routes implemented in `frontend/src/App.tsx`:
+Key routes:
 
 - `/login`
 - `/register`
 - `/oauth-success`
 - `/reset-password`
-- `/video/:publicId`
-- `/portrait`
-- `/portrait/:publicId`
 - `/home`
 - `/upload`
 - `/s3-import`
+- `/video/:publicId`
+- `/portrait`
+- `/portrait/:publicId`
 - `/favorites`
 - `/playlists`
 - `/profile`
@@ -567,340 +292,79 @@ Key routes implemented in `frontend/src/App.tsx`:
 - `/organization/dashboard`
 - `/admin`
 
-Main frontend areas:
+Notable frontend files:
 
-- product pages for major user screens
-- shared components for reusable media and navigation UI
-- authenticated layouts for protected application shells
-- auth and layout state management
-- client-side integration layer for backend communication
-
-Notable frontend pages and components:
-
-- Home experience for discovery and featured media presentation
-- Upload experience for progress tracking, AI state, and thumbnail selection
-- Profile experience for profile editing and owned-video management
-- Admin dashboard for platform-level oversight
-- Spritesheet picker for frame-based thumbnail selection
-- Auth context for session and authentication state
-
-Notable user-facing experiences:
-
-- cinematic home feed with hero and row-based discovery
-- upload workflow with processing progress and thumbnail selection
-- S3 import workflow for existing bucket media
-- profile library management for uploaded videos
-- account settings covering notifications, privacy, preferences, sessions, and account lifecycle actions
-- organization workspace and organization dashboard views
-- platform admin reporting dashboard
-
-## Backend Surface
-
-The backend is an Express service layer with modular domain areas and background workers.
-
-Primary backend domains:
-
-- Auth module
-  Registration, OTP verification, login, password reset, session-end tracking, and Google OAuth
-
-- User module
-  Profile data, avatar and cover updates, settings, session management, watch history cleanup, and account deactivate/delete actions
-
-- Channel module
-  Channel creation and maintenance
-
-- Video module
-  Upload completion, listing, search, portrait feeds, channel-scoped listings, spritesheet retrieval, thumbnail saving, owned-video updates, deletion, and S3 import helpers
-
-- Video actions module
-  Interaction flows such as views, likes, dislikes, comments, shares, watch events, and playlist linkage
-
-- Organization module
-  Organization creation, join links, invite workflows, member approval, uploader permissions, billing and subscription state, and organization-level content analytics
-
-- Admin module
-  Platform metrics, filter data, privileged user management, and admin access audit tracking
-
-- Notification module
-  Notification retrieval and state updates
-
-- AI module
-  AI metadata generation and application flows for videos
-
-Key backend services and workers:
-
-- Video processing orchestration
-  Main post-upload orchestration for optimization, spritesheets, and queue dispatch
-
-- Video metadata service
-  Technical metadata extraction including duration, dimensions, codecs, and orientation
-
-- Thumbnail service
-  Thumbnail generation when a usable thumbnail does not already exist
-
-- Realtime service
-  Progress and completion event emission for the frontend
-
-- Thumbnail worker
-- Video AI worker
-- Video metadata worker
-
-## Data Model Highlights
-
-The Prisma schema in `backend/prisma/schema.prisma` models:
-
-- users, login sessions, and channels
-- videos, AI records, and technical metadata
-- reactions, comments, shares, watch history, and playlists
-- organizations, memberships, invites, uploader access, and subscription state
-- notifications
-- admin access audits
-- user-scoped S3 credentials
-
-Video visibility supports:
-
-- `PUBLIC`
-- `PRIVATE`
-- `ORGANIZATION`
-
-Upload sources support:
-
-- `MANUAL`
-- `S3_IMPORT`
-
-## Media Pipeline
-
-Current upload and processing flow:
-
-1. The client requests a presigned upload target.
-2. The media file is uploaded to S3.
-3. The client finalizes the upload flow.
-4. The backend creates the video record and starts post-upload orchestration.
-5. Processing generates optimized media outputs and a spritesheet.
-6. Background jobs enrich AI data, thumbnails, and technical metadata.
-7. Real-time events report progress back to the frontend.
-
-Upload processing flow:
-
-```mermaid
-flowchart LR
-    UI["Frontend Upload Page"] --> AUTH["Authenticated User Session"]
-    AUTH --> PRE["Request Presigned Upload Target"]
-    PRE --> API["Video Module"]
-    API --> S3URL["Presigned S3 Upload URL"]
-    S3URL --> UI
-
-    UI --> PUT["Browser Uploads Video File To S3"]
-    PUT --> S3["Raw Video Object In S3"]
-
-    UI --> COMPLETE["Finalize Upload"]
-    COMPLETE --> API
-    API --> REC["Create Video Record"]
-    REC --> DB["MongoDB"]
-
-    REC --> ORCH["processVideoAfterUpload(...)"]
-    ORCH --> DL["Download Uploaded File For Processing"]
-    DL --> OPT["Optimize Streaming Layout"]
-    OPT --> META0["Read Initial Media Facts<br/>Duration, Size, Dimensions"]
-    META0 --> SPR["Generate Spritesheet"]
-    SPR --> S3SPR["Store Spritesheet Assets In S3"]
-
-    ORCH --> Q1["Enqueue Thumbnail Job"]
-    ORCH --> Q2["Enqueue Metadata Job"]
-    ORCH --> Q3["Enqueue AI Job"]
-
-    Q1 --> TW["Thumbnail Worker"]
-    Q2 --> MW["Video Metadata Worker"]
-    Q3 --> AW["Video AI Worker"]
-
-    TW --> TH["Generate Thumbnail If Needed"]
-    TH --> S3TH["Store Thumbnail In S3"]
-    TH --> DB1["Update Video Thumbnail State"]
-
-    MW --> PROBE["ffprobe Metadata Extraction"]
-    PROBE --> DB2["Persist VideoMetadata Record"]
-
-    AW --> TRANS["Transcription Request"]
-    TRANS --> EXT["External AI Service"]
-    EXT --> GEN["Title, Description, Keywords, Tags"]
-    GEN --> DB3["Persist VideoAI Record"]
-
-    UI --> PICK["Load Spritesheet And Select Frame"]
-    PICK --> API
-    API --> CROP["Crop Selected Frame"]
-    CROP --> S3TH
-    CROP --> DB1
-
-    ORCH --> RT["Emit Upload Progress"]
-    TW --> RT
-    MW --> RT
-    AW --> RT
-    RT --> SOCKET["Socket.IO Updates"]
-    SOCKET --> UI
-```
-
-Organization and admin flow:
-
-```mermaid
-flowchart TD
-    U["Authenticated User"] --> ORGFE["Organization And Admin Frontend"]
-
-    ORGFE --> ORGAPI["Organization Services"]
-    ORGFE --> ADMAPI["Admin Services"]
-    ORGFE --> USERAPI["User Services"]
-    ORGFE --> NOTI["Notification Services"]
-
-    subgraph ORG["Organization Module Flows"]
-        ORGAPI --> OC["Create Organization"]
-        ORGAPI --> OJ["Join Via Public Or Private Token"]
-        ORGAPI --> OI["Invite Members By Email"]
-        ORGAPI --> OA["Approve Or Reject Memberships"]
-        ORGAPI --> OP["Manage Upload Policies And Allowed Uploaders"]
-        ORGAPI --> OD["Load Organization Dashboard"]
-    end
-
-    subgraph ADM["Admin Module Flows"]
-        ADMAPI --> AM1["Aggregate Platform Metrics"]
-        ADMAPI --> AM2["Filter Organizations And Activity"]
-        ADMAPI --> AM3["Grant Or Remove Platform Admin Access"]
-        ADMAPI --> AM4["Record Admin Access Audit Events"]
-    end
-
-    subgraph USER["User And Notification Flows"]
-        USERAPI --> US1["Load Settings, Sessions, History, Preferences"]
-        USERAPI --> US2["Revoke Sessions, Deactivate, Delete Account"]
-        NOTI --> N1["Create And Read Notifications"]
-    end
-
-    OC --> DB["MongoDB"]
-    OJ --> DB
-    OI --> MAIL["Mail Service"]
-    MAIL --> INV["Invite Email Delivery"]
-    OI --> N1
-    OA --> N1
-    OP --> DB
-    OD --> ANA["Views, Likes, Dislikes, Shares, Watch History Aggregation"]
-    ANA --> DB
-
-    AM1 --> DB
-    AM2 --> DB
-    AM3 --> DB
-    AM3 --> AM4
-    AM4 --> DB
-
-    US1 --> DB
-    US2 --> DB
-    N1 --> DB
-```
-
-Current media-related capabilities in the codebase:
-
-- presigned video uploads
-- presigned thumbnail uploads
-- spritesheet retrieval for frame picking
-- CloudFront signed access for protected assets
-- technical metadata extraction including duration, dimensions, codecs, and orientation
-
-## Background Jobs And Workers
-
-Worker entrypoint:
-
-- `backend/src/workers/index.ts`
-
-Registered worker areas:
-
-- `backend/src/workers/thumbnail.worker.ts`
-- `backend/src/workers/video-ai.worker.ts`
-- `backend/src/workers/video-metadata.worker.ts`
-
-These workers back the asynchronous parts of the media pipeline and keep expensive processing out of the request path.
-
-Queue names used by the processing pipeline:
-
-- `thumbnailQueue`
-- `videoAIQueue`
-- `videoMetadataQueue`
-
-## AI Runtime
-
-Whisper-style transcription and Ollama-style generation are not embedded directly in the main backend process. The repository delegates both steps to an external AI service configured through `AI_SERVER_URL`.
-
-At a high level:
-
-- transcription is handled as a Whisper-like step
-- metadata generation is handled as an Ollama or general LLM-style step
-- the video AI worker coordinates both steps and stores the output in `videoAI`
-
-The worker-driven AI flow:
-
-1. A video upload or import creates a pending `videoAI` record.
-2. A job is added to `videoAIQueue`.
-3. `backend/src/workers/video-ai.worker.ts` downloads the source video from S3.
-4. The worker extracts audio with FFmpeg into MP3 form.
-5. The worker sends audio to the external transcription service.
-6. The worker sends the transcript to the external generation service.
-7. The worker normalizes the response and stores transcript, title, description, keywords, and tags.
-8. Real-time events notify the frontend about progress, completion, or failure.
-
-Relevant AI files:
-
-- `backend/src/workers/video-ai.worker.ts`
-- `backend/src/modules/ai/ai.service.ts`
-- `backend/src/utils/extract-audio.ts`
 - `frontend/src/pages/Upload.tsx`
+- `frontend/src/components/AIGenerateAction.tsx`
+- `frontend/src/components/SpritesheetPicker.tsx`
+- `frontend/src/components/VideoRow.tsx`
+- `frontend/src/components/VideoCard.tsx`
+- `frontend/src/pages/ProfilePage.tsx`
+- `frontend/src/pages/Search.tsx`
+- `frontend/src/api/axios.ts`
+- `frontend/src/context/AuthContext.tsx`
 
-Typical `videoAI` fields populated by the worker:
+Frontend upload behavior:
 
-- `transcript`
-- `aiTitle`
-- `aiDescription`
-- `keywords`
-- `tags`
-- `status`
+- The upload row shows the selected thumbnail filename after the user chooses a file.
+- `Generate AI` is available on the upload row before upload starts.
+- If `Generate AI` is selected, the user can upload without choosing a thumbnail file.
+- The upload request sends `generateAIAssets: true` when AI generation is selected.
+- The Generate AI button is intentionally not shown on normal discovery, profile, or search video cards.
 
-AI progress events used by the frontend:
+Frontend development:
 
-- `ai-progress`
-- `ai-completed`
-- `ai-failed`
-
-Common AI failure points:
-
-- audio extraction fails before transcription begins
-- the external AI service is unreachable
-- generation returns malformed or incomplete structured output
-- Redis or workers are unavailable, so `videoAIQueue` jobs are not consumed
-- Socket.IO wiring prevents progress updates from reaching the upload UI
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ## Runtime Requirements
 
-Running the full product requires more than installing dependencies.
-
-Required services and infrastructure:
+Required infrastructure:
 
 - MongoDB
 - Redis
-- AWS S3
-- CloudFront signing setup
-- FFmpeg and ffprobe available on the machine
-- an external AI service reachable through `AI_SERVER_URL`
+- AWS S3 bucket
+- CloudFront distribution and signing keys
+- OpenAI API key
+- Email delivery configuration for OTP/password flows
+- Google OAuth credentials if Google login is enabled
 
 Important environment areas:
 
-- database connection settings
-- JWT secret and auth configuration
-- AWS and CloudFront configuration
-- Google OAuth configuration
-- Redis connection settings
-- AI service location
-- email delivery settings
-- client application URLs
+- database URL
+- JWT secrets
+- Redis connection
+- AWS credentials and bucket
+- CloudFront domain, key pair ID, and private key
+- OpenAI API key and optional model names
+- mail/OTP settings
+- frontend and backend public URLs
+
+## Verification Commands
+
+Backend:
+
+```bash
+cd backend
+npm run build
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run build
+```
 
 ## Operational Notes
 
 - Prisma is configured for MongoDB.
-- Media storage and generated assets are designed around S3 plus CloudFront delivery.
-- AI enrichment is not self-contained in this repository; it depends on an external service integration.
-- The application uses request/response services and Socket.IO to complete the upload and processing experience.
-- Worker processes are required for AI, metadata, and thumbnail jobs to complete reliably.
-- Setup steps and environment details are intentionally not included in this README.
+- Media and generated assets are stored in S3 and served through signed CloudFront URLs.
+- Workers must be running for metadata, AI, thumbnail, and processing jobs to complete.
+- Redis must be available for BullMQ queues.
+- AI generation requires `OPENAI_API_KEY`.
+- AI and thumbnail processing is intentionally opt-in and single-attempt.
+- Normal video cards do not show Generate AI; the decision is made during upload.
