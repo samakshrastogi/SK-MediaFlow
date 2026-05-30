@@ -6,6 +6,7 @@
     "postinstall": "node scripts/postinstall.js",
     "dev": "ts-node --transpile-only src/server.ts",
     "worker:dev": "ts-node --transpile-only src/workers/index.ts",
+    "s3:cors": "ts-node --transpile-only src/scripts/configure-s3-cors.ts",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
