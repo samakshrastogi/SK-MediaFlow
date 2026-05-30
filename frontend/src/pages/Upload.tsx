@@ -30,6 +30,11 @@ type WorkerStatus =
     | "completed"
     | "failed"
 
+type VideoOrientation =
+    | "PORTRAIT"
+    | "LANDSCAPE"
+    | "SQUARE"
+
 interface SpritesheetData {
     spritesheetUrl: string
     frameWidth: number
@@ -68,6 +73,9 @@ interface UploadItem {
     selectedSpriteFrameIndex?: number
     isSavingSpriteSelection?: boolean
     duration: number
+    videoWidth: number
+    videoHeight: number
+    orientation: VideoOrientation
 
     uploadProgress: number
     aiProgress: number
@@ -123,6 +131,15 @@ const syncProcessingState = (item: UploadItem): UploadItem => {
     }
 
     return item
+}
+
+const getOrientationFromDimensions = (
+    width: number,
+    height: number
+): VideoOrientation => {
+    if (height > width) return "PORTRAIT"
+    if (height === width) return "SQUARE"
+    return "LANDSCAPE"
 }
 
 const Upload = () => {
@@ -512,6 +529,9 @@ const Upload = () => {
                     selectedSpriteFrameIndex: undefined,
                     isSavingSpriteSelection: false,
                     duration: video.duration,
+                    videoWidth: video.videoWidth,
+                    videoHeight: video.videoHeight,
+                    orientation: getOrientationFromDimensions(video.videoWidth, video.videoHeight),
 
                     uploadProgress: 0,
                     aiProgress: 0,
@@ -736,6 +756,9 @@ const Upload = () => {
                     .map((t) => t.trim())
                     .filter(Boolean),
                 duration: item.duration,
+                videoWidth: item.videoWidth,
+                videoHeight: item.videoHeight,
+                orientation: item.orientation,
                 size: item.file.size,
                 visibility: globalVisibility, // ✅ IMPORTANT
                 thumbnailKey,
@@ -826,6 +849,7 @@ const Upload = () => {
     const hasMissingThumbnail = queue.some(
         (item) => item.status === "waiting" && !item.thumbnailFile && !item.generateAIOnUpload
     )
+    const hasWaitingUpload = queue.some((item) => item.status === "waiting")
 
     return (
 
@@ -835,23 +859,23 @@ const Upload = () => {
 
                 {/* HEADER */}
 
-                <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_54px_rgba(4,7,20,0.24)] backdrop-blur-2xl sm:p-5">
+                <section className="relative overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.055] p-3 shadow-[0_14px_42px_rgba(4,7,20,0.22)] backdrop-blur-2xl sm:p-4">
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_42%)]" />
-                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/18 bg-cyan-400/12 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                                <UploadCloud size={22} />
+                    <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/18 bg-cyan-400/12 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                                <UploadCloud size={18} />
                             </div>
 
                             <div className="min-w-0">
-                                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/86 sm:text-[11px]">
+                                <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-cyan-300/16 bg-cyan-400/10 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-cyan-100/86 sm:text-[10px]">
                                     Upload Studio
                                 </div>
-                                <h1 className="break-words text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">
+                                <h1 className="break-words text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl">
                                     {channel?.name}
                                 </h1>
 
-                                <p className="mt-1 max-w-full truncate text-sm font-medium text-cyan-100/68">
+                                <p className="mt-0.5 max-w-full truncate text-xs font-medium text-cyan-100/68 sm:text-sm">
                                     @{channel?.username}
                                 </p>
                             </div>
@@ -859,7 +883,7 @@ const Upload = () => {
 
                         <button
                             onClick={() => navigate("/s3-import")}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.24)] transition hover:bg-cyan-300 sm:w-auto sm:px-5"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_28px_rgba(34,211,238,0.22)] transition hover:bg-cyan-300 sm:w-auto sm:px-5"
                         >
                             <Database size={17} />
                             S3 Import
@@ -869,46 +893,48 @@ const Upload = () => {
 
                 {/* DROPZONE */}
 
-                <label
-                    htmlFor="fileInput"
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                        event.preventDefault()
-                        handleFiles(event.dataTransfer.files)
-                    }}
-                    className="group relative block cursor-pointer overflow-hidden rounded-[30px] border border-dashed border-cyan-200/28 bg-white/[0.035] p-6 text-center transition hover:border-cyan-300/50 hover:bg-white/[0.055] sm:p-12"
-                >
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_32%),linear-gradient(135deg,rgba(168,85,247,0.08),transparent_45%)] opacity-80" />
-                    <input
-                        id="fileInput"
-                        type="file"
-                        accept="video/*"
-                        multiple
-                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                        aria-label="Choose video files"
-                        onChange={(event) => {
-                            handleFiles(event.target.files)
-                            event.target.value = ""
+                {queue.length === 0 && (
+                    <label
+                        htmlFor="fileInput"
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => {
+                            event.preventDefault()
+                            handleFiles(event.dataTransfer.files)
                         }}
-                    />
-                    <div className="pointer-events-none relative mx-auto flex max-w-xl flex-col items-center gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition group-hover:scale-105 group-hover:bg-cyan-400/12">
-                            <FileVideo size={28} />
+                        className="group relative block cursor-pointer overflow-hidden rounded-[30px] border border-dashed border-cyan-200/28 bg-white/[0.035] p-6 text-center transition hover:border-cyan-300/50 hover:bg-white/[0.055] sm:p-12"
+                    >
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_32%),linear-gradient(135deg,rgba(168,85,247,0.08),transparent_45%)] opacity-80" />
+                        <input
+                            id="fileInput"
+                            type="file"
+                            accept="video/*"
+                            multiple
+                            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                            aria-label="Choose video files"
+                            onChange={(event) => {
+                                handleFiles(event.target.files)
+                                event.target.value = ""
+                            }}
+                        />
+                        <div className="pointer-events-none relative mx-auto flex max-w-xl flex-col items-center gap-4">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition group-hover:scale-105 group-hover:bg-cyan-400/12">
+                                <FileVideo size={28} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-semibold text-white sm:text-2xl">
+                                    Drop videos here
+                                </h2>
+                                <p className="mt-2 text-sm leading-6 text-gray-400">
+                                    Tap to browse, or drag video files into this area to build your upload queue.
+                                </p>
+                            </div>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-medium text-slate-200/80">
+                                <Cloud size={14} />
+                                MP4, MOV, and common video files
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-xl font-semibold text-white sm:text-2xl">
-                                Drop videos here
-                            </h2>
-                            <p className="mt-2 text-sm leading-6 text-gray-400">
-                                Tap to browse, or drag video files into this area to build your upload queue.
-                            </p>
-                        </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-medium text-slate-200/80">
-                            <Cloud size={14} />
-                            MP4, MOV, and common video files
-                        </div>
-                    </div>
-                </label>
+                    </label>
+                )}
 
                 {!channel && (
                     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.16),_transparent_28%),rgba(5,3,14,0.82)] px-3 py-4 backdrop-blur-sm sm:px-4">
@@ -1042,30 +1068,16 @@ const Upload = () => {
                     </div>
                 )}
 
-                {/* START BUTTON */}
+                {/* VISIBILITY TOGGLE */}
 
                 {queue.length > 0 && (
 
-                    <div className="space-y-3 rounded-[24px] border border-white/10 bg-white/[0.05] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl">
-                        {uploadError ? (
-                            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                                {uploadError}
-                            </div>
-                        ) : null}
+                    <div className="rounded-[24px] border border-white/10 bg-white/[0.05] p-3 shadow-[0_18px_50px_rgba(4,7,20,0.22)] backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+                        <p className="mb-3 text-sm font-medium text-slate-300 sm:mb-0">
+                            Select visibility
+                        </p>
 
-                        <div className="sm:flex sm:items-center sm:justify-between sm:gap-4">
-
-                            <button
-                                onClick={startUploadQueue}
-                                disabled={uploading || hasMissingThumbnail}
-                                className="w-full rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                            >
-                                {uploading ? "Uploading..." : "Start Uploading"}
-                            </button>
-
-                        {/* VISIBILITY TOGGLE */}
-
-                        <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-0 sm:flex sm:gap-3">
+                        <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-3">
 
                             <button
                                 onClick={() => setGlobalVisibility("PUBLIC")}
@@ -1101,8 +1113,6 @@ const Upload = () => {
 
                     </div>
 
-                    </div>
-
                 )}
                 
 
@@ -1117,82 +1127,42 @@ const Upload = () => {
                             className="space-y-5 rounded-[24px] border border-white/10 bg-transparent p-4 sm:space-y-6 sm:rounded-[28px] sm:p-8"
                         >
 
-                            {/* VIDEO + PROGRESS */}
-                            
+                            <div className="space-y-6">
 
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-
-                                {item.thumbnailPreview ? (
-                                    <img
-                                        src={item.thumbnailPreview}
-                                        alt="Thumbnail preview"
-                                        className="h-44 w-full rounded-xl object-cover sm:h-32 sm:w-56"
+                                {/* TITLE */}
+                                <div className="space-y-1">
+                                    <label className="text-sm text-slate-400">
+                                        Title
+                                    </label>
+                                    <input
+                                        value={item.title}
+                                        onChange={(e) =>
+                                            updateItem(index, { title: e.target.value })
+                                        }
+                                        disabled={item.status !== "waiting"}
+                                        placeholder="Optional title"
+                                        aria-label="Video title"
+                                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
                                     />
-                                ) : (
-                                    <video
-                                        src={item.preview}
-                                        className="h-44 w-full rounded-xl object-cover sm:h-32 sm:w-56"
-                                    />
-                                )}
-
-                                <div className="min-w-0 flex-1">
-
-                                    <p className="mb-2 text-sm text-slate-400">
-                                        Upload {item.uploadProgress}% • {item.speed.toFixed(2)} MB/s
-                                    </p>
-
-                                    <div className="w-full bg-gray-700/40 h-2 rounded-full overflow-hidden">
-
-                                        <div
-                                            className="h-2 bg-cyan-500 transition-all"
-                                            style={{ width: `${item.uploadProgress}%` }}
-                                        />
-
-                                    </div>
-
-                                    {(item.status === "processing" || item.aiStatus !== "idle" || item.thumbnailStatus !== "idle") && (
-
-                                        <div className="mt-4 grid gap-4 md:grid-cols-2">
-
-                                            <div>
-                                                <p className="mb-1 text-sm text-slate-400">
-                                                    AI Worker {item.aiProgress}% {item.aiStatus === "completed" ? "• Done" : item.aiStatus === "failed" ? "• Failed" : "• Live"}
-                                                </p>
-
-                                                <div className="w-full bg-gray-700/40 h-2 rounded-full overflow-hidden">
-
-                                                    <div
-                                                        className="h-2 bg-cyan-400 transition-all"
-                                                        style={{ width: `${item.aiProgress}%` }}
-                                                    />
-
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <p className="mb-1 text-sm text-slate-400">
-                                                    Thumbnail Worker {item.thumbnailProgress}% {item.thumbnailStatus === "completed" ? "• Done" : item.thumbnailStatus === "failed" ? "• Failed" : "• Live"}
-                                                </p>
-
-                                                <div className="w-full bg-gray-700/40 h-2 rounded-full overflow-hidden">
-
-                                                    <div
-                                                        className="h-2 bg-amber-400 transition-all"
-                                                        style={{ width: `${item.thumbnailProgress}%` }}
-                                                    />
-
-                                                </div>
-                                            </div>
-
-                                        </div>
-
-                                    )}
-
                                 </div>
 
-                            </div>
-
-                            <div className="space-y-6">
+                                {/* DESCRIPTION */}
+                                <div className="space-y-1">
+                                    <label className="text-sm text-slate-400">
+                                        Description
+                                    </label>
+                                    <textarea
+                                        rows={4}
+                                        value={item.description}
+                                        onChange={(e) =>
+                                            updateItem(index, { description: e.target.value })
+                                        }
+                                        disabled={item.status !== "waiting"}
+                                        placeholder="Optional description"
+                                        aria-label="Video description"
+                                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
+                                    />
+                                </div>
 
                                 {/* THUMBNAIL */}
                                 <div className="space-y-2">
@@ -1264,39 +1234,78 @@ const Upload = () => {
                                     />
                                 </div>
 
-                                {/* TITLE */}
-                                <div className="space-y-1">
+                                <div className="space-y-2">
                                     <label className="text-sm text-slate-400">
-                                        Title
+                                        Video
                                     </label>
-                                    <input
-                                        value={item.title}
-                                        onChange={(e) =>
-                                            updateItem(index, { title: e.target.value })
-                                        }
-                                        disabled={item.status !== "waiting"}
-                                        placeholder="Optional title"
-                                        aria-label="Video title"
-                                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
+                                    <video
+                                        src={item.preview}
+                                        className="h-44 w-full rounded-xl object-cover sm:h-56"
                                     />
                                 </div>
 
-                                {/* DESCRIPTION */}
-                                <div className="space-y-1">
-                                    <label className="text-sm text-slate-400">
-                                        Description
-                                    </label>
-                                    <textarea
-                                        rows={4}
-                                        value={item.description}
-                                        onChange={(e) =>
-                                            updateItem(index, { description: e.target.value })
-                                        }
-                                        disabled={item.status !== "waiting"}
-                                        placeholder="Optional description"
-                                        aria-label="Video description"
-                                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-white focus:border-cyan-400 outline-none disabled:opacity-70"
-                                    />
+                                {index === queue.length - 1 && (
+                                    <div className="space-y-3">
+                                        {uploadError ? (
+                                            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                                                {uploadError}
+                                            </div>
+                                        ) : null}
+
+                                        <button
+                                            type="button"
+                                            onClick={startUploadQueue}
+                                            disabled={uploading || hasMissingThumbnail || !hasWaitingUpload}
+                                            className="w-full rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                                        >
+                                            {uploading ? "Uploading..." : "Start Uploading"}
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="mb-2 text-sm text-slate-400">
+                                            Upload {item.uploadProgress}% • {item.speed.toFixed(2)} MB/s
+                                        </p>
+
+                                        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-700/40">
+                                            <div
+                                                className="h-2 bg-cyan-500 transition-all"
+                                                style={{ width: `${item.uploadProgress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {(item.status === "processing" || item.aiStatus !== "idle" || item.thumbnailStatus !== "idle") && (
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div>
+                                                <p className="mb-1 text-sm text-slate-400">
+                                                    AI Worker {item.aiProgress}% {item.aiStatus === "completed" ? "• Done" : item.aiStatus === "failed" ? "• Failed" : "• Live"}
+                                                </p>
+
+                                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-700/40">
+                                                    <div
+                                                        className="h-2 bg-cyan-400 transition-all"
+                                                        style={{ width: `${item.aiProgress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <p className="mb-1 text-sm text-slate-400">
+                                                    Thumbnail Worker {item.thumbnailProgress}% {item.thumbnailStatus === "completed" ? "• Done" : item.thumbnailStatus === "failed" ? "• Failed" : "• Live"}
+                                                </p>
+
+                                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-700/40">
+                                                    <div
+                                                        className="h-2 bg-amber-400 transition-all"
+                                                        style={{ width: `${item.thumbnailProgress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {item.status === "completed" && (
@@ -1321,7 +1330,7 @@ const Upload = () => {
                                     </div>
                                 )}
 
-                                {item.status === "completed" && (
+                                {item.status === "completed" && item.generateAIOnUpload && (
                                     <div className="space-y-3">
                                         <label className="text-sm text-slate-400">
                                             Pick thumbnail from spritesheet

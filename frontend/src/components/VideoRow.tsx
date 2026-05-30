@@ -144,13 +144,13 @@ const HomeVideoCard = ({
         >
             <motion.button
                 type="button"
-                whileHover={{ rotateX: 6, rotateY: index % 2 === 0 ? -5 : 5, scale: 1.02 }}
+                whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 220, damping: 20 }}
                 onClick={() => {
                     if (!targetId) return
                     navigate(video.orientation === "PORTRAIT" ? `/portrait/${targetId}` : `/video/${targetId}`, { state: { video } })
                 }}
-                className={`relative block h-full w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,12,34,0.84),rgba(15,16,41,0.58))] text-left shadow-[0_22px_60px_rgba(0,0,0,0.26)] ${
+                className={`relative block h-full w-full appearance-none overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,12,34,0.84),rgba(15,16,41,0.58))] p-0 text-left shadow-[0_22px_60px_rgba(0,0,0,0.26)] ${
                     portrait ? "min-h-[430px]" : "min-h-[372px]"
                 }`}
             >
@@ -161,9 +161,8 @@ const HomeVideoCard = ({
                         onError={(e) => {
                             ;(e.currentTarget as HTMLImageElement).src = "/placeholder.jpg"
                         }}
-                        className="absolute -inset-px h-[calc(100%+2px)] w-[calc(100%+2px)] object-cover transition duration-700 group-hover:scale-110"
+                        className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
                     />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,10,27,0.06),rgba(4,10,27,0.16)_38%,rgba(3,7,20,0.92)_100%)]" />
                     <div className={`absolute inset-0 bg-gradient-to-br ${accentStyles[accent]} opacity-75`} />
 
                     <div className="absolute right-3 top-3 rounded-full border border-white/35 bg-black/72 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-md [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">

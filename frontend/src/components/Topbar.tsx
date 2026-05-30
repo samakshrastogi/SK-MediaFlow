@@ -20,8 +20,9 @@ let notificationsCache: NotificationItem[] | null = null
 let notificationsCacheAt = 0
 let notificationsPromise: Promise<NotificationItem[]> | null = null
 
-const getNotifications = async () => {
+const getNotifications = async (force = false) => {
     if (
+        !force &&
         notificationsCache &&
         Date.now() - notificationsCacheAt < NOTIFICATIONS_TTL_MS
     ) {
@@ -36,9 +37,7 @@ const getNotifications = async () => {
                 return notificationsCache
             })
             .catch(() => {
-                notificationsCache = []
-                notificationsCacheAt = Date.now()
-                return []
+                return notificationsCache || []
             })
             .finally(() => {
                 notificationsPromise = null
@@ -59,12 +58,14 @@ const Topbar = () => {
     const dropdownRef = useRef<HTMLDivElement>(null)
     const notificationRef = useRef<HTMLDivElement>(null)
 
-    const loadNotifications = async () => {
+    const loadNotifications = async (force = false) => {
         if (!user) {
+            notificationsCache = null
+            notificationsCacheAt = 0
             setNotifications([])
             return
         }
-        const rows = await getNotifications()
+        const rows = await getNotifications(force)
         setNotifications(rows)
     }
 
@@ -91,6 +92,8 @@ const Topbar = () => {
 
     useEffect(() => {
         if (!user) {
+            notificationsCache = null
+            notificationsCacheAt = 0
             setNotifications([])
             return
         }
@@ -125,9 +128,12 @@ const Topbar = () => {
         try {
             if (!item.isRead) {
                 await api.post(`/notification/${item.id}/read`)
-                setNotifications((prev) =>
-                    prev.map((row) => (row.id === item.id ? { ...row, isRead: true } : row))
-                )
+                const markRead = (rows: NotificationItem[]) =>
+                    rows.map((row) => (row.id === item.id ? { ...row, isRead: true } : row))
+
+                notificationsCache = notificationsCache ? markRead(notificationsCache) : notificationsCache
+                notificationsCacheAt = Date.now()
+                setNotifications(markRead)
             }
         } catch {
             // no-op
@@ -190,7 +196,11 @@ const Topbar = () => {
                                 navigate("/login", { state: { from: window.location.pathname } })
                                 return
                             }
-                            setNotificationOpen((v) => !v)
+                            const nextOpen = !notificationOpen
+                            setNotificationOpen(nextOpen)
+                            if (nextOpen) {
+                                void loadNotifications(true)
+                            }
                         }}
                         className="relative cursor-pointer rounded-full border border-white/10 bg-white/6 p-2 text-gray-300 transition hover:bg-white/10 hover:text-white"
                         aria-label="Notifications"

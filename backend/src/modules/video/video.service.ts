@@ -19,6 +19,11 @@ import { s3 } from "../../config/s3"
 import { ffmpegCommand } from "../../config/ffmpeg"
 import { emitNewVideoUploaded } from "../../services/realtime.service"
 import { getOrganizationAccessContext } from "../organization/organization.service"
+import {
+    createNotification,
+    notifySubscribersForNewVideo,
+    notifySubscribersForVideoUpdate
+} from "../notification/notification.service"
 
 import { startVideoPostUploadPipeline } from "./video-processing.service"
 
@@ -119,6 +124,56 @@ const filenameFromS3Key = (key: string) => {
     return withoutExtension.replace(/[_-]+/g, " ").trim() || "Untitled"
 }
 
+const normalizeOrientation = (
+    orientation: unknown,
+    width?: number | null,
+    height?: number | null
+) => {
+    if (
+        orientation === "PORTRAIT" ||
+        orientation === "LANDSCAPE" ||
+        orientation === "SQUARE"
+    ) {
+        return orientation
+    }
+
+    if (width && height) {
+        if (height > width) return "PORTRAIT"
+        if (height === width) return "SQUARE"
+    }
+
+    return "LANDSCAPE"
+}
+
+const buildClientVideoMetadata = (metadata?: {
+    duration?: unknown
+    width?: unknown
+    height?: unknown
+    orientation?: unknown
+}) => {
+    const duration = Math.max(0, Math.floor(Number(metadata?.duration) || 0))
+    const width = Math.floor(Number(metadata?.width) || 0)
+    const height = Math.floor(Number(metadata?.height) || 0)
+
+    if (!duration && (!width || !height)) {
+        return null
+    }
+
+    const hasDimensions = width > 0 && height > 0
+
+    return {
+        duration,
+        width: hasDimensions ? width : null,
+        height: hasDimensions ? height : null,
+        aspectRatio: hasDimensions ? `${width}:${height}` : null,
+        orientation: normalizeOrientation(
+            metadata?.orientation,
+            hasDimensions ? width : null,
+            hasDimensions ? height : null
+        )
+    }
+}
+
 export const generateThumbnailPresignedUrl = async (
     userId: string,
     fileName: string,
@@ -165,7 +220,13 @@ export const completeUpload = async (
     visibility?: "PUBLIC" | "PRIVATE" | "ORGANIZATION",
     description?: string,
     thumbnailKey?: string,
-    generateAIAssets?: boolean
+    generateAIAssets?: boolean,
+    clientMetadata?: {
+        duration?: unknown
+        width?: unknown
+        height?: unknown
+        orientation?: unknown
+    }
 ) => {
     const orgAccess = await getOrganizationAccessContext(userId)
     if (orgAccess.activeOrganizationId && !orgAccess.canUpload) {
@@ -215,6 +276,18 @@ export const completeUpload = async (
         }
     })
 
+    const metadata = buildClientVideoMetadata(clientMetadata)
+    if (metadata) {
+        await prisma.videoMetadata.upsert({
+            where: { videoId: video.id },
+            update: metadata,
+            create: {
+                video: { connect: { id: video.id } },
+                ...metadata
+            }
+        })
+    }
+
     await startVideoPostUploadPipeline(
         video.id,
         key,
@@ -223,6 +296,22 @@ export const completeUpload = async (
     )
 
     emitNewVideoUploaded({
+        publicId: video.publicId,
+        title: video.title?.trim() || fallbackTitle,
+        uploaderName: user.name || user.channel.name
+    })
+
+    await createNotification(
+        userId,
+        "Upload Complete",
+        `"${video.title?.trim() || fallbackTitle}" is now available in your library.`,
+        `/video/${video.publicId}`,
+        "VIDEO"
+    )
+
+    await notifySubscribersForNewVideo({
+        channelId: user.channel.id,
+        ownerUserId: userId,
         publicId: video.publicId,
         title: video.title?.trim() || fallbackTitle,
         uploaderName: user.name || user.channel.name
@@ -1087,7 +1176,14 @@ export const updateOwnedVideo = async (
         include: {
             channel: {
                 select: {
-                    userId: true
+                    id: true,
+                    name: true,
+                    userId: true,
+                    user: {
+                        select: {
+                            name: true
+                        }
+                    }
                 }
             }
         }
@@ -1103,6 +1199,10 @@ export const updateOwnedVideo = async (
 
     const title = payload.title?.trim()
     const description = payload.description?.trim()
+    const hasContentUpdate =
+        title !== undefined ||
+        description !== undefined ||
+        Boolean(payload.thumbnailKey)
 
     const updatedVideo = await prisma.video.update({
         where: { id: video.id },
@@ -1125,6 +1225,16 @@ export const updateOwnedVideo = async (
                 keywords: [],
                 tags: []
             }
+        })
+    }
+
+    if (hasContentUpdate) {
+        await notifySubscribersForVideoUpdate({
+            channelId: video.channel.id,
+            ownerUserId: userId,
+            publicId: updatedVideo.publicId,
+            title: updatedVideo.title || "Untitled",
+            uploaderName: video.channel.user?.name || video.channel.name
         })
     }
 

@@ -14,6 +14,10 @@ import { s3 } from "../../config/s3";
 import { generateThumbnail } from "../../utils/thumbnail";
 import { emitNewVideoUploaded } from "../../services/realtime.service";
 import { startVideoPostUploadPipeline } from "./video-processing.service";
+import {
+    createNotification,
+    notifySubscribersForNewVideo
+} from "../notification/notification.service";
 
 import fs from "fs";
 import path from "path";
@@ -210,6 +214,22 @@ export const importVideoFromUserBucket = async (
     );
 
     emitNewVideoUploaded({
+        publicId: video.publicId,
+        title: video.title || "Untitled",
+        uploaderName: cred.user.name || cred.user.channel.name
+    })
+
+    await createNotification(
+        userId,
+        "Import Complete",
+        `"${video.title || "Untitled"}" was imported and is now available in your library.`,
+        `/video/${video.publicId}`,
+        "VIDEO"
+    )
+
+    await notifySubscribersForNewVideo({
+        channelId: cred.user.channel.id,
+        ownerUserId: userId,
         publicId: video.publicId,
         title: video.title || "Untitled",
         uploaderName: cred.user.name || cred.user.channel.name

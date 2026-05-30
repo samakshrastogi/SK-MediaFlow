@@ -4,6 +4,10 @@ import { prisma } from "../../config/prisma"
 import { AuthRequest } from "../../middlewares/auth.middleware"
 import { getSignedUrl as getCFSignedUrl } from "@aws-sdk/cloudfront-signer"
 import { getOrganizationAccessContext } from "../organization/organization.service"
+import {
+    notifyChannelOwnerOfSubscription,
+    notifyVideoOwnerOfInteraction
+} from "../notification/notification.service"
 
 const signCloudFrontUrl = (key: string) => {
     const encodedKey = encodeURI(key)
@@ -161,6 +165,7 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
         })
 
         const existing = existingReactions[0]
+        let shouldNotifyOwner = false
 
         if (existing) {
             const duplicateIds = existingReactions.slice(1).map((reaction) => reaction.id)
@@ -177,6 +182,7 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
                     where: { id: existing.id },
                     data: { type }
                 })
+                shouldNotifyOwner = type === "LIKE"
             }
         } else {
             try {
@@ -187,6 +193,7 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
                         type
                     }
                 })
+                shouldNotifyOwner = type === "LIKE"
             } catch (error) {
                 if (error?.code !== "P2002") throw error
 
@@ -197,6 +204,7 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
                     },
                     data: { type }
                 })
+                shouldNotifyOwner = type === "LIKE"
             }
         }
 
@@ -204,6 +212,16 @@ export const handleReaction = async (req: AuthRequest, res: Response) => {
             prisma.videoReaction.count({ where: { videoId: video.id, type: "LIKE" } }),
             prisma.videoReaction.count({ where: { videoId: video.id, type: "DISLIKE" } })
         ])
+
+        if (shouldNotifyOwner) {
+            await notifyVideoOwnerOfInteraction({
+                actorUserId: req.user.id,
+                ownerUserId: video.channel.userId,
+                publicId: video.publicId,
+                videoTitle: video.title || "Untitled",
+                action: "liked"
+            })
+        }
 
         return res.json({
             success: true,
@@ -233,6 +251,14 @@ export const handleComment = async (req: AuthRequest, res: Response) => {
                 videoId: video.id,
                 text: text.trim()
             }
+        })
+
+        await notifyVideoOwnerOfInteraction({
+            actorUserId: req.user.id,
+            ownerUserId: video.channel.userId,
+            publicId: video.publicId,
+            videoTitle: video.title || "Untitled",
+            action: "commented on"
         })
 
         return res.json(comment)
@@ -270,6 +296,14 @@ export const handleShare = async (req: AuthRequest, res: Response) => {
                 videoId: video.id,
                 method: shareMethod
             }
+        })
+
+        await notifyVideoOwnerOfInteraction({
+            actorUserId: req.user.id,
+            ownerUserId: video.channel.userId,
+            publicId: video.publicId,
+            videoTitle: video.title || "Untitled",
+            action: "shared"
         })
 
         const shares = await prisma.videoShare.count({ where: { videoId: video.id } })
@@ -315,6 +349,10 @@ export const handleToggleSubscribe = async (req: AuthRequest, res: Response) => 
                 }
             })
             subscribed = true
+            await notifyChannelOwnerOfSubscription({
+                actorUserId: req.user.id,
+                ownerUserId: video.channel.userId
+            })
         }
 
         const subscribers = await prisma.subscription.count({

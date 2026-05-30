@@ -23,6 +23,10 @@ import {
     startVideoPostUploadPipeline
 } from "./video-processing.service"
 import { getSignedUrl as getCFSignedUrl } from "@aws-sdk/cloudfront-signer"
+import {
+    createNotification,
+    notifySubscribersForNewVideo
+} from "../notification/notification.service"
 
 const signCloudFrontUrl = (key: string) => {
     const encodedKey = encodeURI(key)
@@ -89,7 +93,18 @@ export const finishUpload = async (
             })
         }
 
-        const { key, title, description, size, visibility, thumbnailKey } = req.body
+        const {
+            key,
+            title,
+            description,
+            duration,
+            size,
+            visibility,
+            thumbnailKey,
+            videoWidth,
+            videoHeight,
+            orientation
+        } = req.body
         const generateAIAssets = req.body?.generateAIAssets === true
 
         if (!key || !size) {
@@ -114,7 +129,13 @@ export const finishUpload = async (
             visibility,
             description,
             thumbnailKey,
-            generateAIAssets
+            generateAIAssets,
+            {
+                duration,
+                width: videoWidth,
+                height: videoHeight,
+                orientation
+            }
         )
 
         let aiAssets = null
@@ -228,6 +249,22 @@ export const importSelectedVideos = async (
                     key,
                     user.channel.username
                 )
+
+                await createNotification(
+                    req.user.id,
+                    "Import Complete",
+                    `"${video.title || "Untitled"}" was imported and is now available in your library.`,
+                    `/video/${video.publicId}`,
+                    "VIDEO"
+                )
+
+                await notifySubscribersForNewVideo({
+                    channelId: user.channel.id,
+                    ownerUserId: req.user.id,
+                    publicId: video.publicId,
+                    title: video.title || "Untitled",
+                    uploaderName: user.name || user.channel.name
+                })
 
                 imported.push(key)
             }

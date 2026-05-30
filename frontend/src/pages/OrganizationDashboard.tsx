@@ -104,7 +104,6 @@ const OrganizationDashboard = () => {
     const [activity, setActivity] = useState<Activity | null>(null)
     const [totals, setTotals] = useState<Totals | null>(null)
     const [message, setMessage] = useState("")
-    const [promoteEmail, setPromoteEmail] = useState("")
     const [latestInviteLink, setLatestInviteLink] = useState("")
     const [organizationPublicLink, setOrganizationPublicLink] = useState("")
     const [organizationPrivateLink, setOrganizationPrivateLink] = useState("")
@@ -307,17 +306,6 @@ const OrganizationDashboard = () => {
         await api.post(`/organization/membership/${id}/remove`)
         setMessage("Member removed.")
         await loadAll()
-    }
-
-    const makeAdminByEmail = async () => {
-        if (!orgId || !promoteEmail.trim()) return
-        await api.post("/organization/membership/promote-by-email", {
-            organizationId: orgId,
-            identifier: promoteEmail.trim()
-        })
-        setPromoteEmail("")
-        await loadAll()
-        setMessage("User promoted to admin.")
     }
 
     const invite = async () => {
@@ -803,12 +791,11 @@ const OrganizationDashboard = () => {
                     latestInviteLink={latestInviteLink}
                     inviteEmail={inviteEmail}
                     setInviteEmail={setInviteEmail}
-                    promoteEmail={promoteEmail}
-                    setPromoteEmail={setPromoteEmail}
+                    promotableMembers={memberships.filter((member) => member.status === "APPROVED" && member.role !== "ADMIN")}
                     copiedType={copiedType}
                     onCopyLink={copyLink}
                     onInvite={invite}
-                    onPromote={makeAdminByEmail}
+                    onPromote={makeAdmin}
                     onClose={() => setShowAccessModal(false)}
                 />
             )}
@@ -832,8 +819,7 @@ const AccessControlModal = ({
     latestInviteLink,
     inviteEmail,
     setInviteEmail,
-    promoteEmail,
-    setPromoteEmail,
+    promotableMembers,
     copiedType,
     onCopyLink,
     onInvite,
@@ -845,32 +831,32 @@ const AccessControlModal = ({
     latestInviteLink: string
     inviteEmail: string
     setInviteEmail: (value: string) => void
-    promoteEmail: string
-    setPromoteEmail: (value: string) => void
+    promotableMembers: Membership[]
     copiedType: string | null
     onCopyLink: (link: string, type: string) => void
     onInvite: () => void
-    onPromote: () => void
+    onPromote: (membershipId: string) => void
     onClose: () => void
-}) => (
+}) => {
+    const [selectedPromoteMemberId, setSelectedPromoteMemberId] = useState("")
+    const selectedMember = promotableMembers.find((member) => member.id === selectedPromoteMemberId)
+
+    return (
     <div
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-white/[0.025] px-3 py-5 backdrop-blur-[7px] sm:px-4"
+        className="fixed inset-0 z-[80] flex items-stretch justify-center bg-white/[0.025] px-3 py-4 backdrop-blur-[7px] sm:items-center sm:px-4 sm:py-5"
         onClick={onClose}
     >
         <div
-            className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[26px] border border-white/14 bg-[linear-gradient(145deg,rgba(64,54,128,0.92),rgba(35,42,94,0.90)_48%,rgba(22,30,67,0.92))] shadow-[0_26px_80px_rgba(9,13,40,0.34)] backdrop-blur-2xl"
+            className="flex max-h-[calc(100dvh-2rem)] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-[26px] border border-white/14 bg-[linear-gradient(145deg,rgba(64,54,128,0.92),rgba(35,42,94,0.90)_48%,rgba(22,30,67,0.92))] shadow-[0_26px_80px_rgba(9,13,40,0.34)] backdrop-blur-2xl sm:max-h-[92dvh]"
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6 sm:py-5">
+            <div className="shrink-0 flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6 sm:py-5">
                 <div className="flex min-w-0 gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/16 bg-cyan-400/12 text-cyan-100">
                         <UserRoundCog size={22} aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
                         <h2 className="text-xl font-semibold text-white sm:text-2xl">Invite & Manage Access</h2>
-                        <p className="mt-1 max-w-2xl text-sm text-slate-200/70">
-                            Share organization links, invite new users, and promote trusted members from one place.
-                        </p>
                     </div>
                 </div>
                 <button
@@ -882,7 +868,7 @@ const AccessControlModal = ({
                 </button>
             </div>
 
-            <div className="grid max-h-[calc(92vh-84px)] gap-0 overflow-y-auto lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto overscroll-contain pb-8 lg:grid-cols-[1.08fr_0.92fr]">
                 <section className="space-y-4 border-b border-white/10 px-5 py-5 sm:px-6 sm:py-6 lg:border-b-0 lg:border-r">
                     <div>
                         <div className="flex items-center gap-2 text-white">
@@ -999,30 +985,54 @@ const AccessControlModal = ({
                                 <h3 className="text-lg font-semibold">Promote Member</h3>
                             </div>
                             <p className="mt-1 text-sm text-slate-200/64">
-                                Grant admin access by email or channel name.
+                                Grant admin access to a joined organization member.
                             </p>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            <input
-                                value={promoteEmail}
-                                onChange={(e) => setPromoteEmail(e.target.value)}
-                                placeholder="member@example.com or channel-name"
+                            <select
+                                value={selectedPromoteMemberId}
+                                onChange={(e) => setSelectedPromoteMemberId(e.target.value)}
                                 aria-label="promote member"
-                                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/[0.075] px-3 py-2.5 text-sm text-white placeholder:text-slate-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
-                            />
+                                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/[0.075] px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
+                            >
+                                <option value="" className="bg-slate-900 text-white">
+                                    Select member
+                                </option>
+                                {promotableMembers.map((member) => (
+                                    <option key={member.id} value={member.id} className="bg-slate-900 text-white">
+                                        {member.user.name || member.user.channel?.name || member.user.email}
+                                        {member.user.channel?.username ? ` (@${member.user.channel.username})` : ""}
+                                    </option>
+                                ))}
+                            </select>
                             <button
-                                onClick={onPromote}
-                                className="rounded-xl bg-cyan-300/16 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/24"
+                                onClick={() => {
+                                    if (!selectedPromoteMemberId) return
+                                    onPromote(selectedPromoteMemberId)
+                                    setSelectedPromoteMemberId("")
+                                }}
+                                disabled={!selectedPromoteMemberId}
+                                className="rounded-xl bg-cyan-300/16 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/24 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Promote
                             </button>
                         </div>
+                        {promotableMembers.length === 0 ? (
+                            <p className="text-xs text-slate-200/58">
+                                No non-admin members are available to promote.
+                            </p>
+                        ) : selectedMember ? (
+                            <p className="text-xs text-slate-200/58">
+                                {selectedMember.user.email}
+                            </p>
+                        ) : null}
                     </div>
                 </section>
             </div>
         </div>
     </div>
-)
+    )
+}
 
 const CHART_COLORS = ["#60a5fa", "#34d399", "#f59e0b", "#f472b6"]
 
@@ -1186,40 +1196,36 @@ const MemberInfoModal = ({
         onClick={onClose}
     >
         <div
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/12 bg-[linear-gradient(145deg,rgba(40,30,74,0.96),rgba(22,22,38,0.97)_44%,rgba(13,15,26,0.98))] p-4 sm:p-6 shadow-[0_32px_90px_rgba(0,0,0,0.42)]"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[24px] border border-white/12 bg-[linear-gradient(145deg,rgba(40,30,74,0.96),rgba(22,22,38,0.97)_44%,rgba(13,15,26,0.98))] p-4 shadow-[0_32px_90px_rgba(0,0,0,0.42)] sm:p-5"
             onClick={(event) => event.stopPropagation()}
         >
-            <div className="mb-5 flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+            <div className="mb-4 flex items-center justify-between gap-4 border-b border-white/10 pb-3">
                 <div>
-                    <h2 className="text-2xl font-semibold text-white">Member Details</h2>
-                    <p className="mt-1 text-sm text-purple-100/58">
-                        Review the user identity, channel details, and organization access status.
-                    </p>
+                    <h2 className="text-xl font-semibold text-white">Member Details</h2>
                 </div>
                 <button
                     onClick={onClose}
                     aria-label="Close member details"
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/8 text-gray-300 transition hover:bg-white/14 hover:text-white"
                 >
                     <X size={18} />
                 </button>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3">
                 <InfoRow label="Name" value={member.user.name || member.user.email || "—"} />
                 <InfoRow label="Channel Name" value={member.user.channel?.name || "—"} />
-                <InfoRow label="Channel Username" value={member.user.channel?.username || "—"} />
                 <InfoRow label="Membership Requested" value={member.requestedAt ? new Date(member.requestedAt).toLocaleString() : "—"} />
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3 border-t border-white/10 pt-5">
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
                 {member.role !== "ADMIN" && (
                     <button
                         onClick={async () => {
                             await onMakeAdmin(member.id)
                             onClose()
                         }}
-                        className="rounded-xl bg-cyan-500/14 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
+                        className="rounded-xl bg-cyan-500/14 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
                     >
                         Make Admin
                     </button>
@@ -1231,7 +1237,7 @@ const MemberInfoModal = ({
                             await onRemoveAdmin(member.id)
                             onClose()
                         }}
-                        className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-500"
+                        className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-500"
                     >
                         Remove Admin
                     </button>
@@ -1243,7 +1249,7 @@ const MemberInfoModal = ({
                             await onRemoveMember(member.id)
                             onClose()
                         }}
-                        className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/16"
+                        className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/16"
                     >
                         Remove User
                     </button>
@@ -1254,9 +1260,9 @@ const MemberInfoModal = ({
 )
 
 const InfoRow = ({ label, value }: { label: string; value: string }) => (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <p className="text-[11px] uppercase tracking-[0.16em] text-purple-100/40">{label}</p>
-        <p className="mt-2 break-words text-sm text-white">{value}</p>
+        <p className="mt-1.5 break-words text-sm text-white">{value}</p>
     </div>
 )
 

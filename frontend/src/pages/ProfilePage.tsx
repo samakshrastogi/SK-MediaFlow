@@ -728,33 +728,25 @@ const ProfilePage = () => {
                         title="Your Uploads"
                         subtitle="Manage public, private, and organization content inside a premium media showcase."
                         rightContent={
-                            <button
-                                onClick={() => navigate("/upload")}
-                                className="inline-flex items-center justify-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-                            >
-                                <UploadCloud size={15} />
-                                Upload Video
-                            </button>
+                            availableUploadTabs.some((tab) => tab.key !== "public") ? (
+                                <div className="flex flex-wrap gap-2 lg:justify-end">
+                                    {availableUploadTabs.map((tab) => (
+                                        <button
+                                            key={tab.key}
+                                            onClick={() => handleUploadHeaderButtonClick(tab.key)}
+                                            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                                uploadVisibility === tab.key
+                                                    ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
+                                                    : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
+                                            }`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : null
                         }
                     >
-                        {availableUploadTabs.some((tab) => tab.key !== "public") ? (
-                            <div className="mb-5 flex flex-wrap gap-2">
-                                {availableUploadTabs.map((tab) => (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => handleUploadHeaderButtonClick(tab.key)}
-                                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                                            uploadVisibility === tab.key
-                                                ? "border-cyan-300/18 bg-cyan-400/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_28px_rgba(14,165,233,0.14)]"
-                                                : "border-white/10 bg-white/[0.05] text-slate-300/78 hover:bg-white/[0.08] hover:text-white"
-                                        }`}
-                                    >
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : null}
-
                         {uploadVideos.length > 0 ? (
                             <>
                                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
