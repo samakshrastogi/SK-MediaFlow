@@ -54,7 +54,7 @@ export const getPresignedUrl = async (
             })
         }
 
-        const { fileName, fileType } = req.body
+        const { fileName, fileType, organizationId } = req.body
 
         if (!fileName || !fileType) {
             return res.status(400).json({
@@ -66,7 +66,8 @@ export const getPresignedUrl = async (
         const result = await generatePresignedUrl(
             req.user.id,
             fileName,
-            fileType
+            fileType,
+            organizationId
         )
 
         return res.json({
@@ -103,7 +104,8 @@ export const finishUpload = async (
             thumbnailKey,
             videoWidth,
             videoHeight,
-            orientation
+            orientation,
+            organizationId
         } = req.body
         const generateAIAssets = req.body?.generateAIAssets === true
 
@@ -135,7 +137,8 @@ export const finishUpload = async (
                 width: videoWidth,
                 height: videoHeight,
                 orientation
-            }
+            },
+            organizationId
         )
 
         let aiAssets = null
@@ -835,7 +838,7 @@ export const getThumbnailPresignedUrl = async (
             })
         }
 
-        const { fileName, fileType } = req.body
+        const { fileName, fileType, organizationId } = req.body
 
         if (!fileName || !fileType) {
             return res.status(400).json({
@@ -847,7 +850,8 @@ export const getThumbnailPresignedUrl = async (
         const result = await generateThumbnailPresignedUrl(
             req.user.id,
             fileName,
-            fileType
+            fileType,
+            organizationId
         )
 
         return res.json({

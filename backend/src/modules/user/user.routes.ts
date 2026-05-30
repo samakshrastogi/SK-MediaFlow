@@ -616,7 +616,7 @@ router.get("/settings", authenticate, async (req: AuthRequest, res) => {
                         google: Boolean(user.googleId || user.provider === "GOOGLE"),
                         password: Boolean(user.password),
                     },
-                    canChangeEmail: Boolean(user.password) || user.provider === "LOCAL",
+                    canChangeEmail: Boolean(user.password),
                     canChangePassword: Boolean(user.password),
                 },
                 notifications: {

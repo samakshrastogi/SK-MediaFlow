@@ -8,13 +8,23 @@ import { SOCKET_URL } from "@/config/env"
 import AppLayout from "@/layouts/AppLayout"
 import SpritesheetPicker from "@/components/SpritesheetPicker"
 import AIGenerateAction from "@/components/AIGenerateAction"
-import { CheckCircle2, Cloud, Database, FileVideo, UploadCloud } from "lucide-react"
+import { CheckCircle2, ChevronDown, Cloud, Database, FileVideo, UploadCloud } from "lucide-react"
 
 interface Channel {
     id: string
     name: string
     username: string
     description?: string
+}
+
+interface Organization {
+    id: string
+    name: string
+}
+
+interface OrganizationMembership {
+    status: string
+    organization?: Organization
 }
 
 type UploadStatus =
@@ -161,6 +171,9 @@ const Upload = () => {
     const [showUploadCompleteModal, setShowUploadCompleteModal] = useState(false)
     const [completedUploadCount, setCompletedUploadCount] = useState(0)
     const [globalVisibility, setGlobalVisibility] = useState<"PUBLIC" | "PRIVATE" | "ORGANIZATION">("PUBLIC")
+    const [organizations, setOrganizations] = useState<Organization[]>([])
+    const [selectedUploadOrganizationId, setSelectedUploadOrganizationId] = useState("")
+    const [organizationDropdownOpen, setOrganizationDropdownOpen] = useState(false)
 
     const fetchAIMetadata = async (videoId: string) => {
         let lastError: unknown = null
@@ -500,6 +513,36 @@ const Upload = () => {
 
     }, [])
 
+    useEffect(() => {
+        const fetchOrganizations = async () => {
+            try {
+                const res = await api.get("/organization/my")
+                const memberships = (res.data?.data?.memberships || []) as OrganizationMembership[]
+                const approvedOrganizations = memberships
+                    .filter((membership) => membership.status === "APPROVED" && membership.organization?.id)
+                    .map((membership) => membership.organization!)
+
+                setOrganizations(approvedOrganizations)
+
+                const preferredOrganization =
+                    approvedOrganizations.length === 1
+                        ? approvedOrganizations[0]
+                        : null
+
+                if (preferredOrganization) {
+                    setSelectedUploadOrganizationId(preferredOrganization.id)
+                } else {
+                    setSelectedUploadOrganizationId("")
+                }
+            } catch {
+                setOrganizations([])
+                setSelectedUploadOrganizationId("")
+            }
+        }
+
+        fetchOrganizations()
+    }, [])
+
     /* ---------------- HANDLE FILES ---------------- */
 
     const handleFiles = (files: FileList | null) => {
@@ -638,6 +681,11 @@ const Upload = () => {
 
         if (!channel) return
 
+        if (globalVisibility === "ORGANIZATION" && !selectedUploadOrganizationId) {
+            setUploadError("Select an organization before uploading.")
+            return
+        }
+
         const missingThumbnail = queue.some(
             (item) => item.status === "waiting" && !item.thumbnailFile && !item.generateAIOnUpload
         )
@@ -687,9 +735,13 @@ const Upload = () => {
 
             /* ---------- 1. GET PRESIGNED URL ---------- */
 
+            const uploadOrganizationId =
+                globalVisibility === "ORGANIZATION" ? selectedUploadOrganizationId : undefined
+
             const presignRes = await api.post("/video/upload/presign", {
                 fileName: item.file.name,
                 fileType: item.file.type,
+                organizationId: uploadOrganizationId,
             });
 
             const { uploadUrl, key } = presignRes.data.data;
@@ -730,7 +782,8 @@ const Upload = () => {
             if (item.thumbnailFile) {
                 const thumbPresignRes = await api.post("/video/upload/thumbnail-presign", {
                     fileName: item.thumbnailFile.name,
-                    fileType: item.thumbnailFile.type
+                    fileType: item.thumbnailFile.type,
+                    organizationId: uploadOrganizationId
                 })
 
                 const {
@@ -761,6 +814,7 @@ const Upload = () => {
                 orientation: item.orientation,
                 size: item.file.size,
                 visibility: globalVisibility, // ✅ IMPORTANT
+                organizationId: uploadOrganizationId,
                 thumbnailKey,
                 generateAIAssets: item.generateAIOnUpload
             });
@@ -850,6 +904,10 @@ const Upload = () => {
         (item) => item.status === "waiting" && !item.thumbnailFile && !item.generateAIOnUpload
     )
     const hasWaitingUpload = queue.some((item) => item.status === "waiting")
+    const selectedUploadOrganizationName =
+        organizations.length > 1
+            ? organizations.find((organization) => organization.id === selectedUploadOrganizationId)?.name || "Organization"
+            : "Organization"
 
     return (
 
@@ -1080,7 +1138,10 @@ const Upload = () => {
                         <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-3">
 
                             <button
-                                onClick={() => setGlobalVisibility("PUBLIC")}
+                                onClick={() => {
+                                    setGlobalVisibility("PUBLIC")
+                                    setOrganizationDropdownOpen(false)
+                                }}
                                 className={`rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "PUBLIC"
                                     ? "bg-cyan-400 text-slate-950"
                                     : "bg-white/10 text-slate-300"
@@ -1090,7 +1151,10 @@ const Upload = () => {
                             </button>
 
                             <button
-                                onClick={() => setGlobalVisibility("PRIVATE")}
+                                onClick={() => {
+                                    setGlobalVisibility("PRIVATE")
+                                    setOrganizationDropdownOpen(false)
+                                }}
                                 className={`rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "PRIVATE"
                                     ? "bg-cyan-400 text-slate-950"
                                     : "bg-white/10 text-slate-300"
@@ -1099,17 +1163,70 @@ const Upload = () => {
                                 Private
                             </button>
 
-                            <button
-                                onClick={() => setGlobalVisibility("ORGANIZATION")}
-                                className={`rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "ORGANIZATION"
-                                    ? "bg-cyan-400 text-slate-950"
-                                    : "bg-white/10 text-slate-300"
-                                    }`}
-                            >
-                                Organization
-                            </button>
+                            <div className="relative min-w-0">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setGlobalVisibility("ORGANIZATION")
+                                        setOrganizationDropdownOpen((open) =>
+                                            globalVisibility === "ORGANIZATION" && organizations.length !== 1
+                                                ? !open
+                                                : organizations.length !== 1
+                                        )
+                                    }}
+                                    className={`flex w-full min-w-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium sm:px-4 sm:text-sm ${globalVisibility === "ORGANIZATION"
+                                        ? "bg-cyan-400 text-slate-950"
+                                        : "bg-white/10 text-slate-300"
+                                        }`}
+                                >
+                                    <span className="truncate">{selectedUploadOrganizationName}</span>
+                                    {organizations.length > 1 ? (
+                                        <ChevronDown
+                                            size={14}
+                                            className={`transition ${organizationDropdownOpen ? "rotate-180" : ""}`}
+                                        />
+                                    ) : null}
+                                </button>
+
+                                {globalVisibility === "ORGANIZATION" && organizationDropdownOpen && organizations.length !== 1 && (
+                                    <div className="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-full min-w-full overflow-hidden rounded-xl border border-white/10 bg-[#100d24] shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+                                        {organizations.length > 1 ? (
+                                            <div className="max-h-56 overflow-y-auto p-1.5">
+                                                {organizations.map((organization) => (
+                                                    <button
+                                                        key={organization.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedUploadOrganizationId(organization.id)
+                                                            setUploadError("")
+                                                            setOrganizationDropdownOpen(false)
+                                                        }}
+                                                        title={organization.name}
+                                                        className={`block w-full truncate rounded-lg px-3 py-2 text-left text-sm transition ${selectedUploadOrganizationId === organization.id
+                                                            ? "bg-cyan-400 text-slate-950"
+                                                            : "text-white hover:bg-white/10"
+                                                            }`}
+                                                    >
+                                                        {organization.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="px-3 py-2 text-sm text-amber-100">
+                                                No approved organization found
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
                         </div>
+
+                        {globalVisibility === "ORGANIZATION" && organizations.length === 0 && !organizationDropdownOpen && (
+                            <div className="mt-3 rounded-xl border border-amber-300/18 bg-amber-400/10 px-3 py-2 text-sm text-amber-100 sm:mt-0">
+                                No approved organization found
+                            </div>
+                        )}
 
                     </div>
 

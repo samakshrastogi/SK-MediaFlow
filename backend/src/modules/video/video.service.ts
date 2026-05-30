@@ -47,6 +47,74 @@ const ACTIVE_VIDEO_STATUS = "ACTIVE"
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000
 
+const normalizeId = (value: unknown) => String(value || "").trim()
+
+const isOrganizationExpired = (org: {
+    trialEndsAt: Date
+    subscriptionEndsAt: Date | null
+    blockedAt: Date | null
+}) => {
+    if (org.blockedAt) return true
+
+    const now = Date.now()
+    const trialActive = new Date(org.trialEndsAt).getTime() >= now
+    const subscriptionActive = org.subscriptionEndsAt
+        ? new Date(org.subscriptionEndsAt).getTime() >= now
+        : false
+
+    return !(trialActive || subscriptionActive)
+}
+
+const ensureCanUploadToOrganization = async (
+    userId: string,
+    organizationId?: unknown
+) => {
+    const selectedOrganizationId = normalizeId(organizationId)
+    if (!selectedOrganizationId) return null
+
+    const membership = await prisma.organizationMembership.findUnique({
+        where: {
+            organizationId_userId: {
+                organizationId: selectedOrganizationId,
+                userId
+            }
+        },
+        include: {
+            organization: {
+                include: {
+                    allowedUploaders: {
+                        where: { userId },
+                        select: { id: true }
+                    }
+                }
+            }
+        }
+    })
+
+    if (!membership || membership.status !== "APPROVED") {
+        throw new Error("You are not approved in this organization")
+    }
+
+    const organization = membership.organization
+    if (isOrganizationExpired(organization)) {
+        throw new Error("Organization trial/subscription expired")
+    }
+
+    const canUpload =
+        organization.uploadPolicy === "ALL_MEMBERS" ||
+        membership.role === "ADMIN" ||
+        (
+            organization.uploadPolicy === "SPECIFIC_USERS" &&
+            (organization.allowedUploaders?.length ?? 0) > 0
+        )
+
+    if (!canUpload) {
+        throw new Error("You are not allowed to upload in this organization")
+    }
+
+    return selectedOrganizationId
+}
+
 const formatDurationLabel = (durationSeconds?: number | null) => {
     if (!durationSeconds || durationSeconds <= 0) return null
 
@@ -82,10 +150,15 @@ const signCloudFrontUrl = (key: string) => {
 export const generatePresignedUrl = async (
     userId: string,
     fileName: string,
-    fileType: string
+    fileType: string,
+    organizationId?: unknown
 ) => {
+    if (organizationId) {
+        await ensureCanUploadToOrganization(userId, organizationId)
+    }
+
     const orgAccess = await getOrganizationAccessContext(userId)
-    if (orgAccess.activeOrganizationId && !orgAccess.canUpload) {
+    if (!organizationId && orgAccess.activeOrganizationId && !orgAccess.canUpload) {
         throw new Error(orgAccess.blockedReason || "You are not allowed to upload in this organization")
     }
 
@@ -177,10 +250,15 @@ const buildClientVideoMetadata = (metadata?: {
 export const generateThumbnailPresignedUrl = async (
     userId: string,
     fileName: string,
-    fileType: string
+    fileType: string,
+    organizationId?: unknown
 ) => {
+    if (organizationId) {
+        await ensureCanUploadToOrganization(userId, organizationId)
+    }
+
     const orgAccess = await getOrganizationAccessContext(userId)
-    if (orgAccess.activeOrganizationId && !orgAccess.canUpload) {
+    if (!organizationId && orgAccess.activeOrganizationId && !orgAccess.canUpload) {
         throw new Error(orgAccess.blockedReason || "You are not allowed to upload in this organization")
     }
 
@@ -226,10 +304,12 @@ export const completeUpload = async (
         width?: unknown
         height?: unknown
         orientation?: unknown
-    }
+    },
+    organizationId?: unknown
 ) => {
+    const selectedOrganizationId = await ensureCanUploadToOrganization(userId, organizationId)
     const orgAccess = await getOrganizationAccessContext(userId)
-    if (orgAccess.activeOrganizationId && !orgAccess.canUpload) {
+    if (!selectedOrganizationId && orgAccess.activeOrganizationId && !orgAccess.canUpload) {
         throw new Error(orgAccess.blockedReason || "You are not allowed to upload in this organization")
     }
 
@@ -254,7 +334,15 @@ export const completeUpload = async (
 
     const finalVisibility =
         visibility ||
-        (orgAccess.activeOrganizationId ? "ORGANIZATION" : "PUBLIC")
+        (selectedOrganizationId || orgAccess.activeOrganizationId ? "ORGANIZATION" : "PUBLIC")
+    const finalOrganizationId =
+        finalVisibility === "ORGANIZATION"
+            ? selectedOrganizationId || orgAccess.activeOrganizationId
+            : null
+
+    if (finalVisibility === "ORGANIZATION" && !finalOrganizationId) {
+        throw new Error("Select an organization before uploading")
+    }
 
     const fallbackTitle = filenameFromS3Key(key)
     const submittedTitle = (title ?? "").trim()
@@ -272,7 +360,7 @@ export const completeUpload = async (
             status: ACTIVE_VIDEO_STATUS,
             channelId: user.channel.id,
             visibility: finalVisibility,
-            organizationId: finalVisibility === "ORGANIZATION" ? orgAccess.activeOrganizationId : null
+            organizationId: finalOrganizationId
         }
     })
 

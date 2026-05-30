@@ -41,6 +41,16 @@ const languageOptions = [
     { value: "hi", label: "Hindi" },
 ]
 
+const getStoredSearchHistoryCount = (userId?: string) => {
+    try {
+        const raw = localStorage.getItem(getSearchHistoryKey(userId))
+        const parsed = raw ? JSON.parse(raw) : []
+        return Array.isArray(parsed) ? parsed.length : 0
+    } catch {
+        return 0
+    }
+}
+
 const sectionItems = [
     { id: "account", label: "Account", icon: UserCircle2 },
     { id: "security", label: "Security", icon: Shield },
@@ -87,7 +97,11 @@ const SettingsPage = () => {
     const [changingEmail, setChangingEmail] = useState(false)
     const [changingPassword, setChangingPassword] = useState(false)
     const [processingDanger, setProcessingDanger] = useState(false)
+    const [revokingOthers, setRevokingOthers] = useState(false)
     const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null)
+    const [clearingWatchHistory, setClearingWatchHistory] = useState(false)
+    const [clearingSearchHistory, setClearingSearchHistory] = useState(false)
+    const [resendingVerification, setResendingVerification] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [activeSection, setActiveSection] =
@@ -101,6 +115,7 @@ const SettingsPage = () => {
     const [confirmPassword, setConfirmPassword] = useState("")
     const [dangerPassword, setDangerPassword] = useState("")
     const [deleteConfirmation, setDeleteConfirmation] = useState("")
+    const [searchHistoryCount, setSearchHistoryCount] = useState(0)
 
     const [notifications, setNotifications] = useState<SettingsData["notifications"]>({
         emailNotificationsEnabled: true,
@@ -141,6 +156,10 @@ const SettingsPage = () => {
     useEffect(() => {
         void load()
     }, [])
+
+    useEffect(() => {
+        setSearchHistoryCount(getStoredSearchHistoryCount(user?.id))
+    }, [user?.id])
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -187,6 +206,8 @@ const SettingsPage = () => {
         settings?.account.connectedMethods.google && !settings?.account.connectedMethods.password
     )
 
+    const passwordRequiredForDanger = Boolean(settings?.account.connectedMethods.password)
+
     const hasPreferenceChanges = useMemo(() => {
         if (!settings) return false
 
@@ -197,47 +218,32 @@ const SettingsPage = () => {
         )
     }, [notifications, preferences, privacy, settings])
 
-    const accountSummary = useMemo(() => {
+    const activeSessions = useMemo(() => {
         if (!settings) return []
 
-        const connectedMethods = [
-            settings.account.connectedMethods.password ? "Password" : null,
-            settings.account.connectedMethods.google ? "Google" : null,
-        ].filter(Boolean)
-
-        return [
-            { label: "Verification", value: settings.account.isVerified ? "Verified" : "Pending" },
-            { label: "Sign-in", value: connectedMethods.join(", ") || "None" },
-            {
-                label: "Currently active",
-                value: `${settings.security.sessions.filter((session) => !session.revokedAt).length} sessions`,
-            },
-            {
-                label: "Last login",
-                value: settings.security.sessions[0]
-                    ? new Date(settings.security.sessions[0].createdAt).toLocaleString()
-                    : "No activity",
-            },
-        ]
+        return settings.security.sessions.filter((session) => !session.revokedAt && !session.endedAt)
     }, [settings])
 
-    const featuredDevices = useMemo(() => {
-        if (!settings) return []
+    const activeOtherSessions = useMemo(
+        () => activeSessions.filter((session) => !session.isCurrent),
+        [activeSessions]
+    )
 
+    const featuredDevices = useMemo(() => {
         const deviceIcons = [Tv, Laptop2, Smartphone]
         const deviceLabels = ["Living Room TV", "Creator Laptop", "Pocket Mobile"]
 
-        return settings.security.sessions.slice(0, 3).map((session, index) => ({
+        return activeSessions.slice(0, 3).map((session, index) => ({
             ...session,
             uiLabel: deviceLabels[index] || session.deviceLabel,
             icon: deviceIcons[index] || MonitorSmartphone,
         }))
-    }, [settings])
+    }, [activeSessions])
 
     const activityTimeline = useMemo(() => {
         if (!settings) return []
 
-        const lastSession = settings.security.sessions[0]
+        const lastSession = settings.security.sessions.find((session) => !session.revokedAt)
 
         return [
             {
@@ -248,17 +254,17 @@ const SettingsPage = () => {
                 accent: "from-cyan-400 to-blue-500",
             },
             {
-                title: "Last watched",
-                detail: "SK-MediaFlow originals stream progress synced across devices.",
+                title: "Active sessions",
+                detail: `${activeSessions.length} active ${activeSessions.length === 1 ? "session" : "sessions"} on this account.`,
                 accent: "from-fuchsia-400 to-violet-500",
             },
             {
-                title: "Currently active",
-                detail: `${settings.security.sessions.filter((session) => !session.revokedAt).length} session indicators are live.`,
+                title: "Search history",
+                detail: `${searchHistoryCount} saved ${searchHistoryCount === 1 ? "search" : "searches"} in this browser.`,
                 accent: "from-emerald-400 to-teal-500",
             },
         ]
-    }, [settings])
+    }, [activeSessions.length, searchHistoryCount, settings])
 
     const updateMessage = (nextMessage: string | null, nextError: string | null = null) => {
         setMessage(nextMessage)
@@ -280,12 +286,16 @@ const SettingsPage = () => {
                 prev
                     ? {
                           ...prev,
-                          notifications,
-                          privacy,
-                          preferences,
+                          notifications: res.data?.notifications ?? notifications,
+                          privacy: res.data?.privacy ?? privacy,
+                          preferences: res.data?.preferences ?? preferences,
                       }
                     : prev
             )
+
+            if (res.data?.notifications) setNotifications(res.data.notifications)
+            if (res.data?.privacy) setPrivacy(res.data.privacy)
+            if (res.data?.preferences) setPreferences(res.data.preferences)
 
             updateMessage(res.message || "Settings updated.")
         } catch (err) {
@@ -296,17 +306,35 @@ const SettingsPage = () => {
     }
 
     const handleEmailChange = async () => {
+        if (!settings) return
+
+        const nextEmail = email.trim().toLowerCase()
+        if (!nextEmail) {
+            updateMessage(null, "Email is required.")
+            return
+        }
+
+        if (nextEmail === settings.account.email.toLowerCase()) {
+            updateMessage(null, "Enter a different email address.")
+            return
+        }
+
+        if (settings.account.canChangeEmail && !emailPassword.trim()) {
+            updateMessage(null, "Current password is required.")
+            return
+        }
+
         try {
             setChangingEmail(true)
             updateMessage(null, null)
 
-            const res = await updateSettingsEmail(email, emailPassword)
+            const res = await updateSettingsEmail(nextEmail, emailPassword)
             await logout()
             navigate("/login", {
                 replace: true,
                 state: {
                     verificationFlow: {
-                        email: res.data?.email ?? email.trim().toLowerCase(),
+                        email: res.data?.email ?? nextEmail,
                         otpExpiresAt: res.data?.otpExpiresAt,
                         resendCooldownSeconds: res.data?.resendCooldownSeconds,
                         resendCountRemaining: res.data?.resendCountRemaining,
@@ -322,6 +350,21 @@ const SettingsPage = () => {
     }
 
     const handlePasswordChange = async () => {
+        if (!currentPassword.trim()) {
+            updateMessage(null, "Current password is required.")
+            return
+        }
+
+        if (newPassword.length < 8) {
+            updateMessage(null, "Password must be at least 8 characters.")
+            return
+        }
+
+        if (newPassword !== confirmPassword) {
+            updateMessage(null, "Passwords do not match.")
+            return
+        }
+
         try {
             setChangingPassword(true)
             updateMessage(null, null)
@@ -343,6 +386,7 @@ const SettingsPage = () => {
         if (!settings) return
 
         try {
+            setResendingVerification(true)
             updateMessage(null, null)
             const res = await resendOTP(settings.account.email)
             await logout()
@@ -360,6 +404,8 @@ const SettingsPage = () => {
             })
         } catch (err) {
             updateMessage(null, err instanceof Error ? err.message : "Failed to resend verification email.")
+        } finally {
+            setResendingVerification(false)
         }
     }
 
@@ -394,7 +440,13 @@ const SettingsPage = () => {
     }
 
     const handleRevokeOthers = async () => {
+        if (!activeOtherSessions.length) {
+            updateMessage("No other active sessions to sign out.")
+            return
+        }
+
         try {
+            setRevokingOthers(true)
             updateMessage(null, null)
             const res = await revokeOtherSessions()
 
@@ -415,47 +467,74 @@ const SettingsPage = () => {
             updateMessage(res.message || "Other devices signed out.")
         } catch (err) {
             updateMessage(null, err instanceof Error ? err.message : "Failed to sign out other devices.")
+        } finally {
+            setRevokingOthers(false)
         }
     }
 
     const handleClearWatchHistory = async () => {
         try {
+            setClearingWatchHistory(true)
             updateMessage(null, null)
             const res = await clearWatchHistory()
             updateMessage(res.message || "Watch history cleared.")
         } catch (err) {
             updateMessage(null, err instanceof Error ? err.message : "Failed to clear watch history.")
+        } finally {
+            setClearingWatchHistory(false)
         }
     }
 
     const handleClearSearchHistory = () => {
+        setClearingSearchHistory(true)
         localStorage.removeItem(getSearchHistoryKey(user?.id))
+        setSearchHistoryCount(0)
         updateMessage("Search history cleared.")
+        window.setTimeout(() => setClearingSearchHistory(false), 200)
     }
 
     const handleDeactivate = async () => {
+        if (passwordRequiredForDanger && !dangerPassword.trim()) {
+            updateMessage(null, "Current password is required.")
+            return false
+        }
+
         try {
             setProcessingDanger(true)
             updateMessage(null, null)
             await deactivateAccount(dangerPassword || undefined)
             await logout()
             navigate("/login", { replace: true })
+            return true
         } catch (err) {
             updateMessage(null, err instanceof Error ? err.message : "Failed to deactivate account.")
+            return false
         } finally {
             setProcessingDanger(false)
         }
     }
 
     const handleDelete = async () => {
+        if (deleteConfirmation.trim().toUpperCase() !== "DELETE") {
+            updateMessage(null, 'Type "DELETE" to confirm account deletion.')
+            return false
+        }
+
+        if (passwordRequiredForDanger && !dangerPassword.trim()) {
+            updateMessage(null, "Current password is required.")
+            return false
+        }
+
         try {
             setProcessingDanger(true)
             updateMessage(null, null)
             await deleteAccount(deleteConfirmation, dangerPassword || undefined)
             await logout()
             navigate("/login", { replace: true })
+            return true
         } catch (err) {
             updateMessage(null, err instanceof Error ? err.message : "Failed to delete account.")
+            return false
         } finally {
             setProcessingDanger(false)
         }
@@ -463,12 +542,14 @@ const SettingsPage = () => {
 
     const executeConfirmedAction = async () => {
         if (confirmAction === "deactivate") {
-            await handleDeactivate()
+            return handleDeactivate()
         }
 
         if (confirmAction === "delete") {
-            await handleDelete()
+            return handleDelete()
         }
+
+        return false
     }
 
     if (loading) {
@@ -532,17 +613,15 @@ const SettingsPage = () => {
                 animate="visible"
             >
                 <div className="relative z-10 space-y-4 px-3 pt-3 sm:px-5 sm:pt-5">
-                    <motion.section variants={cardTransition}>
-                        <HeroPanel
-                            userEmail={settings.account.email}
-                            verified={settings.account.isVerified}
-                            summary={accountSummary}
-                            onBack={() => navigate("/profile")}
-                            onSave={handleSavePreferences}
-                            saving={savingPreferences}
-                            hasChanges={hasPreferenceChanges}
-                        />
-                    </motion.section>
+                    <motion.header
+                        variants={cardTransition}
+                        className="rounded-[24px] border border-white/10 bg-white/[0.03] px-4 py-3"
+                    >
+                        <h1 className="text-xl font-semibold text-white">Settings</h1>
+                        <p className="mt-1 text-sm text-slate-400">
+                            Manage your account, security, preferences, and history.
+                        </p>
+                    </motion.header>
 
                     <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
                         <motion.aside variants={cardTransition} className="xl:sticky xl:top-24 xl:self-start">
@@ -574,81 +653,64 @@ const SettingsPage = () => {
 
                             <GlassTiltCard
                                 id="account"
-                                title="Account Matrix"
-                                subtitle="Identity, verification, and premium sign-in control."
+                                title="Account"
+                                subtitle="Manage email and verification."
                                 icon={UserCircle2}
                                 variants={cardTransition}
                             >
-                                <div className="grid gap-3 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
-                                    <div className="grid gap-2.5 sm:grid-cols-3 lg:grid-cols-1">
-                                        <InfoChip label="Primary email" value={settings.account.email} />
-                                        <InfoChip
-                                            label="Verification"
-                                            value={settings.account.isVerified ? "Signal verified" : "Verification pending"}
-                                            tone={settings.account.isVerified ? "success" : "warning"}
-                                        />
-                                        <InfoChip
-                                            label="Connected methods"
-                                            value={[
-                                                settings.account.connectedMethods.password ? "Password" : null,
-                                                settings.account.connectedMethods.google ? "Google" : null,
-                                            ].filter(Boolean).join(" + ") || "None"}
-                                        />
-                                    </div>
-
-                                    <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur-xl">
-                                        {isGoogleOnlyAccount ? (
-                                            <div className="rounded-xl border border-cyan-300/14 bg-cyan-400/10 p-3.5">
-                                                <p className="text-sm font-semibold text-white">Google sign-in manages this account</p>
-                                                <p className="mt-1 text-xs leading-6 text-slate-300/78">
-                                                    Email and password updates are hidden for Google SSO accounts because authentication is handled through Google.
-                                                </p>
+                                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur-xl">
+                                    {isGoogleOnlyAccount ? (
+                                        <div className="rounded-xl border border-cyan-300/14 bg-cyan-400/10 p-3.5">
+                                            <p className="text-sm font-semibold text-white">Google sign-in manages this account</p>
+                                            <p className="mt-1 text-xs leading-6 text-slate-300/78">
+                                                Email and password updates are hidden for Google SSO accounts because authentication is handled through Google.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_210px_auto]">
+                                                <FloatingField
+                                                    label="New email"
+                                                    value={email}
+                                                    onChange={setEmail}
+                                                />
+                                                <FloatingField
+                                                    label="Current password"
+                                                    value={emailPassword}
+                                                    onChange={setEmailPassword}
+                                                    type="password"
+                                                    disabled={!settings.account.canChangeEmail}
+                                                />
+                                                <ShineButton
+                                                    onClick={handleEmailChange}
+                                                    disabled={changingEmail || !settings.account.canChangeEmail}
+                                                    className="min-h-12"
+                                                >
+                                                    {changingEmail ? "Updating..." : "Update"}
+                                                </ShineButton>
                                             </div>
-                                        ) : (
-                                            <>
-                                                <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_210px_auto]">
-                                                    <FloatingField
-                                                        label="New email"
-                                                        value={email}
-                                                        onChange={setEmail}
-                                                    />
-                                                    <FloatingField
-                                                        label="Current password"
-                                                        value={emailPassword}
-                                                        onChange={setEmailPassword}
-                                                        type="password"
-                                                        disabled={!settings.account.canChangeEmail}
-                                                    />
-                                                    <ShineButton
-                                                        onClick={handleEmailChange}
-                                                        disabled={changingEmail || !settings.account.canChangeEmail}
-                                                        className="min-h-12"
-                                                    >
-                                                        {changingEmail ? "Updating..." : "Update"}
-                                                    </ShineButton>
-                                                </div>
 
-                                                {!settings.account.isVerified && (
-                                                    <motion.button
-                                                        whileHover={{ x: 2 }}
-                                                        whileTap={{ scale: 0.995 }}
-                                                        type="button"
-                                                        onClick={handleResendVerification}
-                                                        className="mt-2.5 rounded-xl border border-amber-300/20 bg-amber-400/12 px-3.5 py-2 text-sm font-medium text-amber-100 shadow-[0_10px_30px_rgba(251,191,36,0.12)]"
-                                                    >
-                                                        Resend verification email
-                                                    </motion.button>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
+                                            {!settings.account.isVerified && (
+                                                <motion.button
+                                                    whileHover={{ x: 2 }}
+                                                    whileTap={{ scale: 0.995 }}
+                                                    type="button"
+                                                    onClick={handleResendVerification}
+                                                    disabled={resendingVerification}
+                                                    className="mt-2.5 rounded-xl border border-amber-300/20 bg-amber-400/12 px-3.5 py-2 text-sm font-medium text-amber-100 shadow-[0_10px_30px_rgba(251,191,36,0.12)]"
+                                                >
+                                                    {resendingVerification ? "Sending..." : "Resend verification email"}
+                                                </motion.button>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </GlassTiltCard>
 
                             <GlassTiltCard
                                 id="security"
-                                title="Security Bay"
-                                subtitle="Password hardening, live sessions, and streaming-device access."
+                                title="Security"
+                                subtitle="Manage password and active sessions."
                                 icon={Shield}
                                 variants={cardTransition}
                             >
@@ -656,7 +718,7 @@ const SettingsPage = () => {
                                     <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur-xl">
                                         <div className="mb-3 flex items-center justify-between gap-3">
                                             <div>
-                                                <h3 className="text-sm font-semibold text-white">Password Shield</h3>
+                                                <h3 className="text-sm font-semibold text-white">Password</h3>
                                                 <p className="mt-1 text-xs text-slate-400">
                                                     Other devices are pushed out after a successful change.
                                                 </p>
@@ -719,22 +781,29 @@ const SettingsPage = () => {
                                                 </div>
                                                 <ShineButton
                                                     onClick={handleRevokeOthers}
+                                                    disabled={revokingOthers || activeOtherSessions.length === 0}
                                                     variant="ghost"
                                                     className="min-h-11 px-4 text-xs"
                                                 >
-                                                    Sign out others
+                                                    {revokingOthers ? "Signing out..." : "Sign out others"}
                                                 </ShineButton>
                                             </div>
 
-                                            <div className="grid gap-2.5 lg:grid-cols-3">
-                                                {featuredDevices.map((device, index) => (
-                                                    <DeviceCard
-                                                        key={device.id}
-                                                        session={device}
-                                                        index={index}
-                                                    />
-                                                ))}
-                                            </div>
+                                            {featuredDevices.length ? (
+                                                <div className="grid gap-2.5 lg:grid-cols-3">
+                                                    {featuredDevices.map((device, index) => (
+                                                        <DeviceCard
+                                                            key={device.id}
+                                                            session={device}
+                                                            index={index}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2.5 text-sm text-slate-400">
+                                                    No active sessions found.
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur-xl">
@@ -749,7 +818,18 @@ const SettingsPage = () => {
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="relative flex h-2.5 w-2.5">
-                                                                        <span className="absolute inset-0 rounded-full bg-emerald-400" style={{ animation: "skfxPulse 2s ease-in-out infinite" }} />
+                                                                        <span
+                                                                            className={`absolute inset-0 rounded-full ${
+                                                                                session.revokedAt || session.endedAt
+                                                                                    ? "bg-slate-500"
+                                                                                    : "bg-emerald-400"
+                                                                            }`}
+                                                                            style={
+                                                                                session.revokedAt || session.endedAt
+                                                                                    ? undefined
+                                                                                    : { animation: "skfxPulse 2s ease-in-out infinite" }
+                                                                            }
+                                                                        />
                                                                     </span>
                                                                     <p className="truncate text-sm font-medium text-white">
                                                                         {session.deviceLabel}
@@ -757,6 +837,11 @@ const SettingsPage = () => {
                                                                     {session.isCurrent && (
                                                                         <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
                                                                             Current
+                                                                        </span>
+                                                                    )}
+                                                                    {(session.revokedAt || session.endedAt) && (
+                                                                        <span className="rounded-full border border-slate-300/12 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-slate-300">
+                                                                            Signed out
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -790,7 +875,7 @@ const SettingsPage = () => {
                             <GlassTiltCard
                                 id="preferences"
                                 title="Streaming Preferences"
-                                subtitle="Glassmorphism controls for platform alerts, visibility, and playback behavior."
+                                subtitle="Manage alerts, visibility, and playback defaults."
                                 icon={Wand2}
                                 variants={cardTransition}
                             >
@@ -881,8 +966,8 @@ const SettingsPage = () => {
                             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
                                 <GlassTiltCard
                                     id="history"
-                                    title="Live Platform Activity"
-                                    subtitle="Recent motion and streaming-inspired account signals."
+                                    title="History"
+                                    subtitle="Review recent account activity and clear saved history."
                                     icon={CirclePlay}
                                     variants={cardTransition}
                                 >
@@ -905,14 +990,16 @@ const SettingsPage = () => {
                                             <ActionCluster
                                                 title="Clear watch history"
                                                 description="Remove watched-video history from your account."
-                                                buttonLabel="Clear"
+                                                buttonLabel={clearingWatchHistory ? "Clearing..." : "Clear"}
                                                 onClick={handleClearWatchHistory}
+                                                disabled={clearingWatchHistory}
                                             />
                                             <ActionCluster
                                                 title="Clear search history"
                                                 description="Remove recent searches saved in this browser."
-                                                buttonLabel="Clear"
+                                                buttonLabel={clearingSearchHistory ? "Clearing..." : "Clear"}
                                                 onClick={handleClearSearchHistory}
+                                                disabled={clearingSearchHistory || searchHistoryCount === 0}
                                             />
                                         </div>
                                     </div>
@@ -937,10 +1024,10 @@ const SettingsPage = () => {
                                         <div className="grid gap-3">
                                             <DangerCluster
                                                 title="Deactivate account"
-                                                description="Disable account access immediately and leave your cinematic workspace offline."
+                                                description="Disable account access immediately."
                                                 buttonLabel="Deactivate"
                                                 onClick={() => setConfirmAction("deactivate")}
-                                                disabled={processingDanger}
+                                                disabled={processingDanger || (passwordRequiredForDanger && !dangerPassword.trim())}
                                             />
 
                                             <div className="rounded-[22px] border border-rose-400/16 bg-rose-500/10 p-3.5 backdrop-blur-xl">
@@ -957,7 +1044,11 @@ const SettingsPage = () => {
                                                 </div>
                                                 <ShineButton
                                                     onClick={() => setConfirmAction("delete")}
-                                                    disabled={processingDanger}
+                                                    disabled={
+                                                        processingDanger ||
+                                                        deleteConfirmation.trim().toUpperCase() !== "DELETE" ||
+                                                        (passwordRequiredForDanger && !dangerPassword.trim())
+                                                    }
                                                     variant="danger"
                                                     className="mt-2.5 w-full"
                                                 >
@@ -1027,8 +1118,8 @@ const SettingsPage = () => {
                             loading={processingDanger}
                             onCancel={() => setConfirmAction(null)}
                             onConfirm={async () => {
-                                await executeConfirmedAction()
-                                setConfirmAction(null)
+                                const completed = await executeConfirmedAction()
+                                if (completed) setConfirmAction(null)
                             }}
                         />
                     )}
@@ -1037,95 +1128,6 @@ const SettingsPage = () => {
         </AppLayout>
     )
 }
-
-const HeroPanel = ({
-    userEmail,
-    verified,
-    summary,
-    onBack,
-    onSave,
-    saving,
-    hasChanges,
-}: {
-    userEmail: string
-    verified: boolean
-    summary: Array<{ label: string; value: string }>
-    onBack: () => void
-    onSave: () => void
-    saving: boolean
-    hasChanges: boolean
-}) => (
-    <motion.div
-        whileHover={{ y: -3 }}
-        className="relative overflow-hidden rounded-[28px] border border-white/10 bg-transparent p-4 shadow-none"
-    >
-        <div
-            className="absolute right-8 top-5 h-px w-32 bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent"
-            style={{ animation: "skfxFloat 5s ease-in-out infinite" }}
-        />
-        <div
-            className="absolute left-1/2 top-8 h-px w-24 -translate-x-1/2 bg-gradient-to-r from-transparent via-fuchsia-300/70 to-transparent"
-            style={{ animation: "skfxFloat 6s ease-in-out infinite" }}
-        />
-
-        <div className="relative space-y-4">
-            <div className="space-y-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-200/62">
-                    SK-MediaFlow Account Control Center
-                </p>
-                <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-[2rem]">
-                    Cinematic Identity Hub
-                </h1>
-                <p
-                    className="max-w-3xl text-sm leading-5 text-slate-300/80"
-                    style={{ animation: "skfxSubtitle 6s ease-in-out infinite" }}
-                >
-                    Premium OTT-grade control over your profile, sessions, privacy, playback defaults, and live platform presence.
-                </p>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300/74">
-                    <span className="truncate">{userEmail}</span>
-                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                        verified
-                            ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
-                            : "border-amber-300/20 bg-amber-400/10 text-amber-200"
-                    }`}>
-                        {verified ? "Verified signal" : "Verification pending"}
-                    </span>
-                </div>
-            </div>
-
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-                <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                    {summary.map((item, index) => (
-                        <motion.div
-                            key={item.label}
-                            initial={{ opacity: 0, y: 18 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15 + index * 0.06, duration: 0.6 }}
-                            className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
-                        >
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
-                                {item.label}
-                            </p>
-                            <p className="mt-1 text-sm font-medium text-white">
-                                {item.value}
-                            </p>
-                        </motion.div>
-                    ))}
-                </div>
-
-                <div className="flex flex-wrap gap-2 xl:justify-end">
-                    <ShineButton onClick={onBack} variant="ghost" className="px-4 text-sm">
-                        Back to Profile
-                    </ShineButton>
-                    <ShineButton onClick={onSave} disabled={saving || !hasChanges} className="px-5 text-sm">
-                        {saving ? "Saving..." : "Save Changes"}
-                    </ShineButton>
-                </div>
-            </div>
-        </div>
-    </motion.div>
-)
 
 const SidebarPanel = ({
     activeSection,
@@ -1464,46 +1466,18 @@ const StrengthMeter = ({
     </div>
 )
 
-const InfoChip = ({
-    label,
-    value,
-    tone = "default",
-}: {
-    label: string
-    value: string
-    tone?: "default" | "success" | "warning"
-}) => (
-    <motion.div
-        whileHover={{ y: -1 }}
-        className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-xl"
-    >
-        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
-            {label}
-        </p>
-        <p
-            className={`mt-0.5 text-sm font-medium ${
-                tone === "success"
-                    ? "text-emerald-200"
-                    : tone === "warning"
-                    ? "text-amber-200"
-                    : "text-white"
-            }`}
-        >
-            {value}
-        </p>
-    </motion.div>
-)
-
 const ActionCluster = ({
     title,
     description,
     buttonLabel,
     onClick,
+    disabled = false,
 }: {
     title: string
     description: string
     buttonLabel: string
     onClick: () => void
+    disabled?: boolean
 }) => (
     <motion.div
         whileHover={{ y: -1 }}
@@ -1511,7 +1485,7 @@ const ActionCluster = ({
     >
         <p className="text-sm font-semibold text-white">{title}</p>
         <p className="mt-1 text-xs leading-5 text-slate-400">{description}</p>
-        <ShineButton onClick={onClick} variant="ghost" className="mt-3 text-sm">
+        <ShineButton onClick={onClick} disabled={disabled} variant="ghost" className="mt-3 text-sm">
             {buttonLabel}
         </ShineButton>
     </motion.div>

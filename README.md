@@ -17,6 +17,7 @@
 - Spritesheet generation for frame-based thumbnail selection
 - Reactions, comments, shares, favorites, playlists, watch history, and subscriptions
 - Organization creation, join flows, invites, uploader policies, dashboards, and metrics
+- In-app notifications for uploads, imports, video updates, video activity, subscriptions, and organization workflows
 - Platform admin analytics and access management
 - Socket.IO progress events for upload, AI, thumbnail, and processing state
 
@@ -257,6 +258,47 @@ Media-related backend features include:
 - frame crop from spritesheet to thumbnail
 - AI-generated thumbnail creation
 
+## Notification Behavior
+
+Notifications are stored in MongoDB through Prisma and surfaced in the topbar bell menu.
+
+The backend creates in-app notifications for:
+
+- manual upload completion
+- S3 import completion
+- new videos from subscribed channels
+- updates to videos from subscribed channels
+- likes, comments, and shares on a user's video
+- new channel subscriptions
+- organization invites, join requests, approvals, role changes, and access removal
+
+The frontend polls notifications while a user is signed in and force-refreshes the list when the bell menu is opened. Marking one notification or all notifications as read updates both the backend state and the local topbar cache.
+
+Notification API routes:
+
+- `GET /api/notification`
+- `POST /api/notification/:id/read`
+- `POST /api/notification/read-all`
+
+Important implementation files:
+
+- `backend/src/modules/notification/notification.routes.ts`
+- `backend/src/modules/notification/notification.service.ts`
+- `backend/src/modules/video/video.service.ts`
+- `backend/src/modules/video/video.controller.ts`
+- `backend/src/modules/video/video-action.controller.ts`
+- `backend/src/modules/video/s3.service.ts`
+- `backend/src/modules/organization/organization.routes.ts`
+- `frontend/src/components/Topbar.tsx`
+
+Notification delivery rules:
+
+- notification creation is best-effort and logged on failure
+- primary actions such as upload, import, comment, like, share, and subscribe should continue even if notification creation fails
+- video owners are not notified about their own reactions, comments, shares, or subscriptions
+- subscriber fanout excludes the channel owner
+- the topbar clears notification cache when no user is signed in
+
 ## Backend Domains
 
 - Auth module: register, OTP, login, Google OAuth, reset password, session tracking
@@ -266,7 +308,7 @@ Media-related backend features include:
 - Video actions module: views, reactions, comments, shares, playlists, watch history
 - Organization module: organizations, invites, membership approval, upload policies, dashboards
 - Admin module: platform metrics, filters, admin access control
-- Notification module: notification retrieval and state updates
+- Notification module: event-driven notification creation, retrieval, and read-state updates
 - AI module: AI metadata generation and application flows
 
 ## Frontend Surface
@@ -368,3 +410,4 @@ npm run build
 - AI generation requires `OPENAI_API_KEY`.
 - AI and thumbnail processing is intentionally opt-in and single-attempt.
 - Normal video cards do not show Generate AI; the decision is made during upload.
+- Notification creation should not block the primary user action; failures are logged and the original action continues.
